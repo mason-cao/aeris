@@ -16,7 +16,11 @@ class DataPoint(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # Composite primary key: TimescaleDB requires the partitioning column
+    # (timestamp) to be part of any unique constraint on a hypertable.
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), primary_key=True, nullable=False
+    )
     lat: Mapped[float] = mapped_column(Float, nullable=False)
     lon: Mapped[float] = mapped_column(Float, nullable=False)
     metric: Mapped[str] = mapped_column(String(64), nullable=False)

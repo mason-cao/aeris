@@ -54,8 +54,11 @@ AERIS is at design-complete, pre-implementation stage. The full design spec exis
 - `server/tests/unit/test_usgs_water.py`
 - `server/tests/unit/test_eia_energy.py`
 - `server/tests/unit/test_validation.py`
+- `server/tests/integration/conftest.py`
+- `server/tests/integration/test_epa_airnow_live.py`
 - `server/tests/integration/test_data_pipeline.py`
 - `server/tests/integration/test_api_endpoints.py`
+- `server/tests/integration/test_hypertable.py`
 
 ---
 
@@ -196,7 +199,18 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 - Full unit test suite for all 9 collectors
 - Integration test: run all 9, verify data from each
 
+### Step 3.6: Integration test harness for real Postgres + TimescaleDB (hardening)
+- **Background**: In Week 1 we verified the EPA pipeline with an ad-hoc smoke test (manual `docker compose up` + one-off Python script). That proved the architecture but left no automated guard against regressions.
+- **Goal**: Replace the smoke test with a permanent pytest integration suite that exercises the full pipeline against real Postgres+TimescaleDB, not mocks.
+- `server/tests/integration/conftest.py`: pytest fixture that creates a throwaway test DB on the dev Postgres (e.g. `aeris_test` schema or `aeris_test_<uuid>`), runs `create_tables()`, yields an `AsyncSession`, drops the DB at teardown. Fixture scoped per-module to keep runs fast.
+- `server/tests/integration/test_epa_airnow_live.py`: backfill for Week 1 — mock the EPA HTTP response at the `httpx.AsyncClient` level (so we hit real Postgres but not real EPA), run `collect()`, assert rows land in `data_points` and `DataSource` upsert succeeds.
+- `server/tests/integration/test_data_pipeline.py`: parametrized across all 9 collectors — each asserts `collect()` → rows inserted → `/api/data/{source}` returns them.
+- `server/tests/integration/test_hypertable.py`: verify the `data_points` table is actually a hypertable (`SELECT * FROM timescaledb_information.hypertables`), idempotent schema creation, and duplicate-insertion handling.
+- Gate: these tests are slower than unit tests and require Docker running. Run via `pytest tests/integration` or a marker like `@pytest.mark.integration`. Not part of the default `pytest` invocation.
+- **Acceptance**: full `pytest tests/integration` green against a freshly-started Docker Compose stack.
+
 **Commit point**: `feat(collectors): add Sentinel-5P, TomTom traffic, USGS water, and EIA energy collectors`
+**Hardening commit point**: `test(integration): add real-DB integration harness for all collectors`
 
 ---
 
@@ -265,6 +279,7 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 - [ ] Data validation layer catching schema/range/duplicate/freshness issues
 - [ ] Unit tests for BaseCollector + all 9 collectors (80%+ coverage on collectors/)
 - [ ] Integration tests for end-to-end data flow and API endpoints
+- [ ] Integration test harness runs all 9 collectors against real Postgres+TimescaleDB (Week 3 Step 3.6 hardening)
 - [ ] Home server running autonomously with systemd auto-restart
 - [ ] Static reference data loaded (EPA TRI facilities, EPA ECHO violations)
 

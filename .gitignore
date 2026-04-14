@@ -46,3 +46,7 @@ logs/
 htmlcov/
 .coverage
 coverage/
+
+# Personal workflow files
+CLAUDE.md
+session_summary.md

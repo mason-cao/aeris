@@ -2,7 +2,7 @@
 
 ## Context
 
-AERIS is at design-complete, pre-implementation stage. The full design spec exists at `docs/superpowers/specs/2026-04-05-aeris-design.md`. No code has been written. This plan covers Month 1 (April 2026): standing up the server infrastructure and building the data pipeline that collects from all 9 environmental data sources continuously.
+AERIS is at design-complete, pre-implementation stage. The full design spec exists at `docs/specs/2026-04-05-aeris-design.md`. No code has been written. This plan covers Month 1 (April 2026): standing up the server infrastructure and building the data pipeline that collects from all 9 environmental data sources continuously.
 
 **Target area**: Suwanee, GA (north Atlanta metro). Center: 34.05°N, 84.07°W, 50km radius.
 **Development strategy**: Vertical slices — build one collector end-to-end first (EPA AirNow), validate the architecture, then replicate across all 9 sources. Develop locally first (Postgres in Docker), deploy to home server in Week 4.

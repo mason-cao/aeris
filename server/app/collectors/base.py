@@ -7,6 +7,8 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, Field
 from sqlalchemy import insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import DataPoint, DataSource
@@ -22,7 +24,9 @@ class DataPointCreate(BaseModel):
     lon: float
     metric: str
     value: float
+    unit: str
     source: str
+    source_entity_id: str
     raw_json: dict[str, Any] | None = None
 
 
@@ -140,10 +144,23 @@ class BaseCollector(ABC):
         )
 
     async def _store(self, session: AsyncSession, points: list[DataPointCreate]) -> None:
-        """Bulk insert normalized data points."""
-        stmt = insert(DataPoint).values(
-            [point.model_dump() for point in points]
-        )
+        """Bulk insert normalized data points, ignoring duplicate observations."""
+        rows = [point.model_dump() for point in points]
+        bind = session.get_bind()
+        dialect_name = bind.dialect.name if bind is not None else ""
+        dedup_columns = ["source", "metric", "source_entity_id", "timestamp"]
+
+        if dialect_name == "postgresql":
+            stmt = pg_insert(DataPoint).values(rows).on_conflict_do_nothing(
+                index_elements=dedup_columns
+            )
+        elif dialect_name == "sqlite":
+            stmt = sqlite_insert(DataPoint).values(rows).on_conflict_do_nothing(
+                index_elements=dedup_columns
+            )
+        else:
+            stmt = insert(DataPoint).values(rows)
+
         await session.execute(stmt)
         await session.commit()
 
@@ -151,29 +168,36 @@ class BaseCollector(ABC):
         self, session: AsyncSession, *, success: bool
     ) -> None:
         """Update the DataSource record with collection status."""
-        from sqlalchemy import select, update
-        from sqlalchemy.dialects.postgresql import insert as pg_insert
-
         from datetime import datetime, timezone
 
         now = datetime.now(timezone.utc)
+        bind = session.get_bind()
+        dialect_name = bind.dialect.name if bind is not None else ""
+        values = {
+            "name": self.source_name,
+            "source_type": self.source_name,
+            "status": "active" if success else "error",
+            "last_collected_at": now if success else None,
+            "error_count": 0 if success else 1,
+        }
+        updates = {
+            "status": "active" if success else "error",
+            "last_collected_at": now if success else DataSource.last_collected_at,
+            "error_count": 0 if success else DataSource.error_count + 1,
+        }
 
-        # Upsert the data source record
-        stmt = pg_insert(DataSource).values(
-            name=self.source_name,
-            source_type=self.source_name,
-            status="active" if success else "error",
-            last_collected_at=now if success else None,
-            error_count=0 if success else 1,
-        ).on_conflict_do_update(
-            index_elements=["name"],
-            set_={
-                "status": "active" if success else "error",
-                "last_collected_at": now if success else DataSource.last_collected_at,
-                "error_count": (
-                    0 if success else DataSource.error_count + 1
-                ),
-            },
-        )
+        if dialect_name == "postgresql":
+            stmt = pg_insert(DataSource).values(values).on_conflict_do_update(
+                index_elements=["name"],
+                set_=updates,
+            )
+        elif dialect_name == "sqlite":
+            stmt = sqlite_insert(DataSource).values(values).on_conflict_do_update(
+                index_elements=["name"],
+                set_=updates,
+            )
+        else:
+            stmt = insert(DataSource).values(values)
+
         await session.execute(stmt)
         await session.commit()

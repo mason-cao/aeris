@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, Index, Integer, String, Text, func
+from sqlalchemy import DateTime, Float, Index, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -25,7 +25,9 @@ class DataPoint(Base):
     lon: Mapped[float] = mapped_column(Float, nullable=False)
     metric: Mapped[str] = mapped_column(String(64), nullable=False)
     value: Mapped[float] = mapped_column(Float, nullable=False)
+    unit: Mapped[str] = mapped_column(String(32), nullable=False)
     source: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_entity_id: Mapped[str] = mapped_column(String(128), nullable=False)
     raw_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     collected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -36,12 +38,20 @@ class DataPoint(Base):
         Index("ix_data_points_source", "source"),
         Index("ix_data_points_metric", "metric"),
         Index("ix_data_points_source_metric_ts", "source", "metric", "timestamp"),
+        Index("ix_data_points_source_entity", "source", "source_entity_id"),
         Index("ix_data_points_location", "lat", "lon"),
+        UniqueConstraint(
+            "source",
+            "metric",
+            "source_entity_id",
+            "timestamp",
+            name="uq_data_points_dedup",
+        ),
     )
 
     def __repr__(self) -> str:
         return (
-            f"<DataPoint {self.source}/{self.metric}={self.value} "
+            f"<DataPoint {self.source}/{self.metric}={self.value} {self.unit} "
             f"at ({self.lat}, {self.lon}) @ {self.timestamp}>"
         )
 

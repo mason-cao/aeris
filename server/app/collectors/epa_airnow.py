@@ -18,7 +18,22 @@ PARAMETER_MAP: dict[str, str] = {
     "CO": "co",
 }
 
+EPA_UNIT_MAP: dict[str, str] = {
+    "UG/M3": "ug/m3",
+    "UG/M^3": "ug/m3",
+    "PPM": "ppm",
+    "PPB": "ppb",
+}
+
 API_BASE = "https://www.airnowapi.org/aq/observation/latLong/current/"
+
+
+def normalize_epa_unit(unit: str | None) -> str:
+    """Normalize EPA unit labels to the canonical units stored by AERIS."""
+    if not unit:
+        return "unknown"
+    cleaned = unit.strip().upper()
+    return EPA_UNIT_MAP.get(cleaned, cleaned.lower())
 
 
 class EPAAirNowCollector(BaseCollector):
@@ -57,8 +72,8 @@ class EPAAirNowCollector(BaseCollector):
                 logger.debug("Skipping unknown parameter: %s", param_name)
                 continue
 
-            aqi_value = obs.get("AQI")
-            if aqi_value is None:
+            raw_value = obs.get("Value")
+            if raw_value is None:
                 continue
 
             # Parse the observation timestamp
@@ -79,8 +94,10 @@ class EPAAirNowCollector(BaseCollector):
                     lat=obs.get("Latitude", settings.aeris_target_lat),
                     lon=obs.get("Longitude", settings.aeris_target_lon),
                     metric=metric,
-                    value=float(aqi_value),
+                    value=float(raw_value),
+                    unit=normalize_epa_unit(obs.get("Unit")),
                     source=self.source_name,
+                    source_entity_id=str(obs.get("ReportingArea", "unknown")),
                     raw_json=obs,
                 )
             )

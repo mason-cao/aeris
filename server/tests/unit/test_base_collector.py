@@ -2,8 +2,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pytest
+from sqlalchemy import select
 
 from app.collectors.base import BaseCollector, CollectionResult, DataPointCreate
+from app.db.models import DataPoint, DataSource
 
 
 class MockCollector(BaseCollector):
@@ -30,7 +32,9 @@ class MockCollector(BaseCollector):
                 lon=-84.0,
                 metric="test_metric",
                 value=float(i),
+                unit="unit",
                 source=self.source_name,
+                source_entity_id=f"entity-{i}",
                 raw_json=item,
             )
             for i, item in enumerate(raw_data.get("items", []))
@@ -45,9 +49,13 @@ class TestDataPointCreate:
             lon=-84.0713,
             metric="pm25",
             value=42.0,
+            unit="ug/m3",
             source="epa_airnow",
+            source_entity_id="Atlanta",
         )
         assert point.metric == "pm25"
+        assert point.unit == "ug/m3"
+        assert point.source_entity_id == "Atlanta"
         assert point.raw_json is None
 
     def test_with_raw_json(self) -> None:
@@ -57,7 +65,9 @@ class TestDataPointCreate:
             lon=-84.0713,
             metric="pm25",
             value=42.0,
+            unit="ug/m3",
             source="epa_airnow",
+            source_entity_id="Atlanta",
             raw_json={"extra": "data"},
         )
         assert point.raw_json == {"extra": "data"}
@@ -113,3 +123,29 @@ class TestMockCollectorFetch:
         with pytest.raises(ConnectionError):
             await collector.fetch()
         await collector.close()
+
+
+class TestMockCollectorCollect:
+    @pytest.mark.asyncio
+    async def test_collect_stores_points_and_updates_source(self, db_session) -> None:
+        raw = {"items": [{"value": 1}, {"value": 2}]}
+        collector = MockCollector(raw_data=raw)
+
+        result = await collector.collect(db_session, max_retries=1)
+
+        assert result.success is True
+        assert result.record_count == 2
+
+        data_result = await db_session.execute(
+            select(DataPoint).where(DataPoint.source == "test_source")
+        )
+        points = data_result.scalars().all()
+        assert len(points) == 2
+        assert {point.unit for point in points} == {"unit"}
+
+        source_result = await db_session.execute(
+            select(DataSource).where(DataSource.name == "test_source")
+        )
+        source = source_result.scalar_one()
+        assert source.status == "active"
+        assert source.error_count == 0

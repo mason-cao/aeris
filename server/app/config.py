@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     # Air Quality APIs
     airnow_api_key: str = ""
+    openaq_api_key: str = ""
     purpleair_api_key: str = ""
 
     # Weather

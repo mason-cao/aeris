@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from app.collectors.epa_airnow import EPAAirNowCollector, PARAMETER_MAP
+from app.collectors.epa_airnow import EPAAirNowCollector, PARAMETER_MAP, normalize_epa_unit
 
 
 @pytest.fixture
@@ -25,6 +25,8 @@ def sample_api_response() -> dict:
                 "Longitude": -84.3880,
                 "ParameterName": "PM2.5",
                 "AQI": 42,
+                "Value": 9.1,
+                "Unit": "UG/M3",
                 "Category": {"Number": 1, "Name": "Good"},
             },
             {
@@ -37,6 +39,8 @@ def sample_api_response() -> dict:
                 "Longitude": -84.3880,
                 "ParameterName": "OZONE",
                 "AQI": 35,
+                "Value": 0.041,
+                "Unit": "PPM",
                 "Category": {"Number": 1, "Name": "Good"},
             },
             {
@@ -49,6 +53,8 @@ def sample_api_response() -> dict:
                 "Longitude": -84.0713,
                 "ParameterName": "PM2.5",
                 "AQI": 55,
+                "Value": 13.4,
+                "Unit": "UG/M3",
                 "Category": {"Number": 2, "Name": "Moderate"},
             },
         ]
@@ -75,7 +81,19 @@ class TestEPAAirNowNormalize:
         points = collector.normalize(sample_api_response)
         gwinnett_point = next(p for p in points if p.lat == 34.0515)
         assert gwinnett_point.lon == -84.0713
-        assert gwinnett_point.value == 55
+        assert gwinnett_point.value == 13.4
+
+    def test_normalize_sets_units(
+        self, collector: EPAAirNowCollector, sample_api_response: dict
+    ) -> None:
+        points = collector.normalize(sample_api_response)
+        assert {p.unit for p in points} == {"ug/m3", "ppm"}
+
+    def test_normalize_sets_reporting_area_as_entity_id(
+        self, collector: EPAAirNowCollector, sample_api_response: dict
+    ) -> None:
+        points = collector.normalize(sample_api_response)
+        assert {p.source_entity_id for p in points} == {"Atlanta", "Gwinnett"}
 
     def test_normalize_parses_timestamp(
         self, collector: EPAAirNowCollector, sample_api_response: dict
@@ -107,6 +125,8 @@ class TestEPAAirNowNormalize:
                     "HourObserved": 14,
                     "ParameterName": "UNKNOWN_PARAM",
                     "AQI": 99,
+                    "Value": 99,
+                    "Unit": "UG/M3",
                     "Latitude": 34.0,
                     "Longitude": -84.0,
                 },
@@ -115,7 +135,7 @@ class TestEPAAirNowNormalize:
         points = collector.normalize(raw)
         assert len(points) == 0
 
-    def test_normalize_skips_missing_aqi(
+    def test_normalize_skips_missing_value(
         self, collector: EPAAirNowCollector
     ) -> None:
         raw = {
@@ -125,6 +145,8 @@ class TestEPAAirNowNormalize:
                     "HourObserved": 14,
                     "ParameterName": "PM2.5",
                     "AQI": None,
+                    "Value": None,
+                    "Unit": "UG/M3",
                     "Latitude": 34.0,
                     "Longitude": -84.0,
                 },
@@ -149,6 +171,8 @@ class TestEPAAirNowNormalize:
                     "HourObserved": 14,
                     "ParameterName": "PM2.5",
                     "AQI": 42,
+                    "Value": 9.1,
+                    "Unit": "UG/M3",
                     "Latitude": 34.0,
                     "Longitude": -84.0,
                 },
@@ -165,3 +189,10 @@ class TestParameterMap:
 
     def test_ozone_aliases_resolve_same(self) -> None:
         assert PARAMETER_MAP["OZONE"] == PARAMETER_MAP["O3"] == "ozone"
+
+
+class TestUnitNormalization:
+    def test_common_epa_units_normalize(self) -> None:
+        assert normalize_epa_unit("UG/M3") == "ug/m3"
+        assert normalize_epa_unit("PPM") == "ppm"
+        assert normalize_epa_unit("PPB") == "ppb"

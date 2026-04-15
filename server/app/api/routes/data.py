@@ -20,7 +20,9 @@ class DataPointResponse(BaseModel):
     lon: float
     metric: str
     value: float
+    unit: str
     source: str
+    source_entity_id: str
     raw_json: dict[str, Any] | None
     collected_at: datetime
 

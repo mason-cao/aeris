@@ -112,6 +112,7 @@ npm run dev
 Copy `server/.env.example` and fill in:
 - `DATABASE_URL` &mdash; PostgreSQL connection string
 - `AIRNOW_API_KEY` &mdash; EPA AirNow
+- `OPENAQ_API_KEY` &mdash; OpenAQ
 - `PURPLEAIR_API_KEY` &mdash; PurpleAir
 - `OPENWEATHER_API_KEY` &mdash; OpenWeather
 - `TOMTOM_API_KEY` &mdash; TomTom traffic

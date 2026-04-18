@@ -1,11 +1,11 @@
 import logging
-import math
 from datetime import datetime, timezone
 from typing import Any
 
 import httpx
 
 from app.collectors.base import BaseCollector, DataPointCreate
+from app.collectors.geo import target_bounding_box, within_target_radius
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -62,35 +62,6 @@ def parse_openaq_datetime(value: str | None) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
-def target_bbox() -> str:
-    """Return OpenAQ bbox param: min lon, min lat, max lon, max lat."""
-    lat = settings.aeris_target_lat
-    lon = settings.aeris_target_lon
-    radius_km = settings.aeris_target_radius_km
-
-    lat_delta = radius_km / 111.32
-    lon_delta = radius_km / (111.32 * max(math.cos(math.radians(lat)), 0.01))
-
-    return (
-        f"{lon - lon_delta:.4f},{lat - lat_delta:.4f},"
-        f"{lon + lon_delta:.4f},{lat + lat_delta:.4f}"
-    )
-
-
-def distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Great-circle distance between two WGS84 coordinates."""
-    earth_radius_km = 6371.0
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(math.radians(lat1))
-        * math.cos(math.radians(lat2))
-        * math.sin(dlon / 2) ** 2
-    )
-    return 2 * earth_radius_km * math.asin(math.sqrt(a))
-
-
 def location_within_target_radius(location: dict[str, Any]) -> bool:
     coordinates = location.get("coordinates") or {}
     lat = coordinates.get("latitude")
@@ -98,15 +69,7 @@ def location_within_target_radius(location: dict[str, Any]) -> bool:
     if lat is None or lon is None:
         return False
 
-    return (
-        distance_km(
-            settings.aeris_target_lat,
-            settings.aeris_target_lon,
-            float(lat),
-            float(lon),
-        )
-        <= settings.aeris_target_radius_km
-    )
+    return within_target_radius(float(lat), float(lon))
 
 
 class OpenAQCollector(BaseCollector):
@@ -122,7 +85,7 @@ class OpenAQCollector(BaseCollector):
             else {}
         )
         params = {
-            "bbox": target_bbox(),
+            "bbox": target_bounding_box().as_csv(),
             "limit": LOCATIONS_LIMIT,
         }
 

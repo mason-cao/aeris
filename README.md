@@ -1,6 +1,6 @@
 # A.E.R.I.S. &mdash; Autonomous Environmental RAG & Inference System
 
-A self-hosted environmental intelligence platform that detects anomalies in real-time environmental data and generates causal explanations using a locally-hosted LLM.
+A self-hosted environmental intelligence platform that detects anomalies in real-time environmental data and generates causal explanations using a locally-hosted LLM with RAG and multi-source cross-referencing.
 
 ---
 

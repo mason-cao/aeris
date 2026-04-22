@@ -2,7 +2,7 @@
 
 **Date**: 2026-04-13
 **Phase**: Month 1 Week 2 Step 2.1 (first collector of Week 2)
-**Status**: Implemented in initial form on 2026-04-22
+**Status**: Implemented in initial form on 2026-04-14
 
 ## Context
 
@@ -228,7 +228,7 @@ No changes to `db/schema.py`, `db/session.py`, or `main.py`. Within `api/routes/
 2. **Resolved from docs, still needs live smoke test: OpenAQ sensor response shape** — `/v3/locations/{locations_id}/sensors` documents `latest.datetime.utc`, `latest.value`, and `latest.coordinates`.
 3. **Remaining: EPA `Value` field coverage** — spec assumes EPA AirNow's `Value` field is populated alongside `AQI` for all current observations. If it's sometimes null, add a fallback that computes concentration from AQI via EPA breakpoint formulas (Month 2 concern).
 
-## Implementation Notes (2026-04-22)
+## Implementation Notes (2026-04-14)
 
 - OpenAQ v3 documents `coordinates` + `radius` in meters, but caps radius at 25,000m. AERIS targets 50km, so `OpenAQCollector.fetch()` uses the documented `bbox` query shape and then filters returned locations back to the configured target radius with a Haversine distance check.
 - OpenAQ parameter `o3` is normalized to the existing AERIS canonical metric `ozone`, matching `EPAAirNowCollector`. This keeps cross-source ozone comparisons aligned.

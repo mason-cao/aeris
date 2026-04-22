@@ -6,7 +6,7 @@ A self-hosted environmental intelligence platform that detects anomalies in real
 
 ## The Problem
 
-Environmental hazards vary block-by-block and change hour-by-hour. Public data exists across dozens of agencies (EPA, NOAA, NASA, USGS) in incompatible formats. When a pollution spike hits your neighborhood, no system automatically detects it, determines the cause, and tells you what to do.
+Environmental hazards vary block-by-block and change hour-by-hour. Public data exists across dozens of agencies (EPA, NOAA, NASA, USGS) in incompatible formats. When a pollution spike hits your neighborhood, no system automatically detects it, determines the cause, and tells you what to do. While massive cloud models have the reasoning power to solve this by constantly cross-referencing live data streams, relying on them for 24/7 localized monitoring is cost-prohibitive and energy-intensive. Small, locally-hosted edge models solve the compute cost problem, but trusting them to reason through complex environmental physics usually leads to severe hallucinations. The missing piece is a proven architecture demonstrating that a heavily augmented local 8B model can match a frontier cloud model's causal accuracy for real-time scientific monitoring at a fraction of the cost.
 
 ## What AERIS Does
 

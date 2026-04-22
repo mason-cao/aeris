@@ -237,6 +237,7 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 - Stale data alert: log WARNING if source hasn't updated in 2× expected interval
 - CLI: `python -m app.collectors.run_all` (all sources) or `--source=epa` (single)
 - Structured logging: JSON format, one log line per collection run
+- Week 2 closeout added the manual foundation first: `collectors/registry.py` for source discovery and `collectors/run_all.py` for manual sequential runs. APScheduler wiring remains the Week 4 task.
 
 ### Step 4.2: Data validation layer
 - `app/collectors/validation.py`:

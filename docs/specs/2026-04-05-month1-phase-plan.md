@@ -124,11 +124,12 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 
 **Goal**: 5 of 9 collectors working. Air quality from 3 independent sources.
 
-**API key registrations (parallel)**: PurpleAir, OpenWeather. (OpenAQ and NASA FIRMS need no key.)
+**API key registrations (parallel)**: OpenAQ, PurpleAir, OpenWeather. (NASA FIRMS needs no key.)
 
 ### Step 2.1: OpenAQ collector
 - API: `https://api.openaq.org/v3/` — government air quality monitors
-- No auth required. Query by coordinates + radius.
+- Auth: API key in header (`X-API-Key`)
+- Query by bounding box, then filter locations to configured radius in code. OpenAQ's coordinate-radius endpoint is capped at 25km, below AERIS's 50km target.
 - Metrics: pm25, pm10, ozone, no2, so2, co, bc
 
 ### Step 2.2: PurpleAir collector
@@ -288,6 +289,7 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 | Key | Needed by | Registration URL |
 |-----|-----------|-----------------|
 | EPA AirNow | Week 1 | https://docs.airnowapi.org/account/request/ |
+| OpenAQ | Week 2 | https://explore.openaq.org/register |
 | PurpleAir | Week 2 | https://develop.purpleair.com/ |
 | OpenWeather | Week 2 | https://openweathermap.org/api |
 | NASA Earthdata | Week 3 | https://urs.earthdata.nasa.gov/users/new |

@@ -2,7 +2,7 @@
 
 **Date**: 2026-04-13
 **Phase**: Month 1 Week 2 Step 2.1 (first collector of Week 2)
-**Status**: Approved design, ready for implementation plan
+**Status**: Implemented in initial form on 2026-04-22
 
 ## Context
 
@@ -38,11 +38,11 @@ This spec describes the OpenAQ collector AND the bundled schema + EPA fix that m
 | D2 | Add `unit` column to `DataPoint` | Makes unit semantics explicit. Different metrics use different units (`ug/m3`, `ppm`, `ppb`, `degC`, `hPa`, `m/s`). Self-describing schema. |
 | D3 | Add `source_entity_id` column to `DataPoint` (NOT NULL) | Gives every observation a stable per-source identifier for dedup. EPA: `ReportingArea`. OpenAQ: `sensor_id`. PurpleAir: `sensor_index`. NOAA grid cell: grid ID. Uniform dedup across all 9 collectors. |
 | D4 | Unique constraint `(source, metric, source_entity_id, timestamp)` | Idempotent collector runs — re-ingesting the same observation is a no-op. Includes `timestamp` per TimescaleDB hypertable requirements. |
-| D5 | Station-walk endpoint strategy | `/v3/locations?coordinates=...&radius=...` + `/v3/locations/{id}/sensors` per station. ~1 + N API calls per hourly run (N ≈ 10–20 stations). Gives station metadata for free (needed in Month 3 map layer). Matches EPA's "one orchestrator pulls recent obs for an area" mental model. |
+| D5 | Station-walk endpoint strategy | `/v3/locations?bbox=...` + in-code radius filter + `/v3/locations/{id}/sensors` per station. OpenAQ caps coordinate-radius queries at 25km, so bbox preserves AERIS's configured 50km target while keeping station metadata for Month 3 map layers. |
 | D6 | Current snapshot only | Latest reading is embedded in the sensor response — no separate `/measurements` call needed. Hourly runs accumulate the time series naturally. Backfill deferred to Month 2 if detection needs more history. |
 | D7 | Per-station error isolation | One station's 4xx/5xx logs a warning and skips that station. Remaining stations still collected. A bad station cannot fail the run. |
 | D8 | Sequential fetches | No concurrency. Simplicity wins at 20 calls/hour; OpenAQ rate limits are generous. Bounded concurrency can be added in Week 4 hardening if needed. |
-| D9 | Metrics: `pm25, pm10, o3, no2, so2, co, bc` | Exact match to Month 1 phase plan Step 2.1. Covers criteria pollutants + black carbon. Temperature/humidity delegated to OpenWeather. |
+| D9 | Metrics: `pm25, pm10, ozone, no2, so2, co, bc` | Exact match to Month 1 phase plan Step 2.1 and the existing EPA collector metric names. Covers criteria pollutants + black carbon. Temperature/humidity delegated to OpenWeather. |
 | D10 | Parameter name map as module-level dict | Same pattern as `epa_airnow.PARAMETER_MAP`. Explicit, greppable, testable. |
 | D11 | Fix EPA AirNow to use `Value`/`Unit` in same PR | Without this, EPA rows remain AQI-based and pollute the new concentration-centric schema. Bundling is correct. |
 | D12 | Drop + recreate `data_points` in dev on next run | The existing 2 smoke-test rows have AQI semantics and no `unit`/`source_entity_id` values. Fresh start; no real data lost. |
@@ -57,15 +57,16 @@ server/app/collectors/openaq.py
 │    API_BASE = "https://api.openaq.org/v3"
 │
 │  async def fetch() -> dict[str, Any]:
-│      1. GET /v3/locations?coordinates={lat},{lon}&radius={meters}&limit=1000
+│      1. GET /v3/locations?bbox={min_lon},{min_lat},{max_lon},{max_lat}&limit=1000
 │         Header: X-API-Key: <settings.openaq_api_key>
 │         → list of station dicts (meta.found, results)
-│      2. For each location in results:
+│      2. Filter locations back to the configured target radius.
+│      3. For each location in results:
 │           GET /v3/locations/{id}/sensors
 │           Header: X-API-Key
 │           → list of sensor dicts (latest reading embedded)
 │         Handle per-station exceptions: log warning, continue
-│      3. Return {"locations": [...], "sensors_by_location_id": {id: [sensors]}}
+│      4. Return {"locations": [...], "sensors_by_location_id": {id: [sensors]}}
 │
 │  def normalize(raw) -> list[DataPointCreate]:
 │      Walk every (location, sensor) pair.
@@ -126,7 +127,7 @@ OpenAQ parameter names (as they appear in `/v3/locations/{id}/sensors` responses
 PARAMETER_MAP: dict[str, str] = {
     "pm25": "pm25",
     "pm10": "pm10",
-    "o3":   "o3",
+    "o3":   "ozone",
     "no2":  "no2",
     "so2":  "so2",
     "co":   "co",
@@ -134,7 +135,7 @@ PARAMETER_MAP: dict[str, str] = {
 }
 ```
 
-OpenAQ uses lowercase canonical names already, so the map is mostly identity. We keep it as a map (not just an allowlist) for two reasons: (1) documents which params we accept, (2) future parameter aliases (e.g. if OpenAQ changes `o3` → `ozone` one day, we just update the map).
+OpenAQ uses lowercase names. We keep this as a map (not just an allowlist) to document accepted params and map OpenAQ `o3` to AERIS's canonical `ozone` metric.
 
 Unit normalization (OpenAQ → canonical):
 
@@ -221,18 +222,23 @@ These unit tests mock HTTP. A proper real-DB integration test for OpenAQ goes in
 
 No changes to `db/schema.py`, `db/session.py`, or `main.py`. Within `api/routes/`, only `data.py` changes — purely to expose the two new columns through `DataPointResponse`. All other route modules, the WebSocket layer, and the collector orchestrator (`run_all.py`) are untouched.
 
-## Open Items to Verify at Implementation Time
+## Resolved / Remaining Implementation Checks
 
-1. **OpenAQ `/v3/locations` radius unit** — spec assumes **meters** (REST convention + consistent with most modern geo APIs). First live call will confirm; if it's km, swap the multiplier in one place.
-2. **OpenAQ sensor response shape** — the `latest` field embedding confirmed from docs, but the exact key name (`latest.datetime.utc` vs `latest.date.utc` vs `datetimeLast`) should be pinned down from a real response. The normalize logic will be coded against the real response on first fetch, not guessed.
-3. **EPA `Value` field coverage** — spec assumes EPA AirNow's `Value` field is populated alongside `AQI` for all current observations. If it's sometimes null, add a fallback that computes concentration from AQI via EPA breakpoint formulas (Month 2 concern).
+1. **Resolved: OpenAQ `/v3/locations` geospatial query** — OpenAQ documents radius in meters and caps it at 25,000m, so the implementation uses `bbox` and filters by configured radius in code.
+2. **Resolved from docs, still needs live smoke test: OpenAQ sensor response shape** — `/v3/locations/{locations_id}/sensors` documents `latest.datetime.utc`, `latest.value`, and `latest.coordinates`.
+3. **Remaining: EPA `Value` field coverage** — spec assumes EPA AirNow's `Value` field is populated alongside `AQI` for all current observations. If it's sometimes null, add a fallback that computes concentration from AQI via EPA breakpoint formulas (Month 2 concern).
+
+## Implementation Notes (2026-04-22)
+
+- OpenAQ v3 documents `coordinates` + `radius` in meters, but caps radius at 25,000m. AERIS targets 50km, so `OpenAQCollector.fetch()` uses the documented `bbox` query shape and then filters returned locations back to the configured target radius with a Haversine distance check.
+- OpenAQ parameter `o3` is normalized to the existing AERIS canonical metric `ozone`, matching `EPAAirNowCollector`. This keeps cross-source ozone comparisons aligned.
+- The implementation follows the documented `/v3/locations/{locations_id}/sensors` payload, where each sensor includes `parameter` metadata and an optional `latest` measurement with `datetime.utc`, `value`, and `coordinates`.
 
 ## Commit Points
 
-This work bundles into **two commits** when implementation is done:
+This implementation should be committed as one coherent slice because the schema, EPA semantics, and OpenAQ collector must stay in sync:
 
-1. `fix(db): add unit + source_entity_id columns and dedup unique constraint` — schema + model change, drops existing dev table
-2. `feat(collectors): add OpenAQ collector and switch EPA to raw concentration` — both collectors updated together so the data semantics stay consistent
+1. `feat(collectors): add OpenAQ collector and raw-unit data schema`
 
 ## Out of Scope / Future Work
 

@@ -13,6 +13,7 @@ TEST_DATABASE_URL = "sqlite+aiosqlite:///test_aeris.db"
 async def test_engine():
     engine = create_async_engine(TEST_DATABASE_URL, echo=False)
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield engine
     async with engine.begin() as conn:

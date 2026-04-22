@@ -117,6 +117,7 @@ Copy `server/.env.example` and fill in:
 - `OPENWEATHER_API_KEY` &mdash; OpenWeather
 - `TOMTOM_API_KEY` &mdash; TomTom traffic
 - `EIA_API_KEY` &mdash; EIA energy data
+- `FIRMS_MAP_KEY` &mdash; NASA FIRMS active fire detections
 - `MAPBOX_TOKEN` &mdash; Mapbox GL JS
 - `NASA_EARTHDATA_TOKEN` &mdash; Sentinel-5P satellite data
 

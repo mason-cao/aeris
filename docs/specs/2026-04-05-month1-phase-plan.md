@@ -144,6 +144,7 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 - Metrics: temperature, humidity, wind_speed, wind_direction, pressure, precipitation, cloud_cover
 - Query: lat/lon for Suwanee + nearby grid points (cover the 50km radius)
 - Also consider NOAA Weather API (api.weather.gov) as free backup — no key needed
+- Initial implementation uses OpenWeather Current Weather at five grid points (`center`, `north`, `east`, `south`, `west`) with `units=metric`. NOAA remains a future fallback.
 
 ### Step 2.4: NASA FIRMS collector
 - API: `https://firms.modaps.eosdis.nasa.gov/api/` — active fire data

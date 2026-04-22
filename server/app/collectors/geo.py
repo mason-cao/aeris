@@ -65,6 +65,20 @@ def distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * earth_radius_km * math.asin(math.sqrt(a))
 
 
+def offset_coordinate(
+    lat: float,
+    lon: float,
+    *,
+    north_km: float = 0.0,
+    east_km: float = 0.0,
+) -> tuple[float, float]:
+    """Approximate coordinate offset for short distances."""
+    new_lat = lat + (north_km / 111.32)
+    lon_scale = 111.32 * max(math.cos(math.radians(lat)), 0.01)
+    new_lon = lon + (east_km / lon_scale)
+    return new_lat, new_lon
+
+
 def within_target_radius(lat: float, lon: float, radius_km: float | None = None) -> bool:
     radius = radius_km if radius_km is not None else settings.aeris_target_radius_km
     return (

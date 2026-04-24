@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     eia_api_key: str = ""
 
     # NASA / Satellite
+    firms_map_key: str = ""
     nasa_earthdata_token: str = ""
 
     # Mapping

@@ -124,7 +124,7 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 
 **Goal**: 5 of 9 collectors working. Air quality from 3 independent sources.
 
-**API key registrations (parallel)**: OpenAQ, PurpleAir, OpenWeather. (NASA FIRMS needs no key.)
+**API key registrations (parallel)**: OpenAQ, PurpleAir, OpenWeather, NASA FIRMS MAP_KEY.
 
 ### Step 2.1: OpenAQ collector
 - API: `https://api.openaq.org/v3/` — government air quality monitors
@@ -148,7 +148,8 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 
 ### Step 2.4: NASA FIRMS collector
 - API: `https://firms.modaps.eosdis.nasa.gov/api/` — active fire data
-- No auth. CSV download for bounding box + time range.
+- Auth: free FIRMS `MAP_KEY`
+- CSV download for bounding box + time range.
 - Metrics: fire_radiative_power, confidence, brightness
 - Query: NRT (Near Real-Time) MODIS and VIIRS data for larger bounding box (100km)
 
@@ -157,6 +158,7 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 - Add `GET /api/data/sources` — list all data sources with their last_collected_at and status
 - Unit tests for all 4 new collectors
 - Integration test: run all 5 collectors, verify data from each source
+- Initial hardening adds the documented `/api/data/sources` endpoint, keeps `/api/data` as a compatibility alias, and adds FastAPI route tests for source listing, filters, and pagination. Full real-DB integration remains scheduled for Week 3 Step 3.6.
 
 **Commit point**: `feat(collectors): add OpenAQ, PurpleAir, NOAA weather, and NASA FIRMS collectors`
 
@@ -293,6 +295,7 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 | OpenAQ | Week 2 | https://explore.openaq.org/register |
 | PurpleAir | Week 2 | https://develop.purpleair.com/ |
 | OpenWeather | Week 2 | https://openweathermap.org/api |
+| NASA FIRMS MAP_KEY | Week 2 | https://firms.modaps.eosdis.nasa.gov/api/map_key |
 | NASA Earthdata | Week 3 | https://urs.earthdata.nasa.gov/users/new |
 | TomTom | Week 3 | https://developer.tomtom.com/ |
 | EIA | Week 3 | https://www.eia.gov/opendata/register.php |

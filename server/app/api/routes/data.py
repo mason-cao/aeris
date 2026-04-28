@@ -42,6 +42,22 @@ class PaginatedDataPoints(BaseModel):
     offset: int
 
 
+async def fetch_data_sources(session: AsyncSession) -> list[DataSourceResponse]:
+    result = await session.execute(select(DataSource).order_by(DataSource.name))
+    sources = result.scalars().all()
+    return [
+        DataSourceResponse.model_validate(source, from_attributes=True)
+        for source in sources
+    ]
+
+
+@router.get("/data/sources", response_model=list[DataSourceResponse])
+async def list_data_sources(
+    session: AsyncSession = Depends(get_session),
+) -> list[DataSourceResponse]:
+    return await fetch_data_sources(session)
+
+
 @router.get("/data/{source}", response_model=PaginatedDataPoints)
 async def get_data_by_source(
     source: str,
@@ -56,7 +72,9 @@ async def get_data_by_source(
     session: AsyncSession = Depends(get_session),
 ) -> PaginatedDataPoints:
     query = select(DataPoint).where(DataPoint.source == source)
-    count_query = select(func.count()).select_from(DataPoint).where(DataPoint.source == source)
+    count_query = (
+        select(func.count()).select_from(DataPoint).where(DataPoint.source == source)
+    )
 
     if metric:
         query = query.where(DataPoint.metric == metric)
@@ -95,13 +113,7 @@ async def get_data_by_source(
 
 
 @router.get("/data", response_model=list[DataSourceResponse])
-async def list_data_sources(
+async def list_data_sources_legacy(
     session: AsyncSession = Depends(get_session),
 ) -> list[DataSourceResponse]:
-    result = await session.execute(
-        select(DataSource).order_by(DataSource.name)
-    )
-    sources = result.scalars().all()
-    return [
-        DataSourceResponse.model_validate(s, from_attributes=True) for s in sources
-    ]
+    return await fetch_data_sources(session)

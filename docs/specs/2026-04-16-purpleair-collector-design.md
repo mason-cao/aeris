@@ -1,8 +1,8 @@
 # PurpleAir Collector Design
 
-**Date**: 2026-04-22
+**Date**: 2026-04-16
 **Phase**: Month 1 Week 2 Step 2.2
-**Status**: Implemented in initial form on 2026-04-22
+**Status**: Implemented in initial form on 2026-04-16
 
 ## Context
 

@@ -1,4 +1,4 @@
-# OpenAQ Collector + Schema Hardening — Design
+# OpenAQ Collector + Schema Hardening - Design
 
 **Date**: 2026-04-13
 **Phase**: Month 1 Week 2 Step 2.1 (first collector of Week 2)
@@ -26,7 +26,7 @@ This spec describes the OpenAQ collector AND the bundled schema + EPA fix that m
 - Historical backfill of OpenAQ data (time series built by hourly runs over time)
 - Concurrent/parallel station fetches (sequential is fast enough for ~20 stations)
 - Ingesting OpenAQ temperature / relative humidity (OpenWeather owns those metrics)
-- Ingesting ultrafine / specialty params (PM1, PM4, CO2, NO, NOx, CH4, UFP) — scope drift
+- Ingesting ultrafine / specialty params (PM1, PM4, CO2, NO, NOx, CH4, UFP) - scope drift
 - AQI pipeline (frontend can compute AQI at render time from raw concentrations if needed)
 - Parameter-ID lookup via `/v3/parameters` endpoint (station-walk approach doesn't need it)
 
@@ -37,9 +37,9 @@ This spec describes the OpenAQ collector AND the bundled schema + EPA fix that m
 | D1 | Store **raw concentration**, not AQI | OpenAQ returns concentration; EPA can give concentration via `Value`/`Unit` fields; AQI is a derived metric that can always be recomputed from concentration but not vice versa. Scientific integrity preserved. |
 | D2 | Add `unit` column to `DataPoint` | Makes unit semantics explicit. Different metrics use different units (`ug/m3`, `ppm`, `ppb`, `degC`, `hPa`, `m/s`). Self-describing schema. |
 | D3 | Add `source_entity_id` column to `DataPoint` (NOT NULL) | Gives every observation a stable per-source identifier for dedup. EPA: `ReportingArea`. OpenAQ: `sensor_id`. PurpleAir: `sensor_index`. NOAA grid cell: grid ID. Uniform dedup across all 9 collectors. |
-| D4 | Unique constraint `(source, metric, source_entity_id, timestamp)` | Idempotent collector runs — re-ingesting the same observation is a no-op. Includes `timestamp` per TimescaleDB hypertable requirements. |
+| D4 | Unique constraint `(source, metric, source_entity_id, timestamp)` | Idempotent collector runs - re-ingesting the same observation is a no-op. Includes `timestamp` per TimescaleDB hypertable requirements. |
 | D5 | Station-walk endpoint strategy | `/v3/locations?bbox=...` + in-code radius filter + `/v3/locations/{id}/sensors` per station. OpenAQ caps coordinate-radius queries at 25km, so bbox preserves AERIS's configured 50km target while keeping station metadata for Month 3 map layers. |
-| D6 | Current snapshot only | Latest reading is embedded in the sensor response — no separate `/measurements` call needed. Hourly runs accumulate the time series naturally. Backfill deferred to Month 2 if detection needs more history. |
+| D6 | Current snapshot only | Latest reading is embedded in the sensor response - no separate `/measurements` call needed. Hourly runs accumulate the time series naturally. Backfill deferred to Month 2 if detection needs more history. |
 | D7 | Per-station error isolation | One station's 4xx/5xx logs a warning and skips that station. Remaining stations still collected. A bad station cannot fail the run. |
 | D8 | Sequential fetches | No concurrency. Simplicity wins at 20 calls/hour; OpenAQ rate limits are generous. Bounded concurrency can be added in Week 4 hardening if needed. |
 | D9 | Metrics: `pm25, pm10, ozone, no2, so2, co, bc` | Exact match to Month 1 phase plan Step 2.1 and the existing EPA collector metric names. Covers criteria pollutants + black carbon. Temperature/humidity delegated to OpenWeather. |
@@ -91,7 +91,7 @@ server/app/collectors/epa_airnow.py  (MODIFIED)
 server/app/db/models.py  (MODIFIED)
 ├─ DataPoint:
 │    id: UUID (PK part 1)
-│    timestamp: DateTime (PK part 2 — TimescaleDB partition)
+│    timestamp: DateTime (PK part 2 - TimescaleDB partition)
 │    lat: float
 │    lon: float
 │    metric: str(64)
@@ -172,7 +172,7 @@ EPA_UNIT_MAP: dict[str, str] = {
 # server/app/config.py
 class Settings(BaseSettings):
     ...
-    openaq_api_key: str = ""  # NEW — required at implementation time
+    openaq_api_key: str = ""  # NEW - required at implementation time
     ...
 ```
 
@@ -185,13 +185,13 @@ OPENAQ_API_KEY=your_key_here
 
 **New unit tests** (`server/tests/unit/test_openaq.py`):
 
-- `test_normalize_maps_all_parameters` — given fixture with all 7 params, verify output
-- `test_normalize_skips_unknown_parameter` — e.g. `"pm4"` is not in map, skipped
-- `test_normalize_skips_null_latest_value` — sensor with `latest: null`
+- `test_normalize_maps_all_parameters` - given fixture with all 7 params, verify output
+- `test_normalize_skips_unknown_parameter` - e.g. `"pm4"` is not in map, skipped
+- `test_normalize_skips_null_latest_value` - sensor with `latest: null`
 - `test_normalize_skips_bad_timestamp`
 - `test_normalize_preserves_raw_json`
 - `test_normalize_sets_source_entity_id_to_sensor_id`
-- `test_normalize_normalizes_units` — `µg/m³` in → `ug/m3` out
+- `test_normalize_normalizes_units` - `µg/m³` in → `ug/m3` out
 - `test_normalize_empty_response`
 - `test_unit_map_covers_common_openaq_units`
 - `test_parameter_map_covers_plan_metrics`
@@ -220,13 +220,13 @@ These unit tests mock HTTP. A proper real-DB integration test for OpenAQ goes in
 | `server/tests/unit/test_openaq.py` | **new** |
 | `server/tests/unit/test_epa_airnow.py` | modify (fixture + assertions) |
 
-No changes to `db/schema.py`, `db/session.py`, or `main.py`. Within `api/routes/`, only `data.py` changes — purely to expose the two new columns through `DataPointResponse`. All other route modules, the WebSocket layer, and the collector orchestrator (`run_all.py`) are untouched.
+No changes to `db/schema.py`, `db/session.py`, or `main.py`. Within `api/routes/`, only `data.py` changes - purely to expose the two new columns through `DataPointResponse`. All other route modules, the WebSocket layer, and the collector orchestrator (`run_all.py`) are untouched.
 
 ## Resolved / Remaining Implementation Checks
 
-1. **Resolved: OpenAQ `/v3/locations` geospatial query** — OpenAQ documents radius in meters and caps it at 25,000m, so the implementation uses `bbox` and filters by configured radius in code.
-2. **Resolved from docs, still needs live smoke test: OpenAQ sensor response shape** — `/v3/locations/{locations_id}/sensors` documents `latest.datetime.utc`, `latest.value`, and `latest.coordinates`.
-3. **Remaining: EPA `Value` field coverage** — spec assumes EPA AirNow's `Value` field is populated alongside `AQI` for all current observations. If it's sometimes null, add a fallback that computes concentration from AQI via EPA breakpoint formulas (Month 2 concern).
+1. **Resolved: OpenAQ `/v3/locations` geospatial query** - OpenAQ documents radius in meters and caps it at 25,000m, so the implementation uses `bbox` and filters by configured radius in code.
+2. **Resolved from docs, still needs live smoke test: OpenAQ sensor response shape** - `/v3/locations/{locations_id}/sensors` documents `latest.datetime.utc`, `latest.value`, and `latest.coordinates`.
+3. **Remaining: EPA `Value` field coverage** - spec assumes EPA AirNow's `Value` field is populated alongside `AQI` for all current observations. If it's sometimes null, add a fallback that computes concentration from AQI via EPA breakpoint formulas (Month 2 concern).
 
 ## Implementation Notes (2026-04-14)
 
@@ -242,8 +242,8 @@ This implementation should be committed as one coherent slice because the schema
 
 ## Out of Scope / Future Work
 
-- Historical backfill via `/v3/sensors/{id}/measurements?datetimeFrom=...` — deferred; add if Month 2 detection needs more baseline.
-- Bounded-concurrency station fetches — Week 4 orchestration hardening if needed.
-- Parameter-IDs-based `/v3/parameters/{id}/latest` endpoint — alternative strategy, not needed unless station-walk hits rate/performance issues.
-- Caching the station list between runs — premature optimization.
-- OpenAQ temperature / relative humidity — owned by OpenWeather collector (Week 2 Step 2.3).
+- Historical backfill via `/v3/sensors/{id}/measurements?datetimeFrom=...` - deferred; add if Month 2 detection needs more baseline.
+- Bounded-concurrency station fetches - Week 4 orchestration hardening if needed.
+- Parameter-IDs-based `/v3/parameters/{id}/latest` endpoint - alternative strategy, not needed unless station-walk hits rate/performance issues.
+- Caching the station list between runs - premature optimization.
+- OpenAQ temperature / relative humidity - owned by OpenWeather collector (Week 2 Step 2.3).

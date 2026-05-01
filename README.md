@@ -1,4 +1,4 @@
-# A.E.R.I.S. &mdash; Autonomous Environmental RAG & Inference System
+# A.E.R.I.S. - Autonomous Environmental RAG & Inference System
 
 A self-hosted environmental intelligence platform that detects anomalies in real-time environmental data and generates causal explanations using a locally-hosted LLM with RAG and multi-source cross-referencing.
 
@@ -6,7 +6,9 @@ A self-hosted environmental intelligence platform that detects anomalies in real
 
 ## The Problem
 
-Environmental hazards vary block-by-block and change hour-by-hour. Public data exists across dozens of agencies (EPA, NOAA, NASA, USGS) in incompatible formats. When a pollution spike hits your neighborhood, no system automatically detects it, determines the cause, and tells you what to do. While massive cloud models have the reasoning power to solve this by constantly cross-referencing live data streams, relying on them for 24/7 localized monitoring is cost-prohibitive and energy-intensive. Small, locally-hosted edge models solve the compute cost problem, but trusting them to reason through complex environmental physics usually leads to severe hallucinations. The missing piece is a proven architecture demonstrating that a heavily augmented local 8B model can match a frontier cloud model's causal accuracy for real-time scientific monitoring at a fraction of the cost.
+Air quality, wildfire smoke, and water conditions can change block by block and hour by hour. The data exists, but it's scattered across EPA, NOAA, NASA, USGS, and a dozen other agencies, all in different formats. When PM2.5 spikes in your neighborhood, nothing tells you what caused it or what to do about it.
+
+Big cloud models could probably reason through this if you piped enough data in, but running GPT-class inference on a 24/7 stream isn't realistic for a household. Small local models are cheap to run, but they hallucinate badly when you ask them to reason about atmospheric chemistry. AERIS is an attempt to bridge that gap: an 8B model with enough RAG and structured cross-referencing scaffolding to get close to frontier-model accuracy on a specific, narrow task.
 
 ## What AERIS Does
 
@@ -110,16 +112,16 @@ npm run dev
 ### Environment Variables
 
 Copy `server/.env.example` and fill in:
-- `DATABASE_URL` &mdash; PostgreSQL connection string
-- `AIRNOW_API_KEY` &mdash; EPA AirNow
-- `OPENAQ_API_KEY` &mdash; OpenAQ
-- `PURPLEAIR_API_KEY` &mdash; PurpleAir
-- `OPENWEATHER_API_KEY` &mdash; OpenWeather
-- `TOMTOM_API_KEY` &mdash; TomTom traffic
-- `EIA_API_KEY` &mdash; EIA energy data
-- `FIRMS_MAP_KEY` &mdash; NASA FIRMS active fire detections
-- `MAPBOX_TOKEN` &mdash; Mapbox GL JS
-- `NASA_EARTHDATA_TOKEN` &mdash; Sentinel-5P satellite data
+- `DATABASE_URL` - PostgreSQL connection string
+- `AIRNOW_API_KEY` - EPA AirNow
+- `OPENAQ_API_KEY` - OpenAQ
+- `PURPLEAIR_API_KEY` - PurpleAir
+- `OPENWEATHER_API_KEY` - OpenWeather
+- `TOMTOM_API_KEY` - TomTom traffic
+- `EIA_API_KEY` - EIA energy data
+- `FIRMS_MAP_KEY` - NASA FIRMS active fire detections
+- `MAPBOX_TOKEN` - Mapbox GL JS
+- `NASA_EARTHDATA_TOKEN` - Sentinel-5P satellite data
 
 ## Roadmap
 

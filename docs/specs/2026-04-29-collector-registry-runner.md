@@ -1,8 +1,8 @@
 # Collector Registry + Manual Runner
 
-**Date**: 2026-04-22
+**Date**: 2026-04-29
 **Phase**: Month 1 Week 2 closeout / Week 4 orchestration prep
-**Status**: Implemented in initial form on 2026-04-22
+**Status**: Implemented in initial form on 2026-04-29
 
 ## Context
 
@@ -79,7 +79,7 @@ Per-collector `BaseCollector.collect()` still owns fetch/normalize/store retry l
 | `server/app/collectors/run_all.py` | new manual CLI runner |
 | `server/tests/unit/test_collector_registry.py` | registry tests |
 | `server/tests/unit/test_run_all.py` | runner helper tests |
-| `docs/specs/2026-04-05-month1-phase-plan.md` | note manual runner foundation |
+| `docs/specs/2026-04-08-month1-phase-plan.md` | note manual runner foundation |
 | `session_summary.md` | handoff update |
 
 ## Verification

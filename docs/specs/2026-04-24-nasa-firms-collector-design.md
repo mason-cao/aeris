@@ -1,8 +1,8 @@
 # NASA FIRMS Collector Design
 
-**Date**: 2026-04-20
+**Date**: 2026-04-24
 **Phase**: Month 1 Week 2 Step 2.4
-**Status**: Implemented in initial form on 2026-04-20
+**Status**: Implemented in initial form on 2026-04-24
 
 ## Context
 
@@ -75,7 +75,7 @@ The collector zero-pads `acq_time` to four digits and stores the timestamp as UT
 | `server/app/config.py` | add `firms_map_key` |
 | `server/.env.example` | add `FIRMS_MAP_KEY` |
 | `README.md` | document FIRMS map key |
-| `docs/specs/2026-04-05-month1-phase-plan.md` | correct FIRMS auth/API key details |
+| `docs/specs/2026-04-08-month1-phase-plan.md` | correct FIRMS auth/API key details |
 | `server/app/collectors/nasa_firms.py` | new collector |
 | `server/tests/unit/test_nasa_firms.py` | new tests |
 | `session_summary.md` | handoff update |

@@ -1,8 +1,8 @@
 # Week 2 Data API Hardening
 
-**Date**: 2026-04-21
+**Date**: 2026-04-27
 **Phase**: Month 1 Week 2 Step 2.5
-**Status**: Implemented in initial form on 2026-04-21
+**Status**: Implemented in initial form on 2026-04-27
 
 ## Context
 
@@ -86,7 +86,7 @@ Supported query parameters:
 |------|--------|
 | `server/app/api/routes/data.py` | add `/data/sources`, keep legacy alias |
 | `server/tests/unit/test_data_routes.py` | new route tests |
-| `docs/specs/2026-04-05-month1-phase-plan.md` | update Step 2.5 implementation detail |
+| `docs/specs/2026-04-08-month1-phase-plan.md` | update Step 2.5 implementation detail |
 | `session_summary.md` | handoff update |
 
 ## Verification

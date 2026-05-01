@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataPointCreate(BaseModel):
-    """Normalized data point schema — all collectors output this format."""
+    """Normalized data point schema. All collectors output this format."""
 
     timestamp: datetime
     lat: float

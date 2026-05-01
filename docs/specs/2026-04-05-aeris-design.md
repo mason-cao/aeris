@@ -1,12 +1,12 @@
-# AERIS (Autonomous Environmental RAG & Inference System) — Design Specification
+# AERIS (Autonomous Environmental RAG & Inference System) - Design Specification
 
 ## Context
 
 Mason is a high school student with 4-5 months to build a flagship capstone project for college applications (CS/CE major), competition submissions (ISEF, Regeneron STS, Congressional App Challenge), and potential academic publication. He has guidance from CS professors and undergraduates, strong Python + React skills, and access to LLM APIs (OpenAI, Anthropic) plus an old PC to use as a home server.
 
-**The problem**: Environmental hazards (air pollution spikes, water quality changes, extreme heat events) vary block-by-block and change hour-by-hour. Public environmental data exists but is scattered across dozens of agencies in incompatible formats that no normal person can interpret. When an anomaly occurs — a sudden PM2.5 spike, an unusual ozone reading — there is no system that automatically detects it, cross-references multiple data sources to determine the cause, and explains it in plain language.
+**The problem**: Environmental hazards (air pollution spikes, water quality changes, extreme heat events) vary block-by-block and change hour-by-hour. Public environmental data exists but is scattered across dozens of agencies in incompatible formats that no normal person can interpret. When an anomaly occurs - a sudden PM2.5 spike, an unusual ozone reading - there is no system that automatically detects it, cross-references multiple data sources to determine the cause, and explains it in plain language.
 
-**The opportunity**: Self-hosted LLMs running on commodity hardware can now perform sophisticated reasoning tasks. By combining real-time environmental data aggregation with LLM-powered causal explanation, we can build a system that democratizes environmental intelligence — and study whether locally-hosted models can do this accurately.
+**The opportunity**: Self-hosted LLMs on commodity hardware are now capable enough to do useful reasoning. The interesting question is whether you can make a small local model good *enough* at causal explanation - on a narrow, well-scaffolded domain - to approach what cloud models do. AERIS is the test.
 
 ---
 
@@ -197,7 +197,7 @@ D) CONFIDENCE: Overall confidence level (HIGH/MEDIUM/LOW) with reasoning
 E) RECOMMENDED ACTIONS: Practical steps for affected populations
 ```
 
-Model: Llama 3 8B (primary, local via Ollama) — with GPT 5.4 Standard Thinking / Gemini 3 Thinking as cloud baselines for research comparison.
+Model: Llama 3 8B (primary, local via Ollama) - with GPT 5.4 Standard Thinking / Gemini 3 Thinking as cloud baselines for research comparison.
 
 ### Step 4: Post-Processing & Hallucination Detection
 - **Factual grounding check**: Extract all factual claims from the explanation. For each claim, verify against the actual data provided in Step 1:
@@ -268,7 +268,7 @@ Model: Llama 3 8B (primary, local via Ollama) — with GPT 5.4 Standard Thinking
 - Server resource utilization (CPU, memory, disk, Ollama inference stats)
 
 ### Mobile Responsiveness
-- Responsive web design (not native app — native is month 5 stretch goal)
+- Responsive web design (not native app - native is month 5 stretch goal)
 - Mobile priority: map view and anomaly feed
 - Detail pages scroll vertically with stacked evidence cards
 - Query interface works as full-screen chat on mobile
@@ -290,7 +290,7 @@ Model: Llama 3 8B (primary, local via Ollama) — with GPT 5.4 Standard Thinking
 
 | Metric | Measurement Method | Target |
 |--------|-------------------|--------|
-| **Causal accuracy** | Expert panel (professors) labels 50-100 anomalies with ground-truth causes (target — actual count depends on anomaly frequency in the chosen region over the study period; supplement with synthetic anomalies if needed). Score LLM on cause identification (correct/partial/incorrect). | >70% correct |
+| **Causal accuracy** | Expert panel (professors) labels 50-100 anomalies with ground-truth causes (target - actual count depends on anomaly frequency in the chosen region over the study period; supplement with synthetic anomalies if needed). Score LLM on cause identification (correct/partial/incorrect). | >70% correct |
 | **Factual grounding** | Automated: % of LLM claims verifiable against input data | >90% |
 | **Cross-reference utilization** | Count distinct data sources cited per explanation | >3 sources avg |
 | **Comprehensibility** | Flesch-Kincaid readability score + user study (10-15 people, Likert scale) | Grade 8-10 reading level |
@@ -302,7 +302,7 @@ Model: Llama 3 8B (primary, local via Ollama) — with GPT 5.4 Standard Thinking
 ### Study Design
 - **Expert labeling**: 2-3 professors/grad students independently label anomaly causes. Inter-rater reliability (Cohen's kappa) reported.
 - **User study**: 10-15 participants (mix of general public and environmental science students). Read 10 anomaly explanations, rate comprehensibility and actionability. IRB likely not needed for this scale but confirm with professors.
-- **Ablation study**: Automated — run same anomalies through pipeline with different context levels.
+- **Ablation study**: Automated - run same anomalies through pipeline with different context levels.
 
 ---
 

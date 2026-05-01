@@ -1,8 +1,8 @@
 # OpenWeather Collector Design
 
-**Date**: 2026-04-18
+**Date**: 2026-04-21
 **Phase**: Month 1 Week 2 Step 2.3
-**Status**: Implemented in initial form on 2026-04-18
+**Status**: Implemented in initial form on 2026-04-21
 
 ## Context
 
@@ -89,7 +89,7 @@ This gives coarse weather coverage over the 50km target area without burning API
 | `server/app/collectors/geo.py` | add short-distance coordinate offset helper |
 | `server/app/collectors/noaa_weather.py` | new OpenWeather-backed collector |
 | `server/tests/unit/test_noaa_weather.py` | new tests |
-| `docs/specs/2026-04-05-month1-phase-plan.md` | note implementation details |
+| `docs/specs/2026-04-08-month1-phase-plan.md` | note implementation details |
 | `session_summary.md` | handoff update |
 
 ## Verification

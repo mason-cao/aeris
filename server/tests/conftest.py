@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.db.models import Base
 
-# Use SQLite for CI/test — no TimescaleDB needed for unit tests
+# Use SQLite for CI/test (no TimescaleDB needed for unit tests)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///test_aeris.db"
 
 

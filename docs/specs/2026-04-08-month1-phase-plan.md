@@ -5,24 +5,24 @@
 AERIS is at design-complete, pre-implementation stage. The full design spec exists at `docs/specs/2026-04-05-aeris-design.md`. No code has been written. This plan covers Month 1 (April 2026): standing up the server infrastructure and building the data pipeline that collects from all 9 environmental data sources continuously.
 
 **Target area**: Suwanee, GA (north Atlanta metro). Center: 34.05°N, 84.07°W, 50km radius.
-**Development strategy**: Vertical slices — build one collector end-to-end first (EPA AirNow), validate the architecture, then replicate across all 9 sources. Develop locally first (Postgres in Docker), deploy to home server in Week 4.
+**Development strategy**: Vertical slices - build one collector end-to-end first (EPA AirNow), validate the architecture, then replicate across all 9 sources. Develop locally first (Postgres in Docker), deploy to home server in Week 4.
 
 ## Files to Create/Modify
 
 ### Server infrastructure
-- `server/requirements.txt` — Python dependencies
-- `server/docker-compose.yml` — Local dev PostgreSQL + TimescaleDB
+- `server/requirements.txt` - Python dependencies
+- `server/docker-compose.yml` - Local dev PostgreSQL + TimescaleDB
 - `server/app/__init__.py`
-- `server/app/config.py` — Pydantic Settings, env var loading
-- `server/app/main.py` — FastAPI entry, CORS, lifespan
+- `server/app/config.py` - Pydantic Settings, env var loading
+- `server/app/main.py` - FastAPI entry, CORS, lifespan
 - `server/app/db/__init__.py`
-- `server/app/db/models.py` — SQLAlchemy ORM: DataPoint, DataSource
-- `server/app/db/schema.py` — DDL + TimescaleDB hypertable creation
-- `server/app/db/session.py` — Async session factory
+- `server/app/db/models.py` - SQLAlchemy ORM: DataPoint, DataSource
+- `server/app/db/schema.py` - DDL + TimescaleDB hypertable creation
+- `server/app/db/session.py` - Async session factory
 
 ### Collectors (one file per source + base)
 - `server/app/collectors/__init__.py`
-- `server/app/collectors/base.py` — Abstract BaseCollector
+- `server/app/collectors/base.py` - Abstract BaseCollector
 - `server/app/collectors/epa_airnow.py`
 - `server/app/collectors/openaq.py`
 - `server/app/collectors/purpleair.py`
@@ -32,17 +32,17 @@ AERIS is at design-complete, pre-implementation stage. The full design spec exis
 - `server/app/collectors/traffic.py`
 - `server/app/collectors/usgs_water.py`
 - `server/app/collectors/eia_energy.py`
-- `server/app/collectors/run_all.py` — Orchestrator + APScheduler
-- `server/app/collectors/validation.py` — Data quality checks
+- `server/app/collectors/run_all.py` - Orchestrator + APScheduler
+- `server/app/collectors/validation.py` - Data quality checks
 
 ### API routes
 - `server/app/api/__init__.py`
 - `server/app/api/routes/__init__.py`
-- `server/app/api/routes/data.py` — Raw data endpoints
-- `server/app/api/routes/system.py` — Health/status
+- `server/app/api/routes/data.py` - Raw data endpoints
+- `server/app/api/routes/system.py` - Health/status
 
 ### Tests
-- `server/tests/conftest.py` — Fixtures, test DB setup (SQLite for CI)
+- `server/tests/conftest.py` - Fixtures, test DB setup (SQLite for CI)
 - `server/tests/unit/test_base_collector.py`
 - `server/tests/unit/test_epa_airnow.py`
 - `server/tests/unit/test_openaq.py`
@@ -127,7 +127,7 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 **API key registrations (parallel)**: OpenAQ, PurpleAir, OpenWeather, NASA FIRMS MAP_KEY.
 
 ### Step 2.1: OpenAQ collector
-- API: `https://api.openaq.org/v3/` — government air quality monitors
+- API: `https://api.openaq.org/v3/` - government air quality monitors
 - Auth: API key in header (`X-API-Key`)
 - Query by bounding box, then filter locations to configured radius in code. OpenAQ's coordinate-radius endpoint is capped at 25km, below AERIS's 50km target.
 - Metrics: pm25, pm10, ozone, no2, so2, co, bc
@@ -143,11 +143,11 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 - API: OpenWeather Current Weather + One Call 3.0 (free tier: 1000 calls/day)
 - Metrics: temperature, humidity, wind_speed, wind_direction, pressure, precipitation, cloud_cover
 - Query: lat/lon for Suwanee + nearby grid points (cover the 50km radius)
-- Also consider NOAA Weather API (api.weather.gov) as free backup — no key needed
+- Also consider NOAA Weather API (api.weather.gov) as free backup - no key needed
 - Initial implementation uses OpenWeather Current Weather at five grid points (`center`, `north`, `east`, `south`, `west`) with `units=metric`. NOAA remains a future fallback.
 
 ### Step 2.4: NASA FIRMS collector
-- API: `https://firms.modaps.eosdis.nasa.gov/api/` — active fire data
+- API: `https://firms.modaps.eosdis.nasa.gov/api/` - active fire data
 - Auth: free FIRMS `MAP_KEY`
 - CSV download for bounding box + time range.
 - Metrics: fire_radiative_power, confidence, brightness
@@ -155,7 +155,7 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 
 ### Step 2.5: Enhance data API + full test suite
 - Add query params to data endpoint: `?metric=pm25&start=...&end=...&radius_km=25`
-- Add `GET /api/data/sources` — list all data sources with their last_collected_at and status
+- Add `GET /api/data/sources` - list all data sources with their last_collected_at and status
 - Unit tests for all 4 new collectors
 - Integration test: run all 5 collectors, verify data from each source
 - Initial hardening adds the documented `/api/data/sources` endpoint, keeps `/api/data` as a compatibility alias, and adds FastAPI route tests for source listing, filters, and pagination. Full real-DB integration remains scheduled for Week 3 Step 3.6.
@@ -179,19 +179,19 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 - Normalize: grid cell averages → DataPoint rows (one per grid cell in range)
 
 ### Step 3.2: TomTom Traffic collector
-- API: `https://api.tomtom.com/traffic/services/` — Traffic Flow API
+- API: `https://api.tomtom.com/traffic/services/` - Traffic Flow API
 - Auth: API key as query param
 - Metrics: traffic_speed, traffic_freeflow_speed, traffic_congestion (ratio)
 - Query: road segments within bounding box. Focus on major roads: I-85, I-285, GA-316, US-23
 
 ### Step 3.3: USGS Water Services collector
-- API: `https://waterservices.usgs.gov/nwis/iv/` — Instantaneous Values
+- API: `https://waterservices.usgs.gov/nwis/iv/` - Instantaneous Values
 - No auth. Query by bounding box or site codes.
 - Metrics: streamflow, water_temperature, conductivity, dissolved_oxygen, turbidity, ph
 - Key sites: Chattahoochee River gauges near Suwanee/Buford Dam
 
 ### Step 3.4: EIA Open Data collector
-- API: `https://api.eia.gov/v2/` — Open Data API
+- API: `https://api.eia.gov/v2/` - Open Data API
 - Auth: API key as query param
 - Metrics: generation_mwh, co2_emissions, fuel_type, grid_carbon_intensity
 - Scope: Georgia power plants + SERC region grid data
@@ -207,8 +207,8 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 - **Background**: In Week 1 we verified the EPA pipeline with an ad-hoc smoke test (manual `docker compose up` + one-off Python script). That proved the architecture but left no automated guard against regressions.
 - **Goal**: Replace the smoke test with a permanent pytest integration suite that exercises the full pipeline against real Postgres+TimescaleDB, not mocks.
 - `server/tests/integration/conftest.py`: pytest fixture that creates a throwaway test DB on the dev Postgres (e.g. `aeris_test` schema or `aeris_test_<uuid>`), runs `create_tables()`, yields an `AsyncSession`, drops the DB at teardown. Fixture scoped per-module to keep runs fast.
-- `server/tests/integration/test_epa_airnow_live.py`: backfill for Week 1 — mock the EPA HTTP response at the `httpx.AsyncClient` level (so we hit real Postgres but not real EPA), run `collect()`, assert rows land in `data_points` and `DataSource` upsert succeeds.
-- `server/tests/integration/test_data_pipeline.py`: parametrized across all 9 collectors — each asserts `collect()` → rows inserted → `/api/data/{source}` returns them.
+- `server/tests/integration/test_epa_airnow_live.py`: backfill for Week 1 - mock the EPA HTTP response at the `httpx.AsyncClient` level (so we hit real Postgres but not real EPA), run `collect()`, assert rows land in `data_points` and `DataSource` upsert succeeds.
+- `server/tests/integration/test_data_pipeline.py`: parametrized across all 9 collectors - each asserts `collect()` → rows inserted → `/api/data/{source}` returns them.
 - `server/tests/integration/test_hypertable.py`: verify the `data_points` table is actually a hypertable (`SELECT * FROM timescaledb_information.hypertables`), idempotent schema creation, and duplicate-insertion handling.
 - Gate: these tests are slower than unit tests and require Docker running. Run via `pytest tests/integration` or a marker like `@pytest.mark.integration`. Not part of the default `pytest` invocation.
 - **Acceptance**: full `pytest tests/integration` green against a freshly-started Docker Compose stack.
@@ -251,7 +251,7 @@ Run `python -m app.collectors.epa_airnow` → real Atlanta air quality data in P
 - Ubuntu Server 22.04 LTS on the old PC
 - Networking: static local IP, ufw (allow 22, 8000), DDNS for remote access
 - Install: PostgreSQL 16 + TimescaleDB, Python 3.11, git
-- Install Ollama + pull Llama 3 8B (for Month 2 — but install now to verify hardware)
+- Install Ollama + pull Llama 3 8B (for Month 2 - but install now to verify hardware)
 
 ### Step 4.4: Deploy AERIS to server
 - Clone repo, create venv, pip install requirements

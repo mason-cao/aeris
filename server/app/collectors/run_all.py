@@ -2,8 +2,6 @@ import argparse
 import asyncio
 from collections.abc import Iterable
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.collectors.base import BaseCollector, CollectionResult
 from app.collectors.registry import create_collectors, source_choices
 from app.db.session import async_session, engine
@@ -26,7 +24,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 async def run_collectors(
-    session: AsyncSession,
     collectors: Iterable[BaseCollector],
     *,
     max_retries: int = 3,
@@ -35,7 +32,8 @@ async def run_collectors(
 
     for collector in collectors:
         try:
-            result = await collector.collect(session, max_retries=max_retries)
+            async with async_session() as session:
+                result = await collector.collect(session, max_retries=max_retries)
         except Exception as exc:
             result = CollectionResult(
                 source=collector.source_name,
@@ -71,12 +69,7 @@ async def async_main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     collectors = create_collectors(args.source)
 
-    async with async_session() as session:
-        results = await run_collectors(
-            session,
-            collectors,
-            max_retries=args.max_retries,
-        )
+    results = await run_collectors(collectors, max_retries=args.max_retries)
 
     for result in results:
         print(format_result(result))

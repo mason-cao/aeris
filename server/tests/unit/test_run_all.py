@@ -64,7 +64,7 @@ class TestRunCollectors:
             ),
         ]
 
-        results = await run_collectors(None, collectors, max_retries=1)
+        results = await run_collectors(collectors, max_retries=1)
 
         assert [result.source for result in results] == ["one", "two"]
         assert [result.record_count for result in results] == [2, 3]
@@ -84,7 +84,7 @@ class TestRunCollectors:
             ),
         ]
 
-        results = await run_collectors(None, collectors, max_retries=1)
+        results = await run_collectors(collectors, max_retries=1)
 
         assert len(results) == 2
         assert results[0].source == "runner_collector"

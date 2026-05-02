@@ -19,6 +19,8 @@ AERIS runs on a home server and:
 3. **Explains causes** via a locally-hosted LLM that cross-references all data sources through a RAG pipeline
 4. **Visualizes** everything on an interactive map with real-time feeds, evidence panels, and natural language querying
 
+**Target region**: Suwanee, GA and the surrounding north Atlanta metro (50 km radius around 34.05°N, 84.07°W).
+
 All inference runs locally. No student data, health queries, or location data leaves the server.
 
 ## Architecture
@@ -57,17 +59,17 @@ Web Application (React)
 
 ## Data Sources
 
-| Source | Data | Frequency |
-|--------|------|-----------|
-| EPA AirNow | AQI, PM2.5, ozone, NO2, SO2, CO | Hourly |
-| OpenAQ | Global government air quality monitors | Hourly |
-| PurpleAir | Crowdsourced hyperlocal PM2.5 | ~2 min |
-| NOAA / OpenWeather | Weather (temp, wind, humidity, pressure) | Hourly |
-| NASA FIRMS | Active wildfire locations | ~3 hours |
-| Sentinel-5P | Satellite NO2, SO2, CO columns | Daily |
-| TomTom | Real-time traffic density | ~15 min |
-| USGS Water Services | Stream flow, water quality | 15 min - hourly |
-| EIA Open Data | Power plant emissions, grid carbon | Hourly - daily |
+| Source | Data | Frequency | Status |
+|--------|------|-----------|--------|
+| EPA AirNow | AQI, PM2.5, ozone, NO2, SO2, CO | Hourly | Live |
+| OpenAQ | Global government air quality monitors | Hourly | Live |
+| PurpleAir | Crowdsourced hyperlocal PM2.5 | ~2 min | Live |
+| NOAA / OpenWeather | Weather (temp, wind, humidity, pressure) | Hourly | Live |
+| NASA FIRMS | Active wildfire locations | ~3 hours | Live |
+| Sentinel-5P | Satellite NO2, SO2, CO columns | Daily | Pending |
+| TomTom | Real-time traffic density | ~15 min | Pending |
+| USGS Water Services | Stream flow, water quality | 15 min - hourly | Pending |
+| EIA Open Data | Power plant emissions, grid carbon | Hourly - daily | Pending |
 
 ## Research
 
@@ -126,7 +128,7 @@ Copy `server/.env.example` and fill in:
 ## Roadmap
 
 - [x] Design specification
-- [ ] **Month 1**: Server infrastructure + data pipeline (9 collectors)
+- [~] **Month 1**: Server infrastructure + data pipeline (5/9 collectors live; Sentinel-5P, TomTom, USGS, EIA pending)
 - [ ] **Month 2**: Anomaly detection engine + LLM explanation pipeline
 - [ ] **Month 3**: Web application (map, feed, detail, query, dashboard)
 - [ ] **Month 4**: Research evaluation + polish

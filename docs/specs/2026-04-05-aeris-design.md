@@ -2,11 +2,11 @@
 
 ## Context
 
-Mason is a high school student with 4-5 months to build a flagship capstone project for college applications (CS/CE major), competition submissions (ISEF, Regeneron STS, Congressional App Challenge), and potential academic publication. He has guidance from CS professors and undergraduates, strong Python + React skills, and access to LLM APIs (OpenAI, Anthropic) plus an old PC to use as a home server.
+I'm a high school student giving myself 4-5 months to build a flagship capstone project for college applications (CS/CE major), competition submissions (ISEF, Regeneron STS, Congressional App Challenge), and a potential academic publication. I have strong Python + React skills, access to LLM APIs (OpenAI, Anthropic), and an old PC I'm repurposing as a home server.
 
 **The problem**: Environmental hazards (air pollution spikes, water quality changes, extreme heat events) vary block-by-block and change hour-by-hour. Public environmental data exists but is scattered across dozens of agencies in incompatible formats that no normal person can interpret. When an anomaly occurs - a sudden PM2.5 spike, an unusual ozone reading - there is no system that automatically detects it, cross-references multiple data sources to determine the cause, and explains it in plain language.
 
-**The opportunity**: Self-hosted LLMs on commodity hardware are now capable enough to do useful reasoning. The interesting question is whether you can make a small local model good *enough* at causal explanation - on a narrow, well-scaffolded domain - to approach what cloud models do. AERIS is the test.
+**The opportunity**: Self-hosted LLMs on commodity hardware are now capable enough to do useful reasoning. The interesting question is whether I can make a small local model good *enough* at causal explanation - on a narrow, well-scaffolded domain - to approach what cloud models do. AERIS is the test.
 
 ---
 

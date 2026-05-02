@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 API_BASE = (
     "https://api.tomtom.com/traffic/services/4/flowSegmentData"
-    "/relative-current/10/json"
+    "/absolute/10/json"
 )
 GRID_DISTANCE_KM = 25.0
 

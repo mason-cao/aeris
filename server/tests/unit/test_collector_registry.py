@@ -12,13 +12,17 @@ from app.collectors.registry import (
 
 
 class TestCollectorRegistry:
-    def test_registry_contains_week2_collectors(self) -> None:
+    def test_registry_contains_all_collectors(self) -> None:
         assert set(COLLECTOR_REGISTRY) == {
             "epa_airnow",
             "openaq",
             "purpleair",
             "openweather",
             "nasa_firms",
+            "sentinel5p",
+            "tomtom_traffic",
+            "usgs_water",
+            "eia_energy",
         }
 
     def test_collector_names_are_sorted(self) -> None:

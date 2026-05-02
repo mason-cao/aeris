@@ -2,11 +2,15 @@ from collections.abc import Sequence
 from typing import TypeAlias
 
 from app.collectors.base import BaseCollector
+from app.collectors.eia_energy import EIAEnergyCollector
 from app.collectors.epa_airnow import EPAAirNowCollector
 from app.collectors.nasa_firms import NASAFIRMSCollector
 from app.collectors.noaa_weather import OpenWeatherCollector
 from app.collectors.openaq import OpenAQCollector
 from app.collectors.purpleair import PurpleAirCollector
+from app.collectors.sentinel5p import Sentinel5PCollector
+from app.collectors.tomtom_traffic import TomTomTrafficCollector
+from app.collectors.usgs_water import USGSWaterCollector
 
 CollectorClass: TypeAlias = type[BaseCollector]
 
@@ -16,6 +20,10 @@ COLLECTOR_REGISTRY: dict[str, CollectorClass] = {
     PurpleAirCollector.source_name: PurpleAirCollector,
     OpenWeatherCollector.source_name: OpenWeatherCollector,
     NASAFIRMSCollector.source_name: NASAFIRMSCollector,
+    Sentinel5PCollector.source_name: Sentinel5PCollector,
+    TomTomTrafficCollector.source_name: TomTomTrafficCollector,
+    USGSWaterCollector.source_name: USGSWaterCollector,
+    EIAEnergyCollector.source_name: EIAEnergyCollector,
 }
 
 

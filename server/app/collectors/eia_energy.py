@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 API_BASE = "https://api.eia.gov/v2/electricity/rto/region-data/data/"
 
 DEFAULT_RESPONDENT = "SOCO"
-LOOKBACK_HOURS = 24
+LOOKBACK_HOURS = 72
 
 SERIES_MAP: dict[str, tuple[str, str]] = {
     "D": ("grid_demand", "MWh"),

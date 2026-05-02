@@ -66,10 +66,10 @@ Web Application (React)
 | PurpleAir | Crowdsourced hyperlocal PM2.5 | ~2 min | Live |
 | NOAA / OpenWeather | Weather (temp, wind, humidity, pressure) | Hourly | Live |
 | NASA FIRMS | Active wildfire locations | ~3 hours | Live |
-| Sentinel-5P | Satellite NO2, SO2, CO columns | Daily | Pending |
-| TomTom | Real-time traffic density | ~15 min | Pending |
-| USGS Water Services | Stream flow, water quality | 15 min - hourly | Pending |
-| EIA Open Data | Power plant emissions, grid carbon | Hourly - daily | Pending |
+| Sentinel-5P | Satellite NO2, SO2, CO columns | Daily | Live |
+| TomTom | Real-time traffic density | ~15 min | Live |
+| USGS Water Services | Stream flow, water quality | 15 min - hourly | Live |
+| EIA Open Data | Power plant emissions, grid carbon | Hourly - daily | Live |
 
 ## Research
 

@@ -166,10 +166,10 @@ class TestEIAEnergyHelpers:
         assert parse_eia_period("not-a-date") is None
         assert parse_eia_period(None) is None
 
-    def test_lookback_window_is_24_hours(self) -> None:
+    def test_lookback_window_is_72_hours(self) -> None:
         now = datetime(2026, 4, 30, 12, tzinfo=timezone.utc)
 
         start, end = lookback_window(now=now)
 
-        assert start == "2026-04-29T12"
+        assert start == "2026-04-27T12"
         assert end == "2026-04-30T12"

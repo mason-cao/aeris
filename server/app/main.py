@@ -9,8 +9,16 @@ from app.config import settings
 from app.db.schema import create_tables
 from app.db.session import engine
 
+
+def resolve_log_level(value: str) -> int:
+    level = getattr(logging, value.upper(), None)
+    if not isinstance(level, int):
+        raise ValueError(f"Invalid log level: {value}")
+    return level
+
+
 logging.basicConfig(
-    level=getattr(logging, settings.aeris_log_level),
+    level=resolve_log_level(settings.aeris_log_level),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)

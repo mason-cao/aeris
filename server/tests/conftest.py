@@ -5,13 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.db.models import Base
 
-# Use SQLite for CI/test (no TimescaleDB needed for unit tests)
-TEST_DATABASE_URL = "sqlite+aiosqlite:///test_aeris.db"
-
-
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
-async def test_engine():
-    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+async def test_engine(tmp_path_factory):
+    db_path = tmp_path_factory.mktemp("aeris-db") / "aeris.sqlite3"
+    engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)

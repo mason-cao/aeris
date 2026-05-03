@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -43,6 +44,13 @@ class Settings(BaseSettings):
     aeris_target_lat: float = 34.0515
     aeris_target_lon: float = -84.0713
     aeris_target_radius_km: float = 50.0
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_async_database_url(cls, value: object) -> object:
+        if isinstance(value, str) and value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return value
 
 
 settings = Settings()

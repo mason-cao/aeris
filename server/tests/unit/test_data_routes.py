@@ -187,6 +187,50 @@ class TestDataPointRoutes:
         assert payload["items"][0]["source_entity_id"] == "sensor-near"
 
     @pytest.mark.asyncio
+    async def test_get_data_by_source_radius_filter_accounts_for_longitude_scale(
+        self,
+        api_client,
+        db_session,
+    ) -> None:
+        source = "api_longitude_radius_source"
+        await seed_data_point(
+            db_session,
+            source=source,
+            metric="pm25",
+            value=10.0,
+            timestamp=datetime(2026, 4, 21, 12, 0, tzinfo=timezone.utc),
+            lat=34.0515,
+            lon=-84.0213,
+            source_entity_id="sensor-east",
+        )
+
+        response = await api_client.get(
+            f"/api/data/{source}",
+            params={
+                "lat": 34.0515,
+                "lon": -84.0713,
+                "radius_km": 5,
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["total"] == 1
+        assert payload["items"][0]["source_entity_id"] == "sensor-east"
+
+    @pytest.mark.asyncio
+    async def test_get_data_by_source_rejects_negative_limit(
+        self,
+        api_client,
+    ) -> None:
+        response = await api_client.get(
+            "/api/data/api_data_source",
+            params={"limit": -1},
+        )
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
     async def test_get_data_by_source_paginates(self, api_client, db_session) -> None:
         source = "api_pagination_source"
         for index in range(3):

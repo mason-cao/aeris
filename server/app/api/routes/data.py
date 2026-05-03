@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -66,8 +67,8 @@ async def get_data_by_source(
     end: datetime | None = None,
     lat: float | None = None,
     lon: float | None = None,
-    radius_km: float | None = None,
-    limit: int = Query(default=100, le=1000),
+    radius_km: float | None = Query(default=None, gt=0),
+    limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_session),
 ) -> PaginatedDataPoints:
@@ -86,15 +87,16 @@ async def get_data_by_source(
         query = query.where(DataPoint.timestamp <= end)
         count_query = count_query.where(DataPoint.timestamp <= end)
     if lat is not None and lon is not None and radius_km is not None:
-        # Approximate bounding box filter (1 degree ≈ 111 km)
-        delta = radius_km / 111.0
+        lat_delta = radius_km / 111.32
+        lon_scale = 111.32 * max(math.cos(math.radians(lat)), 0.01)
+        lon_delta = radius_km / lon_scale
         query = query.where(
-            DataPoint.lat.between(lat - delta, lat + delta),
-            DataPoint.lon.between(lon - delta, lon + delta),
+            DataPoint.lat.between(lat - lat_delta, lat + lat_delta),
+            DataPoint.lon.between(lon - lon_delta, lon + lon_delta),
         )
         count_query = count_query.where(
-            DataPoint.lat.between(lat - delta, lat + delta),
-            DataPoint.lon.between(lon - delta, lon + delta),
+            DataPoint.lat.between(lat - lat_delta, lat + lat_delta),
+            DataPoint.lon.between(lon - lon_delta, lon + lon_delta),
         )
 
     total_result = await session.execute(count_query)

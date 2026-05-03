@@ -95,12 +95,41 @@ class TestEPAAirNowNormalize:
         points = collector.normalize(sample_api_response)
         assert {p.source_entity_id for p in points} == {"Atlanta", "Gwinnett"}
 
-    def test_normalize_parses_timestamp(
+    def test_normalize_converts_local_timestamp_to_utc(
         self, collector: EPAAirNowCollector, sample_api_response: dict
     ) -> None:
         points = collector.normalize(sample_api_response)
-        expected = datetime(2026, 4, 5, 14, 0, tzinfo=timezone.utc)
+        expected = datetime(2026, 4, 5, 19, 0, tzinfo=timezone.utc)
         assert all(p.timestamp == expected for p in points)
+
+    def test_normalize_uses_aqi_when_concentration_fields_absent(
+        self, collector: EPAAirNowCollector
+    ) -> None:
+        raw = {
+            "observations": [
+                {
+                    "DateObserved": "2026-04-05",
+                    "HourObserved": 14,
+                    "LocalTimeZone": "EDT",
+                    "ReportingArea": "Atlanta",
+                    "Latitude": 33.7490,
+                    "Longitude": -84.3880,
+                    "ParameterName": "PM2.5",
+                    "AQI": 42,
+                    "Category": {"Number": 1, "Name": "Good"},
+                },
+            ]
+        }
+
+        points = collector.normalize(raw)
+
+        assert len(points) == 1
+        assert points[0].metric == "pm25_aqi"
+        assert points[0].value == 42.0
+        assert points[0].unit == "AQI"
+        assert points[0].timestamp == datetime(
+            2026, 4, 5, 18, 0, tzinfo=timezone.utc
+        )
 
     def test_normalize_sets_source(
         self, collector: EPAAirNowCollector, sample_api_response: dict

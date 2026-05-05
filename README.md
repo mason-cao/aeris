@@ -6,29 +6,26 @@ A self-hosted environmental intelligence platform that detects anomalies in real
 
 ## The Problem
 
-Air quality, wildfire smoke, and water conditions can change block by block and hour by hour. The data exists, but it's scattered across EPA, NOAA, NASA, USGS, and a dozen other agencies, all in different formats. When PM2.5 spikes in your neighborhood, nothing tells you what caused it or what to do about it.
+Attributing complex climate events and anomalies to underlying atmospheric physics is a highly specialized task. The necessary data (vertical temperature profiles, wind vectors, and satellite imaging) exists, but it is scattered across various meteorological agencies in different formats. 
 
-Big cloud models could probably reason through this if you piped enough data in, but running GPT-class inference on a 24/7 stream isn't realistic for a household. Small local models are cheap to run, but they hallucinate badly when you ask them to reason about atmospheric chemistry. AERIS is an attempt to bridge that gap: an 8B model with enough RAG and structured cross-referencing scaffolding to get close to frontier-model accuracy on a specific, narrow task.
+Big cloud models could probably reason through this if you piped enough data in, but running GPT-class inference on a 24/7 stream isn't realistic for independent deployment. Small local models are cheap to run, but they hallucinate badly when asked to reason about climate physics and AI attribution. AERIS is an attempt to bridge that gap: an 8B model with a specialized RAG pipeline and structured cross-referencing to perform accurate climate attribution locally.
 
 ## What AERIS Does
 
 AERIS runs on a home server and:
 
-1. **Aggregates** 9 real-time environmental data sources (air quality, weather, wildfires, satellite, traffic, water, energy)
+1. **Aggregates** real-time atmospheric and climate data sources (including OpenWeather and Sentinel-5P)
 2. **Detects anomalies** using a three-method engine (statistical, seasonal decomposition, isolation forest)
 3. **Explains causes** via a locally-hosted LLM that cross-references all data sources through a RAG pipeline
-4. **Visualizes** everything on an interactive map with real-time feeds, evidence panels, and natural language querying
+4. **Visualizes** everything on an interactive map, translating complex atmospheric anomalies into actionable regional health advisories and natural language summaries.
 
-**Target region**: Suwanee, GA and the surrounding north Atlanta metro (50 km radius around 34.05°N, 84.07°W).
-
-All inference runs locally. No student data, health queries, or location data leaves the server.
+All inference runs locally, ensuring complete data privacy and independent operation.
 
 ## Architecture
 
 ```
 Home Server (Always-On)
-├── Data Collectors ──── 9 public APIs (EPA, OpenAQ, PurpleAir, NOAA, NASA FIRMS,
-│                        Sentinel-5P, TomTom, USGS, EIA)
+├── Data Collectors ──── 4 Macro APIs (NOAA GFS, OpenWeather, Sentinel-5P, OpenAQ)
 ├── PostgreSQL + TimescaleDB ──── Time-series storage
 ├── Anomaly Detection ──── Z-score | STL decomposition | Isolation Forest
 ├── Ollama (Llama 3 8B) ──── Local LLM inference
@@ -36,10 +33,10 @@ Home Server (Always-On)
 └── FastAPI ──── REST API + WebSocket
 
 Web Application (React)
-├── Interactive Map ──── Mapbox GL JS with sensor/anomaly/satellite layers
-├── Anomaly Feed ──── Real-time detected anomalies with LLM summaries
-├── Anomaly Detail ──── Full explanation + evidence panels + health advisory
-├── NL Query ──── "Why was air quality bad yesterday?"
+├── Interactive Map ──── Mapbox GL JS with meteorological/anomaly/satellite layers
+├── Anomaly Feed ──── Real-time detected anomalies with LLM attribution summaries
+├── Anomaly Detail ──── Full physics explanation + downstream regional health advisories
+├── NL Query ──── "What atmospheric conditions caused the temperature inversion yesterday?"
 └── System Dashboard ──── Collection status, model metrics, server health
 ```
 
@@ -61,19 +58,14 @@ Web Application (React)
 
 | Source | Data | Frequency | Status |
 |--------|------|-----------|--------|
-| EPA AirNow | AQI, PM2.5, ozone, NO2, SO2, CO | Hourly | Live |
-| OpenAQ | Global government air quality monitors | Hourly | Live |
-| PurpleAir | Crowdsourced hyperlocal PM2.5 | ~2 min | Live |
-| NOAA / OpenWeather | Weather (temp, wind, humidity, pressure) | Hourly | Live |
-| NASA FIRMS | Active wildfire locations | ~3 hours | Live |
-| Sentinel-5P | Satellite NO2, SO2, CO columns | Daily | Live |
-| TomTom | Real-time traffic density | ~15 min | Live |
-| USGS Water Services | Stream flow, water quality | 15 min - hourly | Live |
-| EIA Open Data | Power plant emissions, grid carbon | Hourly - daily | Live |
+| NOAA Global Forecast System (GFS) | Macro climate data, atmospheric modeling | 6 hours | Live |
+| OpenWeather | Vertical temperature profiles, wind direction, humidity, pressure | Hourly | Live |
+| Sentinel-5P | Satellite atmospheric chemistry (NO2, SO2, CO columns) | Daily | Live |
+| OpenAQ | Global baseline atmospheric sensor data | Hourly | Live |
 
 ## Research
 
-**Question**: Can locally-hosted LLMs generate accurate causal explanations for environmental anomalies by cross-referencing heterogeneous data sources?
+**Question**: Can locally-hosted LLMs accurately perform AI attribution for complex climate anomalies by cross-referencing heterogeneous atmospheric physics datasets?
 
 **Evaluation**:
 - Expert-labeled anomaly ground truth (50-100 events)
@@ -94,7 +86,7 @@ Web Application (React)
 
 ```bash
 # Clone
-git clone https://github.com/<your-username>/aeris.git
+git clone [https://github.com/](https://github.com/)<your-username>/aeris.git
 cd aeris
 
 # Backend
@@ -115,24 +107,23 @@ npm run dev
 
 Copy `server/.env.example` and fill in:
 - `DATABASE_URL` - PostgreSQL connection string
-- `AIRNOW_API_KEY` - EPA AirNow
 - `OPENAQ_API_KEY` - OpenAQ
-- `PURPLEAIR_API_KEY` - PurpleAir
 - `OPENWEATHER_API_KEY` - OpenWeather
-- `TOMTOM_API_KEY` - TomTom traffic
-- `EIA_API_KEY` - EIA energy data
-- `FIRMS_MAP_KEY` - NASA FIRMS active fire detections
 - `MAPBOX_TOKEN` - Mapbox GL JS
 - `NASA_EARTHDATA_TOKEN` - Sentinel-5P satellite data
 
 ## Roadmap
 
 - [x] Design specification
-- [~] **Month 1**: Server infrastructure + data pipeline (5/9 collectors live; Sentinel-5P, TomTom, USGS, EIA pending)
+- [~] **Month 1**: Server infrastructure + data pipeline (OpenWeather vertical profiles and wind vectors active; Sentinel-5P pending)
 - [ ] **Month 2**: Anomaly detection engine + LLM explanation pipeline
 - [ ] **Month 3**: Web application (map, feed, detail, query, dashboard)
 - [ ] **Month 4**: Research evaluation + polish
 - [ ] **Month 5**: Paper, competition submissions, stretch goals
+
+## Acknowledgements
+
+Dr. Annalisa Bracco, Senior Scientist @ CMCC & Professor, Georgia Institute of Technology - Formal mentor for the AI attribution phase
 
 ## License
 

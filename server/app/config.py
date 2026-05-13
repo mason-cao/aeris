@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     # NASA / Satellite
     nasa_earthdata_token: str = ""
+    cdse_username: str = ""
+    cdse_password: str = ""
 
     # Mapping
     mapbox_token: str = ""

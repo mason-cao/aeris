@@ -114,12 +114,13 @@ Copy `server/.env.example` and fill in:
 - `OPENAQ_API_KEY` - OpenAQ
 - `OPENWEATHER_API_KEY` - OpenWeather
 - `MAPBOX_TOKEN` - Mapbox GL JS
-- `NASA_EARTHDATA_TOKEN` - Sentinel-5P satellite data
+- `CDSE_USERNAME` / `CDSE_PASSWORD` - Copernicus Data Space (Sentinel-5P granule downloads)
+- `NASA_EARTHDATA_TOKEN` - NASA Earthdata fallback (optional)
 
 ## Roadmap
 
 - [x] Design specification
-- [~] **Month 1**: Server infrastructure + data pipeline (OpenWeather vertical profiles and wind vectors active; Sentinel-5P pending)
+- [x] **Month 1**: Server infrastructure + data pipeline (all four macro APIs live — OpenAQ, OpenWeather, Sentinel-5P column extraction, NOAA GFS analysis)
 - [ ] **Month 2**: Anomaly detection engine + LLM explanation pipeline
 - [ ] **Month 3**: Web application (map, feed, detail, query, dashboard)
 - [ ] **Month 4**: Research evaluation + polish

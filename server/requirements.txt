@@ -10,9 +10,10 @@ psycopg2-binary==2.9.10
 # HTTP client
 httpx==0.28.1
 
-# Climate data (NOAA GFS via OPeNDAP)
+# Climate data (NOAA GFS via OPeNDAP, Sentinel-5P L2 netCDF)
 xarray==2025.1.2
 pydap==3.5.4
+netCDF4==1.7.2
 numpy==2.2.3
 
 # Data validation / config

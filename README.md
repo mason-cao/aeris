@@ -21,6 +21,10 @@ AERIS runs on a home server and:
 
 All inference runs locally, ensuring complete data privacy and independent operation.
 
+## Scope
+
+Geographic target: a 50km radius around downtown Houston, Texas. Houston was chosen on mentor recommendation for three high-contrast inputs that stress-test a 4-API attribution model: massive petrochemical emissions from the Ship Channel refinery complex, a dense government sensor network (EPA + TCEQ + harbor monitors), and dynamic Gulf-coast weather (sea-breeze fronts, hurricane corridor, frequent inversions). All collectors filter to this bounding box; the center coordinate is configurable via `AERIS_TARGET_LAT` / `AERIS_TARGET_LON` / `AERIS_TARGET_RADIUS_KM`.
+
 ## Architecture
 
 ```
@@ -58,7 +62,7 @@ Web Application (React)
 
 | Source | Data | Frequency | Status |
 |--------|------|-----------|--------|
-| NOAA Global Forecast System (GFS) | Macro climate data, atmospheric modeling | 6 hours | Live |
+| NOAA Global Forecast System (GFS) | Macro climate data, atmospheric modeling | 6 hours | Pending |
 | OpenWeather | Vertical temperature profiles, wind direction, humidity, pressure | Hourly | Live |
 | Sentinel-5P | Satellite atmospheric chemistry (NO2, SO2, CO columns) | Daily | Live |
 | OpenAQ | Global baseline atmospheric sensor data | Hourly | Live |
@@ -86,7 +90,7 @@ Web Application (React)
 
 ```bash
 # Clone
-git clone [https://github.com/](https://github.com/)<your-username>/aeris.git
+git clone https://github.com/<your-username>/aeris.git
 cd aeris
 
 # Backend

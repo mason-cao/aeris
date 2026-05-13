@@ -62,7 +62,7 @@ Web Application (React)
 
 | Source | Data | Frequency | Status |
 |--------|------|-----------|--------|
-| NOAA Global Forecast System (GFS) | Macro climate data, atmospheric modeling | 6 hours | Pending |
+| NOAA Global Forecast System (GFS) | Macro climate data, atmospheric modeling | 6 hours | Live |
 | OpenWeather | Vertical temperature profiles, wind direction, humidity, pressure | Hourly | Live |
 | Sentinel-5P | Satellite atmospheric chemistry (NO2, SO2, CO columns) | Daily | Live |
 | OpenAQ | Global baseline atmospheric sensor data | Hourly | Live |

@@ -10,6 +10,11 @@ psycopg2-binary==2.9.10
 # HTTP client
 httpx==0.28.1
 
+# Climate data (NOAA GFS via OPeNDAP)
+xarray==2025.1.2
+pydap==3.5.4
+numpy==2.2.3
+
 # Data validation / config
 pydantic==2.11.1
 pydantic-settings==2.8.1

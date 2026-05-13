@@ -4,7 +4,7 @@ from typing import Any
 import httpx
 import pytest
 
-from app.collectors.noaa_weather import (
+from app.collectors.openweather import (
     FIELD_MAP,
     OpenWeatherCollector,
     WeatherQueryPoint,

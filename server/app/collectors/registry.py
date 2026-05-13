@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from typing import TypeAlias
 
 from app.collectors.base import BaseCollector
-from app.collectors.noaa_weather import OpenWeatherCollector
+from app.collectors.openweather import OpenWeatherCollector
 from app.collectors.openaq import OpenAQCollector
 from app.collectors.sentinel5p import Sentinel5PCollector
 

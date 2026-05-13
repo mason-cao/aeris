@@ -2,7 +2,7 @@
 
 **Date**: 2026-05-13
 **Phase**: Month 1 — fourth macro API
-**Status**: Spec drafted, implementation pending
+**Status**: Implemented 2026-05-13
 
 ## Context
 

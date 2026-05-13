@@ -14,6 +14,7 @@ from app.collectors.registry import (
 class TestCollectorRegistry:
     def test_registry_contains_all_collectors(self) -> None:
         assert set(COLLECTOR_REGISTRY) == {
+            "noaa_gfs",
             "openaq",
             "openweather",
             "sentinel5p",

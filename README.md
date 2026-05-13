@@ -69,13 +69,18 @@ Web Application (React)
 
 ## Research
 
-**Question**: Can locally-hosted LLMs accurately perform AI attribution for complex climate anomalies by cross-referencing heterogeneous atmospheric physics datasets?
+**Question**: Can a locally-hosted 8B model match cloud GPT-class accuracy on climate-anomaly attribution when paired with a structured cross-source RAG pipeline and hallucination detection? Linking weather patterns to environmental events is well-established science; the open question is whether a small, locally-hosted model can do it reliably enough for independent deployment.
+
+**Contributions**:
+1. A four-API cross-referencing architecture that gives an 8B model the structured context it needs to reason about heterogeneous atmospheric data.
+2. An automated hallucination-detection layer specialized for climate-physics claims, evaluated against intentionally-injected false statements.
+3. An empirical local-vs-cloud comparison on a domain where small models are widely assumed to fail.
 
 **Evaluation**:
-- Expert-labeled anomaly ground truth (50-100 events)
-- Local (Llama 3 8B) vs. cloud (GPT 5.4, Gemini 3 Thinking) comparison
-- Automated hallucination detection accuracy
-- User comprehension and actionability study
+- Expert-labeled anomaly ground truth (50-100 events, kept broad across categories — petrochemical upsets, ozone exceedances, wildfire-smoke transport, hurricanes, hard freezes — to test cross-category generalization, not category-specific tuning)
+- Local (Llama 3 8B) vs. cloud (GPT 5.4, Gemini 3 Thinking) attribution accuracy
+- Hallucination-detection precision/recall on injected false claims
+- User comprehension and actionability study with non-expert participants
 
 ## Getting Started
 

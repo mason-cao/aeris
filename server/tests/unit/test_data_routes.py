@@ -32,8 +32,8 @@ async def seed_data_point(
     metric: str,
     value: float,
     timestamp: datetime,
-    lat: float = 34.0515,
-    lon: float = -84.0713,
+    lat: float = 29.7604,
+    lon: float = -95.3698,
     source_entity_id: str = "entity-1",
 ) -> None:
     db_session.add(
@@ -165,7 +165,7 @@ class TestDataPointRoutes:
             value=40.0,
             timestamp=datetime(2026, 4, 21, 12, 0, tzinfo=timezone.utc),
             lat=35.0,
-            lon=-84.0713,
+            lon=-95.3698,
             source_entity_id="sensor-too-far",
         )
 
@@ -175,8 +175,8 @@ class TestDataPointRoutes:
                 "metric": "pm25",
                 "start": "2026-04-20T00:00:00Z",
                 "end": "2026-04-22T00:00:00Z",
-                "lat": 34.0515,
-                "lon": -84.0713,
+                "lat": 29.7604,
+                "lon": -95.3698,
                 "radius_km": 5,
             },
         )
@@ -199,16 +199,16 @@ class TestDataPointRoutes:
             metric="pm25",
             value=10.0,
             timestamp=datetime(2026, 4, 21, 12, 0, tzinfo=timezone.utc),
-            lat=34.0515,
-            lon=-84.0213,
+            lat=29.7604,
+            lon=-95.3198,
             source_entity_id="sensor-east",
         )
 
         response = await api_client.get(
             f"/api/data/{source}",
             params={
-                "lat": 34.0515,
-                "lon": -84.0713,
+                "lat": 29.7604,
+                "lon": -95.3698,
                 "radius_km": 5,
             },
         )

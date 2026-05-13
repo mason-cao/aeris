@@ -32,8 +32,8 @@ class Settings(BaseSettings):
     # App
     aeris_env: str = "development"
     aeris_log_level: str = "INFO"
-    aeris_target_lat: float = 34.0515
-    aeris_target_lon: float = -84.0713
+    aeris_target_lat: float = 29.7604
+    aeris_target_lon: float = -95.3698
     aeris_target_radius_km: float = 50.0
 
     @field_validator("database_url", mode="before")

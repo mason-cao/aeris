@@ -22,7 +22,7 @@ def collector() -> OpenWeatherCollector:
 
 def make_payload(**overrides: Any) -> dict[str, Any]:
     payload = {
-        "coord": {"lon": -84.0713, "lat": 34.0515},
+        "coord": {"lon": -95.3698, "lat": 29.7604},
         "weather": [{"id": 501, "main": "Rain", "description": "moderate rain"}],
         "main": {
             "temp": 21.4,
@@ -37,8 +37,8 @@ def make_payload(**overrides: Any) -> dict[str, Any]:
         "snow": {"1h": 0.3},
         "clouds": {"all": 75},
         "dt": 1776081600,
-        "id": 4225309,
-        "name": "Suwanee",
+        "id": 4699066,
+        "name": "Houston",
     }
     payload.update(overrides)
     return payload
@@ -47,8 +47,8 @@ def make_payload(**overrides: Any) -> dict[str, Any]:
 def make_observation(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "point_id": "center",
-        "requested_lat": 34.0515,
-        "requested_lon": -84.0713,
+        "requested_lat": 29.7604,
+        "requested_lon": -95.3698,
         "payload": payload or make_payload(),
     }
 
@@ -121,7 +121,7 @@ class TestOpenWeatherNormalize:
         points = collector.normalize({"observations": [make_observation()]})
 
         assert points[0].raw_json is not None
-        assert points[0].raw_json["payload"]["name"] == "Suwanee"
+        assert points[0].raw_json["payload"]["name"] == "Houston"
         assert points[0].raw_json["point_id"] == "center"
 
     def test_normalize_skips_bad_timestamp(

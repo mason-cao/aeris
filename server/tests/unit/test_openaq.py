@@ -21,8 +21,8 @@ def collector() -> OpenAQCollector:
 def make_location(location_id: int = 100) -> dict[str, Any]:
     return {
         "id": location_id,
-        "name": "Suwanee Monitor",
-        "coordinates": {"latitude": 34.0515, "longitude": -84.0713},
+        "name": "Houston Monitor",
+        "coordinates": {"latitude": 29.7604, "longitude": -95.3698},
     }
 
 
@@ -39,7 +39,7 @@ def make_sensor(
         latest = {
             "datetime": {"utc": timestamp, "local": "2026-04-13T08:00:00-04:00"},
             "value": value,
-            "coordinates": {"latitude": 34.0515, "longitude": -84.0713},
+            "coordinates": {"latitude": 29.7604, "longitude": -95.3698},
         }
 
     return {
@@ -114,7 +114,7 @@ class TestOpenAQNormalize:
         points = collector.normalize(make_raw([make_sensor(1, "pm25")]))
 
         assert points[0].raw_json is not None
-        assert points[0].raw_json["location"]["name"] == "Suwanee Monitor"
+        assert points[0].raw_json["location"]["name"] == "Houston Monitor"
         assert points[0].raw_json["sensor"]["id"] == 1
 
     def test_normalize_skips_unknown_parameter(

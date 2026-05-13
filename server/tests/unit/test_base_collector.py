@@ -45,29 +45,29 @@ class TestDataPointCreate:
     def test_creates_valid_point(self) -> None:
         point = DataPointCreate(
             timestamp=datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc),
-            lat=34.0515,
-            lon=-84.0713,
+            lat=29.7604,
+            lon=-95.3698,
             metric="pm25",
             value=42.0,
             unit="ug/m3",
             source="openaq",
-            source_entity_id="Atlanta",
+            source_entity_id="Houston",
         )
         assert point.metric == "pm25"
         assert point.unit == "ug/m3"
-        assert point.source_entity_id == "Atlanta"
+        assert point.source_entity_id == "Houston"
         assert point.raw_json is None
 
     def test_with_raw_json(self) -> None:
         point = DataPointCreate(
             timestamp=datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc),
-            lat=34.0515,
-            lon=-84.0713,
+            lat=29.7604,
+            lon=-95.3698,
             metric="pm25",
             value=42.0,
             unit="ug/m3",
             source="openaq",
-            source_entity_id="Atlanta",
+            source_entity_id="Houston",
             raw_json={"extra": "data"},
         )
         assert point.raw_json == {"extra": "data"}

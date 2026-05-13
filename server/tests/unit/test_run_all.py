@@ -108,7 +108,7 @@ class TestRunAllFormatting:
 
     def test_format_result_failure_includes_errors(self) -> None:
         result = CollectionResult(
-            source="nasa_firms",
+            source="sentinel5p",
             success=False,
             record_count=0,
             duration_ms=9.0,
@@ -116,7 +116,7 @@ class TestRunAllFormatting:
         )
 
         assert format_result(result) == (
-            "nasa_firms | failed | records=0 | duration_ms=9.0 | "
+            "sentinel5p | failed | records=0 | duration_ms=9.0 | "
             "errors=missing key"
         )
 

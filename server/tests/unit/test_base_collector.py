@@ -50,7 +50,7 @@ class TestDataPointCreate:
             metric="pm25",
             value=42.0,
             unit="ug/m3",
-            source="epa_airnow",
+            source="openaq",
             source_entity_id="Atlanta",
         )
         assert point.metric == "pm25"
@@ -66,7 +66,7 @@ class TestDataPointCreate:
             metric="pm25",
             value=42.0,
             unit="ug/m3",
-            source="epa_airnow",
+            source="openaq",
             source_entity_id="Atlanta",
             raw_json={"extra": "data"},
         )

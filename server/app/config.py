@@ -14,21 +14,12 @@ class Settings(BaseSettings):
     database_url_sync: str = "postgresql://aeris:aeris@localhost:5432/aeris"
 
     # Air Quality APIs
-    airnow_api_key: str = ""
     openaq_api_key: str = ""
-    purpleair_api_key: str = ""
 
     # Weather
     openweather_api_key: str = ""
 
-    # Traffic
-    tomtom_api_key: str = ""
-
-    # Energy
-    eia_api_key: str = ""
-
     # NASA / Satellite
-    firms_map_key: str = ""
     nasa_earthdata_token: str = ""
 
     # Mapping

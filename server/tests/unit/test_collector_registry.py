@@ -14,15 +14,9 @@ from app.collectors.registry import (
 class TestCollectorRegistry:
     def test_registry_contains_all_collectors(self) -> None:
         assert set(COLLECTOR_REGISTRY) == {
-            "epa_airnow",
             "openaq",
-            "purpleair",
             "openweather",
-            "nasa_firms",
             "sentinel5p",
-            "tomtom_traffic",
-            "usgs_water",
-            "eia_energy",
         }
 
     def test_collector_names_are_sorted(self) -> None:
@@ -34,9 +28,9 @@ class TestCollectorRegistry:
         assert tuple(collector_names()) == source_choices()
 
     def test_get_collector_class_returns_registered_class(self) -> None:
-        collector_class = get_collector_class("purpleair")
+        collector_class = get_collector_class("sentinel5p")
 
-        assert collector_class.source_name == "purpleair"
+        assert collector_class.source_name == "sentinel5p"
 
     def test_get_collector_class_rejects_unknown_source(self) -> None:
         with pytest.raises(ValueError, match="Unknown collector source"):
@@ -49,10 +43,10 @@ class TestCollectorRegistry:
         assert collector.source_name == "openaq"
 
     def test_create_collectors_filters_to_one_source(self) -> None:
-        collectors = create_collectors("nasa_firms")
+        collectors = create_collectors("openweather")
 
         assert len(collectors) == 1
-        assert collectors[0].source_name == "nasa_firms"
+        assert collectors[0].source_name == "openweather"
 
     def test_create_collectors_returns_all_registered_sources(self) -> None:
         collectors = create_collectors()

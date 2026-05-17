@@ -1,0 +1,16 @@
+AERIS Alembic migrations.
+
+Fresh database (CI, new dev box):
+    alembic upgrade head
+
+Existing dev database (already has data_points + data_sources from earlier
+create_all bootstrap): stamp it as current so the initial migration's
+CREATE TABLE statements are not re-run, then upgrade normally afterwards:
+    alembic stamp head
+    # future migrations:
+    alembic upgrade head
+
+The connection URL comes from app.config.settings.database_url_sync.
+Tests override it by calling Config.set_main_option("sqlalchemy.url", ...)
+before invoking alembic.command — env.py only falls back to settings when
+no URL is set on the Config object.

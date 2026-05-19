@@ -283,7 +283,6 @@ For each claim, the scorer:
 **Day 5 (Tue May 20):**
 
 - Mason: implement `enrichment.py` — gather 72h cross-source context around each detected anomaly
-
 - Mason: triage detected anomalies into a candidate eval set (~80 candidates → trim to 50 strong ones)
 - Mason: draft email to Bracco confirming June 2 meeting and previewing the agenda
 

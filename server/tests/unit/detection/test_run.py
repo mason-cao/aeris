@@ -147,6 +147,44 @@ class TestGroupPointsBySeries:
     def test_empty_input_returns_empty_dict(self) -> None:
         assert group_points_by_series([]) == {}
 
+    def test_includes_openaq_ozone(self) -> None:
+        # OpenAQ normalizes both "o3" and "ozone" parameters to the metric
+        # name "ozone"; detection must group it, not drop it.
+        pts = [_dp(ts=T0, value=55.0, source="openaq", metric="ozone", entity="A")]
+        groups = group_points_by_series(pts)
+        assert GroupKey("openaq", "ozone", "A") in groups
+
+    def test_includes_sentinel5p_column_metrics(self) -> None:
+        # The Sentinel-5P collector emits column densities s5p_-prefixed.
+        pts = [
+            _dp(ts=T0, value=4.1e-5, source="sentinel5p",
+                metric="s5p_no2_column", entity="g1"),
+            _dp(ts=T0, value=2.0e-5, source="sentinel5p",
+                metric="s5p_so2_column", entity="g1"),
+            _dp(ts=T0, value=3.0e-2, source="sentinel5p",
+                metric="s5p_co_column", entity="g1"),
+            _dp(ts=T0, value=1.1e-4, source="sentinel5p",
+                metric="s5p_hcho_column", entity="g1"),
+        ]
+        groups = group_points_by_series(pts)
+        assert {key.metric for key in groups} == {
+            "s5p_no2_column",
+            "s5p_so2_column",
+            "s5p_co_column",
+            "s5p_hcho_column",
+        }
+
+    def test_excludes_sentinel5p_granule_metadata(self) -> None:
+        # granule_available / cloud_cover are metadata flags, not pollutant
+        # time-series — they must not be treated as detection targets.
+        pts = [
+            _dp(ts=T0, value=1.0, source="sentinel5p",
+                metric="s5p_no2_granule_available", entity="g1"),
+            _dp(ts=T0, value=18.0, source="sentinel5p",
+                metric="s5p_no2_cloud_cover", entity="g1"),
+        ]
+        assert group_points_by_series(pts) == {}
+
 
 class TestNearestValue:
     def test_returns_value_at_exact_timestamp(self) -> None:

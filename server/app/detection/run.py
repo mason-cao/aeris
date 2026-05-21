@@ -38,21 +38,22 @@ from .isolation_forest import IsolationForestInput
 # Metrics the engine runs on directly. Auxiliary atmospheric / met fields
 # (GFS u_10m/v_10m wind components, pbl_height) are joined into the
 # IsolationForest aux_features instead of being treated as detection targets.
+# These names must match what the collectors emit (openaq.PARAMETER_MAP,
+# sentinel5p.PRODUCT_TYPE_MAP); a mismatch silently drops the whole series.
 PRIMARY_METRICS: frozenset[str] = frozenset(
     {
         # OpenAQ surface pollutants
         "pm25",
         "pm10",
         "no2",
-        "o3",
+        "ozone",
         "co",
         "so2",
-        # Sentinel-5P column densities
-        "no2_column",
-        "hcho_column",
-        "o3_column",
-        "so2_column",
-        "co_column",
+        # Sentinel-5P column densities (collector prefixes these with s5p_)
+        "s5p_no2_column",
+        "s5p_so2_column",
+        "s5p_co_column",
+        "s5p_hcho_column",
     }
 )
 
@@ -422,7 +423,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--metric",
         default=None,
-        help="Filter to one metric (pm25, no2, no2_column, ...)",
+        help="Filter to one metric (pm25, ozone, s5p_no2_column, ...)",
     )
     parser.add_argument(
         "--since",

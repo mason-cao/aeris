@@ -11,11 +11,11 @@ alembic==1.14.1
 # HTTP client
 httpx==0.28.1
 
-# Climate data (NOAA GFS via OPeNDAP, Sentinel-5P L2 netCDF)
+# Climate data (NOAA GFS via NOMADS GRIB filter, Sentinel-5P L2 netCDF)
 xarray==2025.1.2
-pydap==3.5.4
 netCDF4==1.7.2
 numpy==2.2.3
+pygrib==2.1.8
 
 # Detection (Month 2)
 scikit-learn==1.6.1

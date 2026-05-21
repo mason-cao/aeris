@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -10,12 +11,14 @@ from sqlalchemy import delete, select
 from app.collectors.backfill import (
     BackfillResult,
     BackfillStrategy,
+    NOAAGFSBackfill,
     OpenAQBackfill,
     OpenWeatherBackfill,
     _parse_args,
     available_strategies,
     run_backfill,
 )
+from app.collectors.noaa_gfs import NOAAGFSCollector
 from app.db.models import DataPoint
 
 
@@ -338,6 +341,49 @@ class TestOpenAQBackfillSingleSensor:
         # a fine interpretation for the user-facing summary.
         rows = (await db_session.execute(select(DataPoint))).scalars().all()
         assert len(rows) == 3
+
+
+class TestNOAAGFSBackfill:
+    @pytest.mark.asyncio
+    async def test_stores_points_from_each_cycle_via_load_cycle(
+        self, db_session
+    ) -> None:
+        # Window floored to a 6h boundary so exactly one GFS cycle is in range.
+        until = datetime.now(timezone.utc).replace(
+            minute=0, second=0, microsecond=0
+        )
+        until = until.replace(hour=(until.hour // 6) * 6)
+        since = until
+
+        grid = [
+            {
+                "lat": 29.75,
+                "lon": -95.37,
+                "values": {
+                    "gh_500": 5840.0,
+                    "t_850": 295.0,
+                    "u_10m": 3.4,
+                    "v_10m": -1.2,
+                    "surface_pressure": 101325.0,
+                    "precipitable_water": 35.0,
+                    "pbl_height": 850.0,
+                },
+            }
+        ]
+
+        with patch.object(
+            NOAAGFSCollector, "_load_cycle", new=AsyncMock(return_value=grid)
+        ):
+            result = await NOAAGFSBackfill().backfill(
+                db_session, since=since, until=until
+            )
+
+        assert result.error is None
+        assert result.records == 7  # one cell x seven GFS variables
+
+        rows = (await db_session.execute(select(DataPoint))).scalars().all()
+        assert len(rows) == 7
+        assert {row.source for row in rows} == {"noaa_gfs"}
 
 
 class TestRunBackfillDispatcher:

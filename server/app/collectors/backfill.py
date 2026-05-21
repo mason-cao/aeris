@@ -12,7 +12,7 @@ differs sharply:
   CDSE credentials are configured).
 * **NOAA GFS** — NOMADS retains roughly the last 10 days of cycles. The
   backfill walks past 6-hour cycles backward through the requested range
-  and reuses the existing ``_read_cycle`` extraction.
+  and reuses the collector's ``_load_cycle`` GRIB-filter fetch + parse.
 * **OpenWeather** — the free tier has no historical endpoint. This
   strategy is a documented no-op; the only path to OpenWeather history is
   scheduled snapshot collection going forward.
@@ -464,7 +464,7 @@ class NOAAGFSBackfill(BackfillStrategy):
             for cycle in _gfs_cycles_in_range(effective_since, until):
                 try:
                     grid = await asyncio.wait_for(
-                        asyncio.to_thread(collector._read_cycle, cycle),
+                        collector._load_cycle(cycle),
                         timeout=60.0,
                     )
                 except Exception as exc:

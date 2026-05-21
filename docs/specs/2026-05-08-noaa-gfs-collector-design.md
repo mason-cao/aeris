@@ -2,7 +2,30 @@
 
 **Date**: 2026-05-08
 **Phase**: Month 1 — fourth macro API
-**Status**: Implemented 2026-05-08
+**Status**: Superseded 2026-05-21 — transport rewritten, see banner
+
+> **SUPERSEDED (2026-05-21).** The transport design in this doc — OPeNDAP
+> via `xarray` + `pydap` — no longer works. NOAA permanently retired the
+> NOMADS OPeNDAP / GrADS Data Server (Service Change Notice SCN 25-81). The
+> collector was rewritten on 2026-05-21 to pull GRIB2 subsets from the
+> NOMADS GRIB filter (`cgi-bin/filter_gfs_0p25.pl`) and parse them with
+> `pygrib`.
+>
+> **Still accurate:** the goals, the seven-variable metric set, unit
+> conversions (K→degC, Pa→hPa), cycle-back selection, bounding-box
+> subsetting, the per-cell `DataPoint` schema, and `raw_json` cycle
+> provenance.
+>
+> **No longer accurate:** the Data Source & Transport table (endpoint,
+> protocol, library); the `hgtprs` / `tmpprs` / … OPeNDAP variable names
+> (the collector now matches GRIB short names `gh` / `t` / `10u` / …, and
+> identifies HPBL by GRIB parameter code 3/196 because eccodes does not
+> name it); decisions D1 and D9; the "Files Touched" dependency rows
+> (`pydap` removed, `pygrib` added); and the OPeNDAP-reliability open
+> question. Goal 5 ("no `eccodes`") is moot — `pygrib` bundles `eccodes`
+> in its wheel, so the dependency chain stays pip-only.
+>
+> Source of truth for current behavior: `server/app/collectors/noaa_gfs.py`.
 
 ## Context
 

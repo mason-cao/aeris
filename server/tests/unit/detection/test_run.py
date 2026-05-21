@@ -9,6 +9,7 @@ from app.db.models import Anomaly, DataPoint, EnrichmentRecord
 from app.detection.consensus import ConsensusAnomaly
 from app.detection.run import (
     GroupKey,
+    _load_gfs_wind_rows,
     _nearest_value,
     _parse_args,
     build_aux_inputs,
@@ -64,6 +65,20 @@ def _dp(
     )
 
 
+def _gfs_wind(
+    ts: datetime,
+    *,
+    u: float,
+    v: float,
+    entity: str = "gfs:29.76,-95.37",
+) -> list[DataPoint]:
+    """A GFS u_10m + v_10m DataPoint pair for one grid cell-cycle."""
+    return [
+        _dp(ts=ts, value=u, metric="u_10m", source="noaa_gfs", entity=entity),
+        _dp(ts=ts, value=v, metric="v_10m", source="noaa_gfs", entity=entity),
+    ]
+
+
 def _seasonal(i: int, base: float = 22.0, amp: float = 6.0) -> float:
     return base + amp * math.sin(2.0 * math.pi * i / 24)
 
@@ -117,16 +132,17 @@ class TestGroupPointsBySeries:
         assert len(groups[GroupKey("openaq", "pm25", "A")]) == 2
 
     def test_excludes_non_primary_metrics(self) -> None:
-        # wind_speed is auxiliary, not a primary detection metric.
+        # u_10m / v_10m / pbl_height are auxiliary, not primary detection metrics.
         pts = [
             _dp(ts=T0, value=20.0, metric="pm25"),
-            _dp(ts=T0, value=3.0, metric="wind_speed", source="openweather"),
+            _dp(ts=T0, value=3.0, metric="u_10m", source="noaa_gfs"),
+            _dp(ts=T0, value=4.0, metric="v_10m", source="noaa_gfs"),
             _dp(ts=T0, value=1000.0, metric="pbl_height", source="noaa_gfs"),
         ]
         groups = group_points_by_series(pts)
         keys = set(groups.keys())
         for k in keys:
-            assert k.metric not in {"wind_speed", "pbl_height"}
+            assert k.metric not in {"u_10m", "v_10m", "pbl_height"}
 
     def test_empty_input_returns_empty_dict(self) -> None:
         assert group_points_by_series([]) == {}
@@ -159,6 +175,48 @@ class TestNearestValue:
         assert _nearest_value(T0, [], timedelta(hours=3)) is None
 
 
+class TestLoadGfsWindRows:
+    @pytest.mark.asyncio
+    async def test_derives_wind_speed_as_hypot_of_u_and_v(self, db_session) -> None:
+        await _seed(db_session, _gfs_wind(T0, u=3.0, v=4.0))
+        rows = await _load_gfs_wind_rows(
+            db_session, T0 - timedelta(hours=1), T0 + timedelta(hours=1)
+        )
+        assert len(rows) == 1
+        assert rows[0][1] == pytest.approx(5.0)  # hypot(3, 4)
+
+    @pytest.mark.asyncio
+    async def test_pairs_u_and_v_per_grid_cell(self, db_session) -> None:
+        await _seed(
+            db_session,
+            _gfs_wind(T0, u=3.0, v=4.0, entity="gfs:A")
+            + _gfs_wind(T0, u=6.0, v=8.0, entity="gfs:B"),
+        )
+        rows = await _load_gfs_wind_rows(
+            db_session, T0 - timedelta(hours=1), T0 + timedelta(hours=1)
+        )
+        assert sorted(round(v, 4) for _, v in rows) == [5.0, 10.0]
+
+    @pytest.mark.asyncio
+    async def test_skips_u_component_with_no_matching_v(self, db_session) -> None:
+        # A u_10m row whose cell-cycle has no v_10m cannot form a wind vector.
+        await _seed(
+            db_session,
+            [_dp(ts=T0, value=3.0, metric="u_10m", source="noaa_gfs", entity="gfs:A")],
+        )
+        rows = await _load_gfs_wind_rows(
+            db_session, T0 - timedelta(hours=1), T0 + timedelta(hours=1)
+        )
+        assert rows == []
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_when_no_gfs_wind_data(self, db_session) -> None:
+        rows = await _load_gfs_wind_rows(
+            db_session, T0 - timedelta(hours=1), T0 + timedelta(hours=1)
+        )
+        assert rows == []
+
+
 class TestBuildAuxInputs:
     @pytest.mark.asyncio
     async def test_returns_none_when_wind_data_missing(self, db_session) -> None:
@@ -178,9 +236,9 @@ class TestBuildAuxInputs:
     async def test_returns_none_when_pbl_data_missing(self, db_session) -> None:
         primary = [_dp(ts=T0 + timedelta(hours=i), value=20.0 + i) for i in range(5)]
         wind = [
-            _dp(ts=T0 + timedelta(hours=i), value=3.0,
-                metric="wind_speed", source="openweather", entity="grid:1")
+            dp
             for i in range(5)
+            for dp in _gfs_wind(T0 + timedelta(hours=i), u=3.0, v=4.0)
         ]
         await _seed(db_session, primary + wind)
         result = await build_aux_inputs(db_session, primary)
@@ -190,9 +248,9 @@ class TestBuildAuxInputs:
     async def test_builds_inputs_when_both_aux_available(self, db_session) -> None:
         primary = [_dp(ts=T0 + timedelta(hours=i), value=20.0 + i) for i in range(5)]
         wind = [
-            _dp(ts=T0 + timedelta(hours=i), value=3.0 + i * 0.1,
-                metric="wind_speed", source="openweather", entity="grid:1")
+            dp
             for i in range(5)
+            for dp in _gfs_wind(T0 + timedelta(hours=i), u=3.0, v=4.0)
         ]
         pbl = [
             _dp(ts=T0 + timedelta(hours=i), value=1000.0 + i,
@@ -207,7 +265,8 @@ class TestBuildAuxInputs:
         assert result[0].value == pytest.approx(20.0)
         assert "wind_speed" in result[0].aux_features
         assert "pbl_height" in result[0].aux_features
-        assert result[0].aux_features["wind_speed"] == pytest.approx(3.0)
+        # wind_speed = hypot(u=3, v=4) = 5
+        assert result[0].aux_features["wind_speed"] == pytest.approx(5.0)
 
     @pytest.mark.asyncio
     async def test_skips_timestamps_with_no_aux_within_tolerance(self, db_session) -> None:
@@ -215,9 +274,9 @@ class TestBuildAuxInputs:
         # >3h beyond any aux row). The 2 unmatched points are dropped.
         primary = [_dp(ts=T0 + timedelta(hours=i), value=20.0 + i) for i in range(5)]
         wind = [
-            _dp(ts=T0 + timedelta(hours=i), value=3.0,
-                metric="wind_speed", source="openweather", entity="grid:1")
+            dp
             for i in range(3)
+            for dp in _gfs_wind(T0 + timedelta(hours=i), u=3.0, v=4.0)
         ]
         pbl = [
             _dp(ts=T0 + timedelta(hours=i), value=1000.0,

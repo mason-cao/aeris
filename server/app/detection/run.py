@@ -1,10 +1,10 @@
 """CLI runner for the detection pipeline.
 
 Loads ``DataPoint`` rows from the database, groups them into per-station
-time-series, joins contemporaneous OpenWeather (``wind_speed``) and NOAA GFS
-(``pbl_height``) aux features for IsolationForest, runs the
-:class:`DetectionEngine`, and persists the resulting :class:`Anomaly` rows
-idempotently.
+time-series, joins contemporaneous NOAA GFS aux features for IsolationForest
+(10-m wind speed derived from ``u_10m``/``v_10m``, plus ``pbl_height``), runs
+the :class:`DetectionEngine`, and persists the resulting :class:`Anomaly`
+rows idempotently.
 
 Usage::
 
@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import math
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
@@ -35,8 +36,8 @@ from .isolation_forest import IsolationForestInput
 
 
 # Metrics the engine runs on directly. Auxiliary atmospheric / met fields
-# (wind_speed, pbl_height, etc.) are joined into IsolationForest aux_features
-# instead of being treated as primary detection targets.
+# (GFS u_10m/v_10m wind components, pbl_height) are joined into the
+# IsolationForest aux_features instead of being treated as detection targets.
 PRIMARY_METRICS: frozenset[str] = frozenset(
     {
         # OpenAQ surface pollutants
@@ -55,11 +56,12 @@ PRIMARY_METRICS: frozenset[str] = frozenset(
     }
 )
 
-AUX_METRIC_WIND = "wind_speed"
+AUX_METRIC_U = "u_10m"
+AUX_METRIC_V = "v_10m"
 AUX_METRIC_PBL = "pbl_height"
 
-# GFS runs every 6 hours; OpenWeather is hourly. ±3h gives a generous join
-# tolerance without crossing into "stale aux" territory.
+# GFS cycles are 6 hours apart; ±3h reaches the nearest cycle from any
+# primary timestamp without crossing into "stale aux" territory.
 AUX_TIME_TOLERANCE: timedelta = timedelta(hours=3)
 
 # Minimum series length to attempt detection. IsolationForest defaults to
@@ -145,11 +147,13 @@ async def build_aux_inputs(
     *,
     time_tolerance: timedelta = AUX_TIME_TOLERANCE,
 ) -> list[IsolationForestInput] | None:
-    """Assemble IsolationForest inputs by joining wind_speed + pbl_height aux.
+    """Assemble IsolationForest inputs by joining wind speed + pbl_height aux.
 
-    Returns ``None`` when either aux metric is entirely missing — IF wants a
-    consistent multivariate feature set per row, and partial aux degrades to
-    a univariate IF that the Z-score detector already covers better.
+    Wind speed is derived from the GFS ``u_10m``/``v_10m`` components;
+    ``pbl_height`` comes straight from GFS. Returns ``None`` when either aux
+    is entirely missing — IF wants a consistent multivariate feature set per
+    row, and partial aux degrades to a univariate IF that the Z-score
+    detector already covers better.
 
     Per-timestamp matching is nearest-neighbor within ``time_tolerance``.
     Timestamps with no aux row in range are dropped from the IF input but
@@ -163,9 +167,7 @@ async def build_aux_inputs(
     window_start = first_ts - time_tolerance
     window_end = last_ts + time_tolerance
 
-    wind_rows = await _load_aux_rows(
-        session, AUX_METRIC_WIND, window_start, window_end
-    )
+    wind_rows = await _load_gfs_wind_rows(session, window_start, window_end)
     pbl_rows = await _load_aux_rows(
         session, AUX_METRIC_PBL, window_start, window_end
     )
@@ -206,6 +208,55 @@ async def _load_aux_rows(
         (_ensure_utc(ts), float(v))
         for ts, v in (await session.execute(stmt)).all()
     ]
+
+
+async def _load_gfs_wind_rows(
+    session: AsyncSession,
+    window_start: datetime,
+    window_end: datetime,
+) -> list[tuple[datetime, float]]:
+    """Derive 10-m wind speed from the GFS u/v components.
+
+    GFS stores ``u_10m`` and ``v_10m`` as separate DataPoint metrics; each
+    grid cell and cycle carries one of each at a shared
+    ``(timestamp, source_entity_id)``. Pair them per cell-cycle and return
+    ``wind_speed = hypot(u, v)``. Cells missing a component are skipped.
+    """
+    u_by_cell = await _load_gfs_component(
+        session, AUX_METRIC_U, window_start, window_end
+    )
+    v_by_cell = await _load_gfs_component(
+        session, AUX_METRIC_V, window_start, window_end
+    )
+
+    wind: list[tuple[datetime, float]] = []
+    for cell, u in u_by_cell.items():
+        v = v_by_cell.get(cell)
+        if v is None:
+            continue
+        timestamp, _entity = cell
+        wind.append((timestamp, math.hypot(u, v)))
+    wind.sort(key=lambda row: row[0])
+    return wind
+
+
+async def _load_gfs_component(
+    session: AsyncSession,
+    metric: str,
+    window_start: datetime,
+    window_end: datetime,
+) -> dict[tuple[datetime, str], float]:
+    """Load one GFS wind component keyed by (timestamp, grid-cell entity)."""
+    stmt = (
+        select(DataPoint.timestamp, DataPoint.source_entity_id, DataPoint.value)
+        .where(DataPoint.metric == metric)
+        .where(DataPoint.timestamp >= window_start)
+        .where(DataPoint.timestamp <= window_end)
+    )
+    return {
+        (_ensure_utc(ts), entity): float(value)
+        for ts, entity, value in (await session.execute(stmt)).all()
+    }
 
 
 def _ensure_utc(dt: datetime) -> datetime:

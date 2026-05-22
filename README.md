@@ -62,9 +62,9 @@ Web Application (React)
 
 | Source | Data | Frequency | Status |
 |--------|------|-----------|--------|
-| NOAA Global Forecast System (GFS) | Macro climate data, atmospheric modeling | 6 hours | Live |
-| OpenWeather | Vertical temperature profiles, wind direction, humidity, pressure | Hourly | Live |
-| Sentinel-5P | Satellite atmospheric chemistry (NO2, SO2, CO columns) | Daily | Live |
+| NOAA Global Forecast System (GFS) | Upper-air temperature & geopotential height, 10 m winds, boundary layer height, surface pressure, precipitable water | 6 hours | Live |
+| OpenWeather | Surface temperature, humidity, pressure, wind speed/direction, cloud cover, precipitation | Hourly | Live |
+| Sentinel-5P | Satellite atmospheric chemistry (NO2, SO2, CO, HCHO column densities) | Daily | Live |
 | OpenAQ | Global baseline atmospheric sensor data | Hourly | Live |
 
 ## Research
@@ -87,15 +87,15 @@ Web Application (React)
 ### Prerequisites
 
 - Python 3.11+
-- Node.js 18+
 - PostgreSQL 15+ with TimescaleDB extension
 - Ollama with Llama 3 8B pulled
+- Node.js 18+ (Month 3, frontend)
 
 ### Setup
 
 ```bash
 # Clone
-git clone https://github.com/<your-username>/aeris.git
+git clone https://github.com/mason-cao/aeris.git
 cd aeris
 
 # Backend
@@ -106,10 +106,10 @@ pip install -r requirements.txt
 cp .env.example .env  # fill in API keys
 uvicorn app.main:app --reload
 
-# Frontend (new terminal)
-cd client
-npm install
-npm run dev
+# Frontend — Month 3 (client/ is not scaffolded yet)
+# cd client
+# npm install
+# npm run dev
 ```
 
 ### Environment Variables
@@ -118,15 +118,16 @@ Copy `server/.env.example` and fill in:
 - `DATABASE_URL` - PostgreSQL connection string
 - `OPENAQ_API_KEY` - OpenAQ
 - `OPENWEATHER_API_KEY` - OpenWeather
-- `MAPBOX_TOKEN` - Mapbox GL JS
 - `CDSE_USERNAME` / `CDSE_PASSWORD` - Copernicus Data Space (Sentinel-5P granule downloads)
 - `NASA_EARTHDATA_TOKEN` - NASA Earthdata fallback (optional)
+- `OPENAI_API_KEY` / `GOOGLE_API_KEY` - cloud LLM comparison (GPT-5.4, Gemini 3 Thinking)
+- `MAPBOX_TOKEN` - Mapbox GL JS (Month 3, frontend)
 
 ## Roadmap
 
 - [x] Design specification
 - [x] **Month 1**: Server infrastructure + data pipeline (all four macro APIs live — OpenAQ, OpenWeather, Sentinel-5P column extraction, NOAA GFS analysis)
-- [ ] **Month 2**: Anomaly detection engine + LLM explanation pipeline
+- [ ] **Month 2**: Anomaly detection engine + LLM explanation pipeline *(in progress — detection engine complete)*
 - [ ] **Month 3**: Web application (map, feed, detail, query, dashboard)
 - [ ] **Month 4**: Research evaluation + polish
 - [ ] **Month 5**: Paper, competition submissions, stretch goals

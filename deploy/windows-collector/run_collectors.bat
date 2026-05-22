@@ -4,7 +4,7 @@ REM Edit the three paths below only if you did not use the SETUP.md defaults.
 
 set "PYTHON=%USERPROFILE%\miniforge3\envs\aeris\python.exe"
 set "REPO=C:\temp\aeris\aeris"
-set "LOGDIR=%USERPROFILE%\OneDrive\aeris-logs"
+set "LOGDIR=C:\aeris-data\logs"
 
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"
 set "LOG=%LOGDIR%\collector.log"

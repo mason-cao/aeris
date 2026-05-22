@@ -1,4 +1,5 @@
 import logging
+import os
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -224,14 +225,20 @@ class NOAAGFSCollector(BaseCollector):
 
         import pygrib
 
-        with tempfile.NamedTemporaryFile(suffix=".grib2") as tmp:
+        # pygrib opens the file by name with its own handle. Windows refuses a
+        # second open on a NamedTemporaryFile that is still held open, so write
+        # and close it first, then unlink it explicitly.
+        tmp = tempfile.NamedTemporaryFile(suffix=".grib2", delete=False)
+        try:
             tmp.write(data)
-            tmp.flush()
+            tmp.close()
             grbs = pygrib.open(tmp.name)
             try:
                 return self._extract_grid(grbs)
             finally:
                 grbs.close()
+        finally:
+            os.unlink(tmp.name)
 
     def _extract_grid(self, grbs: Any) -> list[dict[str, Any]]:
         columns: dict[str, Any] = {}

@@ -1,0 +1,11 @@
+name: aeris
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - xarray
+  - netcdf4
+  - pygrib
+  - eccodes
+  - pip

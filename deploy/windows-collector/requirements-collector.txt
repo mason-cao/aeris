@@ -1,0 +1,10 @@
+# Pip dependencies for the Windows collector box.
+# numpy, xarray, netcdf4, pygrib and eccodes come from conda (environment.yml) —
+# they are intentionally absent here to avoid pip rebuilding the binary packages.
+# asyncpg / psycopg2 are also absent: the collector box runs on SQLite.
+httpx==0.28.1
+sqlalchemy[asyncio]==2.0.40
+aiosqlite==0.21.0
+pydantic==2.11.1
+pydantic-settings==2.8.1
+python-dotenv==1.1.0

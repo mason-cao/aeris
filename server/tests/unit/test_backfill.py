@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -14,11 +14,13 @@ from app.collectors.backfill import (
     NOAAGFSBackfill,
     OpenAQBackfill,
     OpenWeatherBackfill,
+    Sentinel5PBackfill,
     _parse_args,
     available_strategies,
     run_backfill,
 )
 from app.collectors.noaa_gfs import NOAAGFSCollector
+from app.collectors.sentinel5p import Sentinel5PCollector
 from app.db.models import DataPoint
 
 
@@ -384,6 +386,59 @@ class TestNOAAGFSBackfill:
         rows = (await db_session.execute(select(DataPoint))).scalars().all()
         assert len(rows) == 7
         assert {row.source for row in rows} == {"noaa_gfs"}
+
+
+class TestSentinel5PBackfill:
+    @pytest.mark.asyncio
+    async def test_stores_catalog_points_from_window(self, db_session) -> None:
+        # since < until by 1h triggers exactly one 48h catalog window.
+        until = datetime.now(timezone.utc)
+        since = until - timedelta(hours=1)
+
+        catalog_records = [
+            {
+                "Id": "prod-no2-1",
+                "Name": (
+                    "S5P_NRTI_L2__NO2____20260501T120000_20260501T123000"
+                    "_00001_03_020800_20260501T140000.nc"
+                ),
+                "ContentDate": {"Start": "2026-05-01T12:00:00.000Z"},
+                "Attributes": [{"Name": "cloudCover", "Value": 12.5}],
+            },
+            {
+                "Id": "prod-so2-1",
+                "Name": (
+                    "S5P_NRTI_L2__SO2____20260501T120000_20260501T123000"
+                    "_00001_03_020800_20260501T140000.nc"
+                ),
+                "ContentDate": {"Start": "2026-05-01T12:00:00.000Z"},
+                "Attributes": [{"Name": "cloudCover", "Value": 8.0}],
+            },
+        ]
+
+        response = MagicMock()
+        response.raise_for_status = MagicMock(return_value=None)
+        response.json = MagicMock(return_value={"value": catalog_records})
+        client = MagicMock()
+        client.get = AsyncMock(return_value=response)
+        collector = Sentinel5PCollector(http_client=client)
+
+        result = await Sentinel5PBackfill(collector=collector).backfill(
+            db_session, since=since, until=until
+        )
+
+        assert result.error is None
+        # Catalog-only mode: each mapped product emits _granule_available
+        # plus _cloud_cover — no column densities without a granule download.
+        assert result.records == 4
+
+        rows = (await db_session.execute(select(DataPoint))).scalars().all()
+        assert {row.metric for row in rows} == {
+            "s5p_no2_granule_available",
+            "s5p_no2_cloud_cover",
+            "s5p_so2_granule_available",
+            "s5p_so2_cloud_cover",
+        }
 
 
 class TestRunBackfillDispatcher:

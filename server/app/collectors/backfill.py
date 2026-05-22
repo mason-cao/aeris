@@ -7,9 +7,10 @@ differs sharply:
   ``datetime_to``, paginated. The high-value backfill: ~720 points per
   sensor over 30 days, enough to anchor every detector.
 * **Sentinel-5P** — the existing collector's catalog query takes a ``now``
-  parameter; backfill walks 48h windows backward through the date range
-  and reuses the production fetch path (including column extraction when
-  CDSE credentials are configured).
+  parameter; backfill walks 48h windows backward through the date range.
+  Catalog-only: it records granule availability and metadata cloud cover
+  but does not download granules, so no column densities are produced.
+  Column extraction stays with the scheduled collector.
 * **NOAA GFS** — NOMADS retains roughly the last 10 days of cycles. The
   backfill walks past 6-hour cycles backward through the requested range
   and reuses the collector's ``_load_cycle`` GRIB-filter fetch + parse.
@@ -409,6 +410,9 @@ class Sentinel5PBackfill(BackfillStrategy):
         caller-supplied window end. Column extraction is intentionally
         skipped here to keep the backfill bounded — the existing scheduled
         collector handles column downloads on the rolling 48h tail.
+
+        Records are returned under the ``value`` key so the payload matches
+        what :meth:`Sentinel5PCollector.normalize` reads.
         """
         from app.collectors.sentinel5p import API_BASE, RESULT_LIMIT
 
@@ -420,7 +424,7 @@ class Sentinel5PBackfill(BackfillStrategy):
         }
         response = await client.get(API_BASE, params=params, timeout=60.0)
         response.raise_for_status()
-        return {"products": response.json().get("value", []) or []}
+        return {"value": response.json().get("value", []) or []}
 
 
 # NOAA GFS ------------------------------------------------------------

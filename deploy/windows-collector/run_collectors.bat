@@ -3,7 +3,7 @@ REM AERIS data collector - invoked hourly by Windows Task Scheduler.
 REM Edit the three paths below only if you did not use the SETUP.md defaults.
 
 set "PYTHON=%USERPROFILE%\miniforge3\envs\aeris\python.exe"
-set "REPO=C:\aeris"
+set "REPO=C:\temp\aeris\aeris"
 set "LOGDIR=%USERPROFILE%\OneDrive\aeris-logs"
 
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"

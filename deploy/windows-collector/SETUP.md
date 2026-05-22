@@ -33,13 +33,13 @@ The fastest, most reliable path is a **USB copy** — it carries `server\.env`
 
 1. [ ] On your Mac, copy the whole `aeris` project folder to a USB stick.
        You can skip `server/venv/` if it exists (a Mac venv is useless here).
-2. [ ] On the Acer, paste it to **`C:\aeris`** so the layout is
-       `C:\aeris\server`, `C:\aeris\deploy`, etc.
-3. [ ] Confirm `C:\aeris\server\.env` exists and contains your real API keys
+2. [ ] On the Acer, paste it to **`C:\temp\aeris\aeris`** so the layout is
+       `C:\temp\aeris\aeris\server`, `C:\temp\aeris\aeris\deploy`, etc.
+3. [ ] Confirm `C:\temp\aeris\aeris\server\.env` exists and contains your real API keys
        (`OPENAQ_API_KEY`, `OPENWEATHER_API_KEY`, `NASA_EARTHDATA_TOKEN`,
        `CDSE_USERNAME`, `CDSE_PASSWORD`).
 
-*Alternative:* `git clone https://github.com/mason-cao/aeris.git C:\aeris` — but
+*Alternative:* `git clone https://github.com/mason-cao/aeris.git C:\temp\aeris\aeris` — but
 you must still copy `server\.env` separately, and you'll need GitHub auth.
 
 ---
@@ -59,9 +59,9 @@ you must still copy `server\.env` separately, and you'll need GitHub auth.
 In the Miniforge Prompt:
 
 ```bat
-conda env create -f C:\aeris\deploy\windows-collector\environment.yml
+conda env create -f C:\temp\aeris\aeris\deploy\windows-collector\environment.yml
 conda activate aeris
-pip install -r C:\aeris\deploy\windows-collector\requirements-collector.txt
+pip install -r C:\temp\aeris\aeris\deploy\windows-collector\requirements-collector.txt
 ```
 
 1. [ ] `conda env create` finishes without error (this installs `pygrib` +
@@ -75,7 +75,7 @@ three collectors still work and you can move on.
 
 ## Step 3 — Point the config at SQLite (~5 min)
 
-Edit **`C:\aeris\server\.env`** in Notepad. Change the `DATABASE_URL` line and
+Edit **`C:\temp\aeris\aeris\server\.env`** in Notepad. Change the `DATABASE_URL` line and
 the `AERIS_ENV` line to exactly:
 
 ```
@@ -97,7 +97,7 @@ In the Miniforge Prompt (env still active):
 
 ```bat
 mkdir C:\aeris-data
-cd C:\aeris
+cd C:\temp\aeris\aeris
 python deploy\windows-collector\init_db.py
 ```
 
@@ -108,7 +108,7 @@ python deploy\windows-collector\init_db.py
 ## Step 5 — Test a real collection run (~5 min)
 
 ```bat
-cd C:\aeris\server
+cd C:\temp\aeris\aeris\server
 python -m app.collectors.run_all
 ```
 
@@ -166,7 +166,7 @@ one hour of data — but pausing avoids it entirely.
 In the **Administrator Command Prompt**:
 
 ```bat
-schtasks /create /tn "AERIS Collector" /tr "C:\aeris\deploy\windows-collector\run_collectors.bat" /sc hourly /rl HIGHEST /f
+schtasks /create /tn "AERIS Collector" /tr "C:\temp\aeris\aeris\deploy\windows-collector\run_collectors.bat" /sc hourly /rl HIGHEST /f
 ```
 
 1. [ ] Output says `SUCCESS: The scheduled task "AERIS Collector" ...`.
@@ -178,7 +178,7 @@ fine — just **leave the Acer logged in** (don't sign out; the lid can be close
 the task with your account + password (only works if your account has a password):
 
 ```bat
-schtasks /create /tn "AERIS Collector" /tr "C:\aeris\deploy\windows-collector\run_collectors.bat" /sc hourly /rl HIGHEST /ru "%USERNAME%" /rp * /f
+schtasks /create /tn "AERIS Collector" /tr "C:\temp\aeris\aeris\deploy\windows-collector\run_collectors.bat" /sc hourly /rl HIGHEST /ru "%USERNAME%" /rp * /f
 ```
 
 It will prompt for your Windows password.

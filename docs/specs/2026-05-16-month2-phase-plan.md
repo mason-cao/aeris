@@ -1,7 +1,7 @@
 # AERIS Month 2 — AI Attribution Phase Plan
 
 > **Window:** 2026-05-16 → 2026-06-16 (4 weeks, ~17 working days)
-> **One-week travel gap:** 2026-05-22 → 2026-05-29
+> **Travel gap:** 2026-05-22 → 2026-05-31 (back June 1)
 > **Mentor checkpoint:** 2026-06-02 with Dr. Annalisa Bracco
 > **Convention:** AERIS phase plans live in `docs/specs/YYYY-MM-DD-monthN-phase-plan.md`. After approval, copy this file to `docs/specs/2026-05-16-month2-phase-plan.md` and commit it.
 
@@ -84,12 +84,12 @@ If anything not on the in-scope list is tempting during Month 2, write it on a "
 | Window              | Dates                    | Theme                                                                           |
 | ------------------- | ------------------------ | ------------------------------------------------------------------------------- |
 | Pre-vacation sprint | May 16 → May 21 (6 days) | Infrastructure + detection engine, parallelized with dad on server setup        |
-| Travel gap          | May 22 → May 29 (1 week) | Offline                                                                         |
-| Bracco prep week    | May 30 → Jun 5 (7 days)  | Reasoning chain + corroboration scorer + first end-to-end run + Jun 2 meeting   |
+| Travel gap          | May 22 → May 31 (10 days)| Offline; vacation deliverables in Google Doc (demo selection + hand-curated chain) |
+| Bracco prep window  | Jun 1 → Jun 5 (5 days)   | Catch-up + meeting + reasoning chain / corroboration scorer build sprint        |
 | Eval week           | Jun 6 → Jun 12 (7 days)  | Eval harness, cloud comparison, expert-label coordination, correlation analysis |
 | Polish & write-up   | Jun 13 → Jun 16 (4 days) | Final analysis, write-up draft, buffer                                          |
 
-The June 2 meeting falls 3 days into the post-vacation window. **The mechanism (reasoning chain + corroboration scorer) and one end-to-end run on a real anomaly must be working by June 1 evening.** That's the immovable gate — everything in the pre-vacation sprint and the first two post-vacation days must converge there.
+The June 2 meeting falls 1 day into the post-vacation window. With only June 1 as a working day before the meeting, the plan commits up front to a **hand-curated demo** and treats a working LLM pipeline as upside, not the default. The design work that would otherwise have happened in the May 30–31 slots is pushed onto the vacation deliverables list (Google Doc work, no code).
 
 ---
 
@@ -289,12 +289,12 @@ For each claim, the scorer:
 **Day 6 (Wed May 21):**
 
 - Mason: cross-source enrichment smoke tests
-- Mason: finalize the corroboration scorer design memo (claim taxonomy with 10 types, tolerance defaults, edge cases, partial-verifiability flags); commit to `docs/specs/2026-05-21-corroboration-scorer-design.md`. **This is the artifact Bracco will pre-read.**
+- Mason: finalize the corroboration scorer design (claim taxonomy with 10 types, tolerance defaults, edge cases, partial-verifiability flags). The design lives in the Bracco meeting notes Google Doc (Section 4), not a separate spec file. **This is the load-bearing artifact for the June 2 meeting — Mason walks Bracco through it live, no pre-read.**
 - Mason: buffer for slipped tasks from Days 1–5
 - Mason: commit + push everything; tag the repo `month2-prevacation`
 - Dad: verify home server is accessible from Mason's dev laptop (SSH, tunneled Ollama port)
 
-_Note: `ollama_client.py` + `prompt.py` skeleton deferred to Sat May 30 to free this day for the design memo and buffer._
+_Note: `ollama_client.py` + `prompt.py` skeleton deferred to Jun 1 (stretch goal post-vacation) or Jun 3+ (post-meeting build sprint); this day stays a buffer for the design + reading._
 
 **Acceptance criteria for the pre-vacation sprint:**
 
@@ -304,56 +304,58 @@ _Note: `ollama_client.py` + `prompt.py` skeleton deferred to Sat May 30 to free 
 - Corroboration scorer design memo committed to `docs/specs/`
 - Repo tagged `month2-prevacation`
 
-### Travel gap: May 22 → May 29 (1 week)
+### Travel gap: May 22 → May 31 (10 days)
 
-Offline. The home server keeps collecting data in the background; detection runs nightly via APScheduler (carry-over from Month 1 Week 4 if not yet integrated; if not integrated, manual catch-up first day back).
+Home server keeps collecting data in the background; detection runs nightly via APScheduler (carry-over from Month 1 Week 4 if not yet integrated; if not integrated, manual catch-up first day back).
 
-### Bracco prep week: May 30 → June 5 (7 days)
+**Vacation deliverables (lightweight, Google Doc only — no code):**
 
-**Goal:** Reasoning chain + corroboration scorer running end-to-end on one real anomaly by June 1 evening. Bracco meeting June 2 morning.
+- Pick the one demo anomaly from the existing ~50 candidates (ideally a known refinery upset or ozone exceedance)
+- Hand-draft the 4-step LLM output for that anomaly (what the model would say at each reasoning step)
+- Hand-score each claim against the 4 sources using the design's tolerances; produce a printable claim-by-claim table
+- Polish the Bracco meeting notes doc; print the 1-page version + the claim taxonomy table
+- (Optional) draft prompt templates and the parser JSON schema on paper, so June 1 coding is transcription not design
 
-**Sat May 30:**
+### Bracco prep window: June 1 → June 5 (5 days)
 
-- Catch up on accumulated data, verify pipeline health, re-run detection
-- Implement `client_base.py` + `ollama_client.py` + `prompt.py` skeleton (deferred from pre-vacation)
-- Implement `reasoning_chain.py` step 1 (physical signature) + prompt template
-- First end-to-end of step 1 on one real anomaly
-- **Email Bracco the pre-read PDF by 18:00 CT** (see Bracco-readiness checkpoint below): 2-page version of the design memo + thesis + one demo plan + four questions, attached to a fresh calendar invite
+**Goal:** Bracco meeting June 2 morning. Land the mechanism + taxonomy demonstration via a hand-curated demo; build the working LLM stack in the 3 days after the meeting.
 
-**Sun May 31:**
+**Mon Jun 1 (return + Bracco eve):**
 
-- Implement `reasoning_chain.py` steps 2–4 (candidate causes, evidence eval, synthesis)
-- Implement `parser.py` for structured output extraction
-- Full reasoning chain runs end-to-end on one anomaly; output committed for review
+The only working day before the meeting. Treat it as catch-up + meeting prep, not as a coding sprint.
 
-**Mon Jun 1 (Bracco eve):**
+- Catch up on accumulated vacation data; verify the collectors didn't silently fail during the trip (row-count check per source)
+- Clear `Anomaly` + `EnrichmentRecord` tables and re-run detection on the now-extended dataset (insert-only persistence, per project guardrail)
+- Confirm the demo anomaly chosen on vacation is still in the top-50 candidate set after the re-run; swap demo if not
+- Final pass on the meeting notes doc; print the 1-page version + the claim taxonomy table
+- (Stretch, only if time) skeleton `client_base.py` + `ollama_client.py` + one prompt template — does NOT block the meeting
 
-- Implement `corroboration.py` — at minimum the 3 headline claim types (`concentration_elevation`, `transport_direction`, `meteorological_state`)
-- Implement `validate.py` (hallucination decision gate consuming corroboration scores)
-- End-to-end: anomaly → enrichment → reasoning chain → parser → corroboration → validate → persisted Explanation
-- Pick one well-understood anomaly (ideally a known refinery upset or ozone exceedance) and prepare it as the demo for tomorrow
-- **Contingency: if structured-output parsing is unreliable by noon CT, fall back to a hand-curated end-to-end on one anomaly (manually-cleaned LLM output) and frame the meeting around the _mechanism_ and _taxonomy_ rather than the working pipeline.** Bracco's value-add is the taxonomy + thresholds, not the parsing engineering. Demoing a clean concept beats demoing a broken pipeline.
+**Tue Jun 2 — Bracco meeting (7:30 am):**
 
-**Tue Jun 2 — Bracco meeting (7:30am):**
-
-- Present the mechanism + the one demo result
-- Get her sign-off on the corroboration scorer's claim taxonomy and tolerance thresholds
-- Get her commitment on how many anomalies she'll label and when
+- Present the mechanism + the hand-curated demo (a working pipeline is upside if the June 1 stretch landed; otherwise the hand-curated path is the planned demo)
+- Get her sign-off on the corroboration scorer's claim taxonomy and tolerance thresholds (especially `emissions_source_type`, `secondary_formation`, `background_vs_event`)
+- Get her commitment on how many anomalies she'll label (target 10–15) and by when (target Jun 12)
+- Get co-authorship / CMCC data-sharing preferences in writing
 - Get her literature pointers refined (any further reviews to cite/differentiate against?)
 - Post-meeting: write up notes within 24h
 
-**Wed Jun 3 — Fri Jun 5:**
+**Wed Jun 3 — Fri Jun 5 (compressed build sprint):**
 
-- Implement remaining 7 corroboration claim types (`atmospheric_trap`, `temporal_pattern`, `chemistry`, `point_source_attribution`, `emissions_source_type`, `secondary_formation`, `background_vs_event`)
+The LLM stack that was originally May 30 / 31 / Jun 1 work lands here, post-meeting. Tight. If any item slips to Jun 6, eval week absorbs it.
+
+- Implement `client_base.py` + `ollama_client.py` + `prompt.py` (deferred from pre-meeting)
+- Implement `reasoning_chain.py` all 4 steps + `parser.py`
+- Implement `corroboration.py` — all 10 claim types (apply any Bracco taxonomy adjustments from Jun 2 first)
+- Implement `validate.py` (hallucination decision gate consuming corroboration scores)
 - Implement `gpt_client.py` (GPT-5.4) and `gemini_client.py` (Gemini 3 Thinking) against the `LLMClient` ABC; verify quotas/budget
 - Run reasoning chain on 10 anomalies with all 3 models; eyeball outputs for sanity
-- Iterate on prompts based on what's clearly broken (apply any Bracco taxonomy adjustments from Jun 2 first)
+- Iterate on prompts based on what's clearly broken
 
-**Acceptance criteria for Bracco prep week:**
+**Acceptance criteria for Bracco prep window:**
 
-- Reasoning chain runs end-to-end on 10 anomalies with all 3 models
-- Corroboration scorer covers all 10 claim types
 - Bracco meeting happened; her labeling commitment + tolerance feedback + co-authorship + CMCC constraints captured in writing
+- Reasoning chain runs end-to-end on 10 anomalies with all 3 models (target Jun 5; slip to Jun 6 acceptable)
+- Corroboration scorer covers all 10 claim types
 
 ### Eval week: June 6 → June 12 (7 days)
 
@@ -401,17 +403,16 @@ Offline. The home server keeps collecting data in the background; detection runs
 
 This is the meeting that justifies the whole Month 2 framing. Materials to have ready:
 
-1. **48h pre-read PDF emailed by Sat May 31 18:00 CT.** Two pages: thesis (with the FActScore differentiation), one mechanism diagram, the one demo result, the four questions. Attached to a fresh calendar invite. A 30-minute Zoom Tuesday morning is too short to introduce a thesis cold — without a pre-read the first 15 of 30 minutes goes to context-setting.
-2. **1-page memo (PDF)** brought to the meeting itself — same content as pre-read, slightly tighter
-3. **Live demo or video** — one anomaly → reasoning chain output → corroboration scores side-by-side
-4. **Claim taxonomy spec** — the corroboration scorer's 10 claim types with tolerance defaults and partial-verifiability flags; she should be able to challenge any of them
-5. **Labeling instructions doc** — for the 10–20 anomalies she'll label: what counts as a correct/incorrect claim, how to flag uncertainty, time budget (~5 min per anomaly target). Format is plain-text/PDF, not a CLI link — she works in Outlook.
-6. **Four questions for her:**
+1. **1-page memo (printed)** brought to the meeting — Section 1 of the Bracco notes doc: thesis (with FActScore differentiation), mechanism, the demo plan, the four questions. No pre-read — the meeting is for her to hear the ideas live and check feasibility / novelty.
+2. **The demo** — hand-curated by default (one anomaly → 4-step reasoning chain output → corroboration scores per claim, side-by-side). If the working pipeline landed by Jun 1 it's a bonus; the meeting framing is the same either way.
+3. **Claim taxonomy spec** — the corroboration scorer's 10 claim types with tolerance defaults and partial-verifiability flags; she should be able to challenge any of them. Printed as a small table for in-meeting pointing.
+4. **Labeling instructions doc** — for the 10–15 anomalies she'll label: what counts as a correct/incorrect claim, how to flag uncertainty, time budget (~5 min per anomaly target). Format is plain-text/PDF, not a CLI link — she works in Outlook.
+5. **Four questions for her:**
    - "Are these tolerance thresholds reasonable for Houston-area meteorology?"
    - "Are there claim types I'm missing that would be obvious to a climate scientist? Specifically, am I handling `emissions_source_type`, `secondary_formation`, and `background_vs_event` correctly for the Houston regime?"
    - "What would convince you, in 5 minutes of looking at one example, that an LLM's atmospheric attribution is wrong?"
    - "Will you commit to labeling 10 anomalies by Jun 12, and is this format usable? Are there 2–3 more papers on cross-source eval or LLM scientific reasoning you'd recommend I cite?"
-7. **Post-meeting (within 24h):** written confirmation from Bracco of (a) labeling commitment, (b) attribution/co-authorship preferences for any eventual preprint, (c) any CMCC data-sharing constraints on the labeled dataset. This is a 30-second conversation that becomes a 6-month IRB problem if skipped.
+6. **Post-meeting (within 24h):** written confirmation from Bracco of (a) labeling commitment, (b) attribution/co-authorship preferences for any eventual preprint, (c) any CMCC data-sharing constraints on the labeled dataset. This is a 30-second conversation that becomes a 6-month IRB problem if skipped.
 
 ---
 
@@ -466,17 +467,12 @@ This is the meeting that justifies the whole Month 2 framing. Materials to have 
 - Report regenerable from persisted Explanation records (no rerun needed for figure tweaks)
 - Per-claim-type N reported in every figure; headline correlation analysis only on the 3 designated headline types
 
-### Pre-read gate (Sat May 31, 18:00 CT)
-
-- 2-page pre-read PDF committed to `docs/bracco/2026-05-31-preread.pdf` and emailed to Bracco with calendar invite
-- Contains: thesis (with FActScore differentiation), mechanism diagram, one demo result (real or hand-curated per fallback), four questions
-
 ### Bracco-readiness gate (Mon Jun 1, 22:00 CT)
 
-- Run `python -m app.llm.explain --anomaly-id=<one-demo>` end-to-end with local Llama 3 8B; output contains all 4 reasoning steps, all 10 claim types representable, corroboration scores per claim
-- **Fallback satisfied if pipeline fails:** hand-curated end-to-end on one anomaly with manually-cleaned output, framed around mechanism + taxonomy rather than working pipeline
-- 1-page memo PDF in `docs/bracco/2026-06-02-memo.pdf`
+- Demo anomaly chosen + hand-curated 4-step reasoning chain + per-claim corroboration scores ready (drafted on vacation, finalized June 1)
+- 1-page printed memo (Section 1 of the Bracco notes doc) ready to bring to the meeting
 - Labeling template doc shareable as plain PDF (not CLI link)
+- (Bonus, not required) `python -m app.llm.explain --anomaly-id=<one-demo>` runs end-to-end with local Llama 3 8B; if it works, it becomes the live demo, otherwise the hand-curated path is the planned demo
 
 ### Post-meeting gate (Wed Jun 3, 18:00 CT)
 
@@ -510,9 +506,8 @@ server/requirements.txt    [add chromadb, scikit-learn, statsmodels, ollama, ope
 server/data/chromadb/    [populate with EPA breakpoints + atmospheric reference + Houston context]
 server/tests/{detection,llm,eval}/    [new test trees]
 docs/specs/2026-05-16-month2-phase-plan.md    [copy of this plan after approval]
-docs/specs/2026-05-21-corroboration-scorer-design.md    [design memo before coding — the artifact Bracco pre-reads]
-docs/bracco/2026-05-31-preread.pdf    [48h pre-read for Bracco]
-docs/bracco/2026-06-02-memo.pdf    [meeting artifact]
+docs/specs/2026-05-21-corroboration-scorer-design.md    [design captured in the Bracco meeting notes Google Doc; no separate spec file required unless Mason promotes it later]
+docs/bracco/2026-06-02-memo.pdf    [printed 1-page meeting handout — Section 1 of the Bracco notes doc]
 docs/bracco/2026-06-02-postmeeting-notes.md    [labeling commitment + co-authorship + CMCC constraints, captured in writing within 24h]
 docs/research/2026-06-16-month2-results-summary.md    [1-page end-of-month summary; 5-page methodology+results draft pushed to Month 3 W1]
 ```
@@ -523,7 +518,7 @@ docs/research/2026-06-16-month2-results-summary.md    [1-page end-of-month summa
 - `server/app/llm/validate.py` — the CLAUDE.md-guaranteed hallucination gate; do not let claim-extraction logic squat here (that's `parser.py`)
 - `server/app/db/models.py` — `per_source_verdicts: JSON` is the load-bearing schema detail enabling downstream disagreement analysis
 - `server/app/detection/enrichment.py` — spatiotemporal cross-source joining; underestimated complexity (4 different spatial conventions across collectors: gridded GFS at 0.25°, point OpenAQ stations, single-anchor Sentinel-5P granule mean, 5-point OpenWeather grid)
-- `docs/specs/2026-05-21-corroboration-scorer-design.md` — if this memo is sharp, the Bracco meeting succeeds
+- Bracco meeting notes Google Doc (Section 4 — corroboration scorer design) — the design substitutes for a separate spec file; if Section 4 is sharp, the Bracco meeting succeeds
 
 ---
 

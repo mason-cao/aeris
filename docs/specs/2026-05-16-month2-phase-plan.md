@@ -289,7 +289,7 @@ For each claim, the scorer:
 **Day 6 (Wed May 21):**
 
 - Mason: cross-source enrichment smoke tests
-- Mason: finalize the corroboration scorer design (claim taxonomy with 10 types, tolerance defaults, edge cases, partial-verifiability flags). The design lives in the Bracco meeting notes Google Doc (Section 4), not a separate spec file. **This is the load-bearing artifact for the June 2 meeting — Mason walks Bracco through it live, no pre-read.**
+- Mason: finalize the corroboration scorer design memo (claim taxonomy with 10 types, tolerance defaults, edge cases, partial-verifiability flags); commit to `docs/specs/2026-05-21-corroboration-scorer-design.md`. The memo mirrors Section 4 of the Bracco meeting notes Doc, but lives in the repo as the durable design record. **This is the load-bearing artifact for the June 2 meeting — Mason walks Bracco through it live, no pre-read.**
 - Mason: buffer for slipped tasks from Days 1–5
 - Mason: commit + push everything; tag the repo `month2-prevacation`
 - Dad: verify home server is accessible from Mason's dev laptop (SSH, tunneled Ollama port)
@@ -506,7 +506,7 @@ server/requirements.txt    [add chromadb, scikit-learn, statsmodels, ollama, ope
 server/data/chromadb/    [populate with EPA breakpoints + atmospheric reference + Houston context]
 server/tests/{detection,llm,eval}/    [new test trees]
 docs/specs/2026-05-16-month2-phase-plan.md    [copy of this plan after approval]
-docs/specs/2026-05-21-corroboration-scorer-design.md    [design captured in the Bracco meeting notes Google Doc; no separate spec file required unless Mason promotes it later]
+docs/specs/2026-05-21-corroboration-scorer-design.md    [design memo committed; mirrors Section 4 of the Bracco meeting notes Doc, kept in repo as the durable design record]
 docs/bracco/2026-06-02-memo.pdf    [printed 1-page meeting handout — Section 1 of the Bracco notes doc]
 docs/bracco/2026-06-02-postmeeting-notes.md    [labeling commitment + co-authorship + CMCC constraints, captured in writing within 24h]
 docs/research/2026-06-16-month2-results-summary.md    [1-page end-of-month summary; 5-page methodology+results draft pushed to Month 3 W1]
@@ -518,7 +518,7 @@ docs/research/2026-06-16-month2-results-summary.md    [1-page end-of-month summa
 - `server/app/llm/validate.py` — the CLAUDE.md-guaranteed hallucination gate; do not let claim-extraction logic squat here (that's `parser.py`)
 - `server/app/db/models.py` — `per_source_verdicts: JSON` is the load-bearing schema detail enabling downstream disagreement analysis
 - `server/app/detection/enrichment.py` — spatiotemporal cross-source joining; underestimated complexity (4 different spatial conventions across collectors: gridded GFS at 0.25°, point OpenAQ stations, single-anchor Sentinel-5P granule mean, 5-point OpenWeather grid)
-- Bracco meeting notes Google Doc (Section 4 — corroboration scorer design) — the design substitutes for a separate spec file; if Section 4 is sharp, the Bracco meeting succeeds
+- `docs/specs/2026-05-21-corroboration-scorer-design.md` — if this memo is sharp, the Bracco meeting succeeds
 
 ---
 

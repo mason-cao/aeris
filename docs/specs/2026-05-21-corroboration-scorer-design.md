@@ -46,6 +46,10 @@ Types 8–10 were added specifically to stress the patterns a small LLM is most 
 
 ## Scoring procedure (per claim)
 
+**Pre-condition:** Phase 1 grounding (`validate.py`) has already marked the claim `grounded`. Phase-1-unverified claims skip this scorer entirely (`corroboration_score=null, skipped_phase2=true`).
+
+For each Phase-1-grounded claim:
+
 1. **Classify** the claim into one or more types (lightweight rule-based; LLM-based classification deferred unless rules underperform).
 2. **Identify** the relevant sources for each type from the table above.
 3. **Query** the EnrichmentRecord for those sources in the relevant spatiotemporal window.

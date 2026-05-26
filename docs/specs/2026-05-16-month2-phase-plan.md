@@ -238,7 +238,9 @@ Each LLM-generated claim falls into one or more **claim types**, each with a def
 
 ### Scoring procedure (per claim)
 
-For each claim, the scorer:
+**Pre-condition:** Phase 1 grounding (`validate.py`) has already run and marked the claim `grounded`. Phase-1-unverified claims skip this scorer entirely (`corroboration_score=null, skipped_phase2=true`).
+
+For each Phase-1-grounded claim, the scorer:
 
 1. **Classifies** the claim into one or more types (lightweight rule-based; LLM-based classification deferred unless rules underperform)
 2. **Identifies** the relevant sources for each type
@@ -313,7 +315,7 @@ For each claim, the scorer:
 - Mason: commit + push everything; tag the repo `month2-prevacation`
 - Dad: verify home server is accessible from Mason's dev laptop (SSH, tunneled Ollama port)
 
-_Note: `ollama_client.py` + `prompt.py` skeleton deferred to Jun 1 (stretch goal post-vacation) or Jun 3+ (post-meeting build sprint); this day stays a buffer for the design + reading._
+_Note: `ollama_client.py` + `prompt.py` + Phase 1 `validate.py` skeleton deferred to Jun 1 (stretch goal post-vacation) or Jun 3+ (post-meeting build sprint); this day stays a buffer for the design + reading._
 
 **Acceptance criteria for the pre-vacation sprint:**
 
@@ -347,7 +349,7 @@ The only working day before the meeting. Treat it as catch-up + meeting prep, no
 - Catch up on accumulated vacation data; verify the collectors didn't silently fail during the trip (row-count check per source)
 - Clear `Anomaly` + `EnrichmentRecord` tables and re-run detection on the now-extended dataset (insert-only persistence, per project guardrail)
 - Confirm the demo anomaly chosen on vacation is still in the top-50 candidate set after the re-run; swap demo if not
-- Final pass on the meeting notes doc; print the 1-page version + the claim taxonomy table
+- Final pass on the meeting notes doc; print the 1-page version + the claim taxonomy table + the Phase 1 / Phase 2 framing summary
 - (Stretch, only if time) skeleton `client_base.py` + `ollama_client.py` + one prompt template + Phase 1 `validate.py` skeleton (extract-and-verify against retrieved context) — does NOT block the meeting
 
 **Tue Jun 2 — Bracco meeting (7:30 am):**
@@ -504,7 +506,7 @@ This is the meeting that justifies the whole Month 2 framing. Materials to have 
 
 ### Bracco-readiness gate (Mon Jun 1, 22:00 CT)
 
-- Demo anomaly chosen + hand-curated 4-step reasoning chain + per-claim corroboration scores ready (drafted on vacation, finalized June 1)
+- Demo anomaly chosen + hand-curated 4-step reasoning chain + per-claim Phase 1 grounding verdicts + Phase 2 corroboration scores ready, side-by-side (drafted on vacation, finalized June 1)
 - 1-page printed memo (Section 1 of the Bracco notes doc) ready to bring to the meeting
 - Labeling template doc shareable as plain PDF (not CLI link)
 - (Bonus, not required) `python -m app.llm.explain --anomaly-id=<one-demo>` runs end-to-end with local Llama 3 8B; if it works, it becomes the live demo, otherwise the hand-curated path is the planned demo

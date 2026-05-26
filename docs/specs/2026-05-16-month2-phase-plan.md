@@ -15,6 +15,8 @@ Bracco's stated expertise is **"weather fields and AI physics-to-logic"** (her p
 
 **The core problem with the README's stated contributions** (4-API architecture, hallucination detection, local-vs-cloud comparison): individually they read as solid engineering, not novel research. Reviewers see RAG + multi-source + comparison and shrug. This phase reframes them around one tight thesis with a discovery question, so the three contributions collapse into one coherent system rather than three parallel engineering deliverables.
 
+**Phase 1 / Phase 2 split (added 2026-05-26).** After a preview email to Dr. Bracco describing this corroboration-centric framing, her 2026-05-25 reply recommended sequencing the basic analysis first ("multi-API RAG + hallucination detection + local-vs-cloud") before layering corroboration on top, to ensure the cross-source signal isn't dominated by fabricated claims. Month 2 therefore sequences as **Phase 1** (baseline: retrieval-grounded factuality check + local-vs-cloud comparison) → **Phase 2** (cross-source corroboration scorer as the novel upgrade). The corroboration thesis is preserved — and arguably strengthened, because the empirical claim that corroboration is "distinct from retrieval-grounded factuality checks" requires both signals to be measured. The Phase 1 → Phase 2 delta is what quantifies the distinctness.
+
 ---
 
 ## Research thesis
@@ -22,6 +24,15 @@ Bracco's stated expertise is **"weather fields and AI physics-to-logic"** (her p
 > **Inter-source physical corroboration over causally-coupled heterogeneous sensors is a label-free proxy for ground-truth verification of LLM scientific attributions, empirically distinct from retrieval-grounded factuality checks because it leverages constraints from the underlying physical system rather than textual overlap.**
 
 In a 4-API heterogeneous-sensor architecture, every claim an LLM makes about an atmospheric anomaly can be scored against the agreement (or disagreement) of independent physical sources: satellite chemistry, ground-level sensors, reanalysis dynamics, surface meteorology. These sources are _causally coupled_ by atmospheric physics — they sense different facets of the same underlying physical state — which means their agreement carries information that retrieval against a static knowledge base (FActScore-style) cannot provide. The corroboration score is computed mechanically, requires no human label, and the framework generalizes to any multi-source scientific domain with causally-coupled sensors (medical multi-modal, geophysical inversions, financial multi-feed).
+
+### Phase 1 / Phase 2 framing
+
+The Month 2 build sequences the thesis empirically in two layers:
+
+- **Phase 1 (baseline):** retrieval-grounded factuality check (`validate.py`) — extract each LLM claim, verify against the retrieved enrichment context the model was given (FActScore-style: "is this claim present in what we showed the model?"). Compute % verifiable per explanation per model. Run local-vs-cloud comparison on this baseline. This establishes what hallucination detection looks like _without_ the cross-source physical signal and filters out fabricated claims before they reach Phase 2.
+- **Phase 2 (contribution):** cross-source corroboration scorer (`corroboration.py`) — for claims that pass Phase 1 grounding, score against the independent agreement of OpenAQ / Sentinel-5P / NOAA GFS / OpenWeather using the 10 claim types. This is the novel mechanism.
+
+The empirical claim that corroboration is _distinct_ from retrieval-grounded factuality requires both layers to be measured. The Phase 1 → Phase 2 delta — claims that pass Phase 1 (grounded in retrieved context) but fail Phase 2 (contradicted by independent sensors) — is what quantifies the distinctness.
 
 ### Relation to prior art
 
@@ -41,10 +52,17 @@ Either outcome is publishable:
 
 ### Sub-contributions delivered in Month 2
 
-1. **Mechanism** — Decomposed 4-step reasoning chain (physical signature → candidate causes → evidence evaluation → synthesis) with **per-step corroboration scoring** against the 4 APIs.
-2. **Validation** — Correlation analysis between corroboration scores and expert labels on ~50 anomalies (10–20 Bracco-labeled, rest Mason-labeled with Bracco audit subset for IRR).
-3. **Local-vs-cloud finding** — Characterize _where_ in the reasoning chain Llama 3 8B produces low-corroboration claims that GPT-5.4 / Gemini 3 Thinking do not, and whether the local model is _overconfident_ on exactly those claims.
-4. **Calibration measurement** — Calibration curves of stated confidence vs. corroboration score, per model.
+**Phase 1 (baseline):**
+
+1. **Retrieval-grounded factuality check (`validate.py`)** — Extract claims from each step of the 4-step reasoning chain; verify each against the retrieved enrichment context; report % verifiable per explanation per model.
+2. **Phase 1 local-vs-cloud comparison** — Compare grounded-factuality scores (% verifiable, fabrication rate, per-claim-type grounding rate) across Llama 3 8B / GPT-5.4 / Gemini 3 Thinking on the same anomaly set.
+
+**Phase 2 (novelty):**
+
+3. **Mechanism** — Decomposed 4-step reasoning chain (physical signature → candidate causes → evidence evaluation → synthesis) with **per-claim cross-source corroboration scoring** against the 4 APIs, run on Phase 1 survivors.
+4. **Validation** — Correlation analysis between corroboration scores and expert labels on ~50 anomalies (10–20 Bracco-labeled, rest Mason-labeled with Bracco audit subset for IRR).
+5. **Phase 1 → Phase 2 delta** — Characterize claims that pass Phase 1 grounding (present in retrieved context) but fail Phase 2 corroboration (contradicted by independent sensors). This delta is the empirical case for cross-source corroboration as a signal class distinct from retrieval-grounded factuality.
+6. **Calibration + local-vs-cloud finding** — Calibration curves of stated confidence vs. corroboration score, per model; characterize _where_ in the reasoning chain Llama 3 8B produces low-corroboration claims that GPT-5.4 / Gemini 3 Thinking do not, and whether the local model is _overconfident_ on exactly those claims.
 
 ---
 
@@ -57,10 +75,11 @@ Either outcome is publishable:
 - ChromaDB knowledge base ingestion (EPA breakpoints, atmospheric reference, Houston-specific context)
 - Ollama + Llama 3 8B local inference
 - Decomposed reasoning chain prompt structure (4 steps)
-- Cross-source corroboration scorer (the core novelty)
+- **Phase 1: retrieval-grounded factuality check (`validate.py`)** — FActScore-style claim verification against retrieved enrichment context
+- **Phase 2: cross-source corroboration scorer (`corroboration.py`)** — the novel mechanism, run on Phase 1 survivors
 - Cloud comparison wrapper (GPT-5.4, Gemini 3 Thinking)
-- Eval harness on ~50 anomalies (10–20 expert-labeled)
-- Corroboration↔truth correlation analysis, calibration curves, disagreement analysis
+- Eval harness on ~50 anomalies (10–20 expert-labeled), runs both Phase 1 and Phase 2 per (anomaly, model)
+- Phase 1 grounding rate + Phase 2 corroboration↔truth correlation analysis, Phase 1 → Phase 2 delta characterization, calibration curves, disagreement analysis
 - Bracco-ready artifact for June 2 meeting
 
 ### Explicitly deferred
@@ -142,19 +161,19 @@ All paths relative to `/Users/mason/project/Untitled/aeris/`.
 | `prompt.py`          | All prompt templates centralized per CLAUDE.md rule; one template per reasoning step                                                                                                                                                                                                                                |
 | `reasoning_chain.py` | Orchestrator: physical_signature → candidate_causes → evidence_evaluation → synthesis. Calls the LLM 4 times via the `LLMClient` interface.                                                                                                                                                                         |
 | `parser.py`          | Structural parsing + claim extraction from each reasoning step's output; schema check; emits a `list[ClaimDraft]`                                                                                                                                                                                                   |
-| `corroboration.py`   | **Core novelty.** Scores each `ClaimDraft` against cross-source evidence. See "Corroboration scorer design." Pure scoring — no pass/fail decisions.                                                                                                                                                                 |
-| `validate.py`        | The CLAUDE.md-mandated hallucination gate. Consumes scored claims, applies decision rules (e.g., `corroboration_score ≤ -0.5` or `unverified` with low corroboration confidence → flag), produces the persisted `Explanation` record's hallucination flags. This file is what `explain.py` calls before persisting. |
-| `explain.py`         | Top-level orchestrator: Anomaly → enrichment → `reasoning_chain` → `parser` → `corroboration` → `validate` → persist Explanation. CLI entrypoint preserved: `python -m app.llm.explain --anomaly-id=<id>`.                                                                                                          |
+| `validate.py`        | **Phase 1 — retrieval-grounded factuality check.** The CLAUDE.md-mandated hallucination gate. For each `ClaimDraft`, verifies the claim's content against the retrieved enrichment context the model was given (FActScore-style). Emits `grounding_verdict ∈ {grounded, unverified}` and `grounding_evidence_ref` (pointer into the context that grounded the claim, null if unverified). Runs before `corroboration.py`. Phase 1 flags are independent of Phase 2 corroboration scores. |
+| `corroboration.py`   | **Phase 2 novelty.** For each `ClaimDraft` that passed Phase 1 grounding, scores the claim against cross-source evidence using the 10 claim types. See [Corroboration scorer design](2026-05-21-corroboration-scorer-design.md). Pure scoring; a downstream `low_corroboration_flag` is emitted as metadata alongside the raw score but is not a gate. Phase-1-unverified claims skip Phase 2 with `corroboration_score=null, skipped_phase2=true`. |
+| `explain.py`         | Top-level orchestrator: Anomaly → enrichment → `reasoning_chain` → `parser` → **`validate` (Phase 1 grounding)** → **`corroboration` (Phase 2 scoring on Phase 1 survivors)** → persist Explanation with both signals. CLI entrypoint preserved: `python -m app.llm.explain --anomaly-id=<id>`. |
 
 ### New: `server/app/eval/`
 
 | File                           | Responsibility                                                                                                  |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `harness.py`                   | Runs all 3 models (local + 2 cloud) on the labeled anomaly set; persists ExplanationResult per (anomaly, model) |
-| `corroboration_correlation.py` | Computes Spearman/Pearson correlation between corroboration scores and expert labels, per claim type            |
+| `harness.py`                   | Runs all 3 models (local + 2 cloud) on the labeled anomaly set; persists Explanation + Claim records per (anomaly, model) with both Phase 1 grounding and Phase 2 corroboration signals populated |
+| `phase_analysis.py`            | Phase 1: % verifiable per (model, claim_type) + fabrication rate. Phase 2: Spearman/Pearson between corroboration scores and expert labels, per claim type. **Phase 1 → Phase 2 delta**: claims grounded-but-low-corroboration vs. grounded-and-corroborated, per model. (Single file because the headline reporting structure is layered.) |
 | `calibration.py`               | Reliability diagrams, ECE (expected calibration error), per model                                               |
 | `disagreement.py`              | Pairwise model disagreement matrix; structure of disagreement by claim type / reasoning step                    |
-| `report.py`                    | Generates a Markdown report from the four analyses for Mason and Bracco                                         |
+| `report.py`                    | Generates a Markdown report from the five analyses for Mason and Bracco. Headline structure: Phase 1 baseline → Phase 2 corroboration↔truth → Phase 1 → Phase 2 delta → calibration → disagreement. |
 
 ### Database schema additions in `server/app/db/models.py`
 
@@ -163,7 +182,7 @@ All paths relative to `/Users/mason/project/Untitled/aeris/`.
 | `Anomaly`          | `id`, `timestamp`, `lat`, `lon`, `metric`, `source`, `value`, `expected_value`, `z_score`, `methods_triggered` (list), `severity`, `detected_at`                                                                                                                                                                                                                                          |
 | `EnrichmentRecord` | `id`, `anomaly_id`, `context_window_start`, `context_window_end`, `cross_source_summary_json`                                                                                                                                                                                                                                                                                             |
 | `Explanation`      | `id`, `anomaly_id`, `model_name`, `model_version`, `reasoning_steps_json`, `final_narrative`, `stated_confidence`, `latency_ms`, `prompt_tokens`, `completion_tokens`, `created_at`                                                                                                                                                                                                       |
-| `Claim`            | `id`, `explanation_id`, `step_index` (1–4), `claim_type` (one of 10 taxonomy types), `claim_text`, `cited_sources`, `corroboration_score` (scalar, [-1,+1] or null), `evidence_n` (int, supporting + contradicting count), `per_source_verdicts` (JSON: `{source_name: +1/-1/0}`), `partial_verifiability` (bool, true for claim types where the data resolution constrains verification) |
+| `Claim`            | `id`, `explanation_id`, `step_index` (1–4), `claim_type` (one of 10 taxonomy types), `claim_text`, `cited_sources`, **`grounding_verdict` (enum: `grounded` / `unverified`, Phase 1)**, **`grounding_evidence_ref` (JSON pointer into the enrichment context that grounded the claim; null if `unverified`)**, **`skipped_phase2` (bool, true when `grounding_verdict=unverified` → Phase 2 not run)**, `corroboration_score` (Phase 2 scalar, [-1,+1] or null), `evidence_n` (int, supporting + contradicting count), `per_source_verdicts` (JSON: `{source_name: +1/-1/0}`), `partial_verifiability` (bool, true for claim types where the data resolution constrains verification), `low_corroboration_flag` (bool, Phase 2 metadata: `corroboration_score ≤ -0.5` with `evidence_n ≥ 2`) |
 | `ExpertLabel`      | `id`, `anomaly_id`, `labeler`, `true_cause`, `claim_validations_json` (list of {claim_id, verdict, note}), `created_at`                                                                                                                                                                                                                                                                   |
 
 TimescaleDB hypertable conversion applies to `Anomaly` (partition by `timestamp`); the others stay as regular tables.
@@ -277,7 +296,7 @@ For each claim, the scorer:
 **Day 4 (Mon May 19):**
 
 - Mason: implement `consensus.py` + `engine.py`; run detection on existing 4 weeks of collected data
-- Mason: write design memo for the corroboration scorer — claim taxonomy, tolerance defaults, edge cases (this is the artifact to bring to Bracco)
+- Mason: write design memo for the Phase 2 corroboration scorer — claim taxonomy, tolerance defaults, edge cases. _Updated 2026-05-26 post-Bracco-email: the memo additionally specifies the Phase 1 grounded-in-retrieved-context check as the prerequisite filter; see `docs/specs/2026-05-21-corroboration-scorer-design.md` for the revised version._
 - Read: industrial-city case study Bracco sent
 
 **Day 5 (Tue May 20):**
@@ -289,7 +308,7 @@ For each claim, the scorer:
 **Day 6 (Wed May 21):**
 
 - Mason: cross-source enrichment smoke tests
-- Mason: finalize the corroboration scorer design memo (claim taxonomy with 10 types, tolerance defaults, edge cases, partial-verifiability flags); commit to `docs/specs/2026-05-21-corroboration-scorer-design.md`. The memo mirrors Section 4 of the Bracco meeting notes Doc, but lives in the repo as the durable design record. **This is the load-bearing artifact for the June 2 meeting — Mason walks Bracco through it live, no pre-read.**
+- Mason: finalize the corroboration scorer design memo (Phase 1 grounding check spec + Phase 2 10 claim types, tolerance defaults, edge cases, partial-verifiability flags); commit to `docs/specs/2026-05-21-corroboration-scorer-design.md`. The memo mirrors Section 4 of the Bracco meeting notes Doc, but lives in the repo as the durable design record. **This is the load-bearing artifact for the June 2 meeting — Mason walks Bracco through it live, no pre-read.**
 - Mason: buffer for slipped tasks from Days 1–5
 - Mason: commit + push everything; tag the repo `month2-prevacation`
 - Dad: verify home server is accessible from Mason's dev laptop (SSH, tunneled Ollama port)
@@ -312,8 +331,9 @@ Home server keeps collecting data in the background; detection runs nightly via 
 
 - Pick the one demo anomaly from the existing ~50 candidates (ideally a known refinery upset or ozone exceedance)
 - Hand-draft the 4-step LLM output for that anomaly (what the model would say at each reasoning step)
-- Hand-score each claim against the 4 sources using the design's tolerances; produce a printable claim-by-claim table
-- Polish the Bracco meeting notes doc; print the 1-page version + the claim taxonomy table
+- **Phase 1 hand-pass:** for each drafted claim, mark `grounding_verdict` (grounded vs. unverified) against the retrieved enrichment context that would be supplied to the model
+- **Phase 2 hand-pass:** for each Phase-1-grounded claim, hand-score against the 4 sources using the design memo's tolerances; produce a printable two-column claim-by-claim table (Phase 1 verdict | Phase 2 per-source verdicts + corroboration_score)
+- Polish the Bracco meeting notes doc; print the 1-page version + the claim taxonomy table + the Phase 1 / Phase 2 framing summary
 - (Optional) draft prompt templates and the parser JSON schema on paper, so June 1 coding is transcription not design
 
 ### Bracco prep window: June 1 → June 5 (5 days)
@@ -328,12 +348,15 @@ The only working day before the meeting. Treat it as catch-up + meeting prep, no
 - Clear `Anomaly` + `EnrichmentRecord` tables and re-run detection on the now-extended dataset (insert-only persistence, per project guardrail)
 - Confirm the demo anomaly chosen on vacation is still in the top-50 candidate set after the re-run; swap demo if not
 - Final pass on the meeting notes doc; print the 1-page version + the claim taxonomy table
-- (Stretch, only if time) skeleton `client_base.py` + `ollama_client.py` + one prompt template — does NOT block the meeting
+- (Stretch, only if time) skeleton `client_base.py` + `ollama_client.py` + one prompt template + Phase 1 `validate.py` skeleton (extract-and-verify against retrieved context) — does NOT block the meeting
 
 **Tue Jun 2 — Bracco meeting (7:30 am):**
 
-- Present the mechanism + the hand-curated demo (a working pipeline is upside if the June 1 stretch landed; otherwise the hand-curated path is the planned demo)
-- Get her sign-off on the corroboration scorer's claim taxonomy and tolerance thresholds (especially `emissions_source_type`, `secondary_formation`, `background_vs_event`)
+- Present the **Phase 1 (retrieval-grounded factuality) → Phase 2 (cross-source corroboration) framing** explicitly; confirm this sequencing addresses her May 25 hallucination concern
+- Walk through the hand-curated demo with Phase 1 grounding verdicts + Phase 2 corroboration scores side-by-side for the chosen anomaly (a working pipeline is upside if the June 1 stretch landed; otherwise the hand-curated path is the planned demo)
+- **Clarify the SHAP-mechanism distinction:** the per-claim corroboration scoring is structurally distinct from SHAP — it's per-claim agreement across independent evidence channels, not feature attribution via Shapley values. Carloni's physics-as-attribution framing is the inspiration; the mechanism is not Shapley-based. (Bracco's reply used "evolution of SHAP" loosely; setting expectations here matters.)
+- Get her sign-off on the Phase 2 corroboration scorer's claim taxonomy and tolerance thresholds (especially `emissions_source_type`, `secondary_formation`, `background_vs_event`)
+- Get her sign-off on the Phase 1 grounding-check design (extract-and-verify against retrieved context)
 - Get her commitment on how many anomalies she'll label (target 10–15) and by when (target Jun 12)
 - Get co-authorship / CMCC data-sharing preferences in writing
 - Get her literature pointers refined (any further reviews to cite/differentiate against?)
@@ -345,17 +368,18 @@ The LLM stack that was originally May 30 / 31 / Jun 1 work lands here, post-meet
 
 - Implement `client_base.py` + `ollama_client.py` + `prompt.py` (deferred from pre-meeting)
 - Implement `reasoning_chain.py` all 4 steps + `parser.py`
-- Implement `corroboration.py` — all 10 claim types (apply any Bracco taxonomy adjustments from Jun 2 first)
-- Implement `validate.py` (hallucination decision gate consuming corroboration scores)
+- **Implement `validate.py` (Phase 1 grounded-in-retrieved-context check)** — FActScore-style: extract claim content from each `ClaimDraft`, verify against the retrieved enrichment context, emit `grounding_verdict` + `grounding_evidence_ref`. CLAUDE.md-mandated gate; runs before corroboration. Budget ~half a day — simpler than the 10-type scorer.
+- **Implement `corroboration.py` (Phase 2)** — all 10 claim types (apply any Bracco taxonomy adjustments from Jun 2 first); runs only on Phase 1 survivors; emits scalar score + `per_source_verdicts` + `low_corroboration_flag` metadata
 - Implement `gpt_client.py` (GPT-5.4) and `gemini_client.py` (Gemini 3 Thinking) against the `LLMClient` ABC; verify quotas/budget
-- Run reasoning chain on 10 anomalies with all 3 models; eyeball outputs for sanity
+- Run reasoning chain on 10 anomalies with all 3 models; eyeball outputs for sanity (both Phase 1 grounding rate and Phase 2 corroboration distribution)
 - Iterate on prompts based on what's clearly broken
 
 **Acceptance criteria for Bracco prep window:**
 
-- Bracco meeting happened; her labeling commitment + tolerance feedback + co-authorship + CMCC constraints captured in writing
+- Bracco meeting happened; her labeling commitment + Phase 1 / Phase 2 sequencing sign-off + tolerance feedback + co-authorship + CMCC constraints captured in writing
 - Reasoning chain runs end-to-end on 10 anomalies with all 3 models (target Jun 5; slip to Jun 6 acceptable)
-- Corroboration scorer covers all 10 claim types
+- Phase 1 `validate.py` produces `grounding_verdict` for every extracted claim
+- Phase 2 `corroboration.py` covers all 10 claim types and runs on Phase 1 survivors only
 
 ### Eval week: June 6 → June 12 (7 days)
 
@@ -363,7 +387,7 @@ The LLM stack that was originally May 30 / 31 / Jun 1 work lands here, post-meet
 
 **Sat Jun 6 — Mon Jun 8 (eval execution, 3-day wall-clock):**
 
-- Build `eval/harness.py` — runs all 3 models on the 50-anomaly set; persists Explanation + Claim records incrementally so re-runs are idempotent (resumable from any failure point)
+- Build `eval/harness.py` — runs all 3 models on the 50-anomaly set; runs Phase 1 grounding + Phase 2 corroboration per (anomaly, model); persists Explanation + Claim records incrementally so re-runs are idempotent (resumable from any failure point)
 - Run full eval. Realistic budget: 50 anomalies × 4 reasoning steps × 3 models = **600 calls**. Llama 3 8B at ~60s effective latency (cold-load + retries on parse failures) × 200 calls = **~3.3h local**. Cloud: GPT-5.4 200 calls × ~5s parallel ≈ 17 min; Gemini 3 Thinking 200 calls throttled at default RPM ≈ **~30 min** (apply async with rate-limit backoff). Plus inevitable 1–2 re-runs after prompt iteration → **plan ~2 full days of eval wall-clock**, not "overnight."
 - Build `eval/label_cli.py` — minimal CLI labeling tool: `python -m app.eval.label --anomaly-id=<id>` loads context, presents claims one at a time, captures verdict + freeform note. Without this the labeling load becomes a 6-hour ordeal.
 - Mason labels: 10 anomalies × 3 days = **30 anomalies cap, not in one push**. Avoid burnout.
@@ -371,9 +395,9 @@ The LLM stack that was originally May 30 / 31 / Jun 1 work lands here, post-meet
 
 **Tue Jun 9 — Thu Jun 11:**
 
-- Build `corroboration_correlation.py` — Spearman/Pearson between corroboration scores and expert labels, overall and per claim type
+- Build `phase_analysis.py` — Phase 1: % verifiable + fabrication rate per (model, claim_type). Phase 2: Spearman/Pearson between corroboration scores and expert labels, overall and per claim type. Phase 1 → Phase 2 delta: grounded-but-low-corroboration vs. grounded-and-corroborated.
 - Build `calibration.py` — reliability diagrams + ECE per model
-- Build `disagreement.py` — pairwise disagreement structure (which claim types do local + cloud disagree on?)
+- Build `disagreement.py` — pairwise disagreement structure (which claim types do local + cloud disagree on, in both Phase 1 grounding and Phase 2 corroboration?)
 - First-pass results; iterate on scorer thresholds if a claim type is obviously miscalibrated
 
 **Fri Jun 12:**
@@ -384,14 +408,14 @@ The LLM stack that was originally May 30 / 31 / Jun 1 work lands here, post-meet
 
 **Acceptance criteria for eval week:**
 
-- 50 anomalies × 3 models fully evaluated
+- 50 anomalies × 3 models fully evaluated with both Phase 1 grounding and Phase 2 corroboration signals persisted on every Claim
 - 10–20 Bracco labels + 30+ Mason labels
-- Three analyses (correlation, calibration, disagreement) complete with first-pass figures
+- Five analyses (Phase 1 baseline, Phase 2 corroboration↔truth, Phase 1 → Phase 2 delta, calibration, disagreement) complete with first-pass figures
 
 ### Polish & write-up: June 13 → June 16 (4 days)
 
 - Refine figures + tables
-- Write **1-page Month 2 results summary** (headline correlation, calibration findings, disagreement findings) — short artifact suitable for sending Bracco
+- Write **1-page Month 2 results summary** (Phase 1 baseline + Phase 2 corroboration delta as the headline structure; calibration findings; disagreement findings) — short artifact suitable for sending Bracco
 - The 5-page methodology + results draft is **pushed to Month 3 Week 1** — it depends on the visualization choices Month 3 makes anyway, and 4 days at end of month is too tight for both
 - Identify findings strong enough to send Bracco for review
 - Tag repo `month2-complete`
@@ -403,16 +427,18 @@ The LLM stack that was originally May 30 / 31 / Jun 1 work lands here, post-meet
 
 This is the meeting that justifies the whole Month 2 framing. Materials to have ready:
 
-1. **1-page memo (printed)** brought to the meeting — Section 1 of the Bracco notes doc: thesis (with FActScore differentiation), mechanism, the demo plan, the four questions. No pre-read — the meeting is for her to hear the ideas live and check feasibility / novelty.
-2. **The demo** — hand-curated by default (one anomaly → 4-step reasoning chain output → corroboration scores per claim, side-by-side). If the working pipeline landed by Jun 1 it's a bonus; the meeting framing is the same either way.
-3. **Claim taxonomy spec** — the corroboration scorer's 10 claim types with tolerance defaults and partial-verifiability flags; she should be able to challenge any of them. Printed as a small table for in-meeting pointing.
+1. **1-page memo (printed)** brought to the meeting — Section 1 of the Bracco notes doc: thesis (with FActScore differentiation), **Phase 1 / Phase 2 framing**, mechanism, the demo plan, the questions. No pre-read — the meeting is for her to hear the ideas live and check feasibility / novelty.
+2. **The demo** — hand-curated by default (one anomaly → 4-step reasoning chain output → **Phase 1 grounding verdicts + Phase 2 corroboration scores per claim, side-by-side**). If the working pipeline landed by Jun 1 it's a bonus; the meeting framing is the same either way.
+3. **Claim taxonomy + Phase 1 grounding spec** — the Phase 2 corroboration scorer's 10 claim types with tolerance defaults and partial-verifiability flags, plus the Phase 1 grounded-in-retrieved-context check design; she should be able to challenge any of them. Printed as a small table for in-meeting pointing.
 4. **Labeling instructions doc** — for the 10–15 anomalies she'll label: what counts as a correct/incorrect claim, how to flag uncertainty, time budget (~5 min per anomaly target). Format is plain-text/PDF, not a CLI link — she works in Outlook.
-5. **Four questions for her:**
+5. **Questions for her:**
+   - "Does the Phase 1 (retrieval-grounded factuality) → Phase 2 (cross-source corroboration) sequencing address the hallucination-dominance concern from your May 25 email? Is there a Phase 1 check I should add?"
    - "Are these tolerance thresholds reasonable for Houston-area meteorology?"
    - "Are there claim types I'm missing that would be obvious to a climate scientist? Specifically, am I handling `emissions_source_type`, `secondary_formation`, and `background_vs_event` correctly for the Houston regime?"
    - "What would convince you, in 5 minutes of looking at one example, that an LLM's atmospheric attribution is wrong?"
    - "Will you commit to labeling 10 anomalies by Jun 12, and is this format usable? Are there 2–3 more papers on cross-source eval or LLM scientific reasoning you'd recommend I cite?"
-6. **Post-meeting (within 24h):** written confirmation from Bracco of (a) labeling commitment, (b) attribution/co-authorship preferences for any eventual preprint, (c) any CMCC data-sharing constraints on the labeled dataset. This is a 30-second conversation that becomes a 6-month IRB problem if skipped.
+6. **SHAP-mechanism clarification (talking point, not a question):** Bracco's May 25 reply used "evolution of SHAP" loosely. Briefly clarify in the meeting that the Phase 2 corroboration mechanism is structurally distinct from SHAP — per-claim agreement across independent evidence channels, not feature attribution via Shapley values. Carloni's physics-as-attribution framing is the inspiration; the mechanism itself is not Shapley-based. Setting this expectation now avoids a credibility hit if Phase 2 results don't show Shapley values.
+7. **Post-meeting (within 24h):** written confirmation from Bracco of (a) labeling commitment, (b) Phase 1 / Phase 2 sequencing sign-off, (c) attribution/co-authorship preferences for any eventual preprint, (d) any CMCC data-sharing constraints on the labeled dataset. This is a 30-second conversation that becomes a 6-month IRB problem if skipped.
 
 ---
 
@@ -421,7 +447,8 @@ This is the meeting that justifies the whole Month 2 framing. Materials to have 
 | Risk                                                                                                                                     | Likelihood  | Mitigation                                                                                                                                                                                                                                                                                                                           |
 | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Server / Ollama setup eats more than 2 days                                                                                              | Medium      | Prototype on Mason's dev machine in parallel (Apple Silicon Ollama works); migrate to server later. Don't block the detection engine on it.                                                                                                                                                                                          |
-| Corroboration scorer design takes >1 week                                                                                                | Medium-High | The Wed May 21 design memo is the gate. If the memo isn't done by then, postpone first reasoning-chain implementation and finish the design before Bracco meeting; better to walk in with a clean mechanism design than a half-built one.                                                                                            |
+| Corroboration scorer design takes >1 week                                                                                                | Medium-High | The Wed May 21 design memo is the gate (now covers both Phase 1 grounding-check design and Phase 2 corroboration). If the memo isn't done by then, postpone first reasoning-chain implementation and finish the design before Bracco meeting; better to walk in with a clean mechanism design than a half-built one.               |
+| Phase 1 grounding check eats time budgeted for Phase 2 corroboration in the Jun 3–5 sprint                                               | Medium      | Phase 1 grounding is simpler than the 10-type Phase 2 scorer (single extract-and-verify against retrieved context vs. 10 per-claim-type functions). Budget Phase 1 at ~half a day; reuse the same `ClaimDraft` parser output. If Phase 1 slips, hand-curated demo path still works for the meeting.                                  |
 | Bracco can't label 10 anomalies by Jun 12                                                                                                | Medium      | Mason labels everything by Jun 10; Bracco labels become an _audit set_ for IRR (inter-rater reliability), not the ground truth. The validation analysis still works; the title shifts from "expert-labeled" to "expert-audited."                                                                                                     |
 | Cloud API budget runs out mid-eval                                                                                                       | Low-Medium  | 50 anomalies × 4 steps × 2 cloud models = ~400 cloud calls. At <$0.50/call worst case = $200. Budget for $300. If GPT-5.4 access blocked, fall back to GPT-4-class equivalent + note in methodology.                                                                                                                                 |
 | Llama 3 8B latency exceeds estimate                                                                                                      | Medium      | See Power & Statistics — realistic wall-clock is ~2 full days for the 600-call sweep, not "overnight." Plan accordingly; idempotent eval means partial runs accumulate.                                                                                                                                                              |
@@ -453,19 +480,27 @@ This is the meeting that justifies the whole Month 2 framing. Materials to have 
 - **Parse-failure rate is measured per model and reported as a result** — not treated as a bug
 - Manual review: 5 anomalies' chain outputs eyeballed by Mason for narrative coherence and source citation presence
 
-### Corroboration scorer
+### Phase 1 grounding check (`validate.py`)
+
+- Unit tests: hand-crafted `(claim, retrieved_context)` pairs covering clearly-grounded, clearly-fabricated, and partially-grounded cases; `validate.py` returns the correct `grounding_verdict` and a non-null `grounding_evidence_ref` for grounded claims
+- Integration test: full reasoning chain on a fixture EnrichmentRecord produces Claim records with `grounding_verdict` populated for every extracted claim; `unverified` claims have `skipped_phase2=true` downstream
+- **Phase 1 % verifiable per model is measured and reported as a first-class result** alongside Phase 2 corroboration; the local-vs-cloud Phase 1 gap is a publishable finding even before Phase 2 runs
+
+### Corroboration scorer (Phase 2)
 
 - Unit test per claim type (10 functions) with hand-crafted (claim, evidence) pairs verifying per-source verdict classification (+1 / -1 / 0)
 - Sanity test: a claim with explicit data support across 3+ sources gets score ≈ +1 with `evidence_n ≥ 3`; an explicitly contradicted claim gets ≈ -1; a claim with no relevant data gets `score=null, unverified=true`
 - `evidence_n` always reported alongside score; `per_source_verdicts` JSON is queryable for downstream slicing
+- Phase-1-unverified claims correctly skip Phase 2 scoring: `corroboration_score=null, skipped_phase2=true`
 - Cross-check: corroboration scores for an entire reasoning chain should be roughly monotonic in plausibility on a small Mason-eyeballed set
 
 ### Eval harness
 
-- End-to-end: `python -m app.eval.harness --anomaly-set fixtures/eval50.json` produces full results for all 3 models
+- End-to-end: `python -m app.eval.harness --anomaly-set fixtures/eval50.json` produces full results for all 3 models with both Phase 1 grounding and Phase 2 corroboration signals populated on every Claim
 - **Idempotent + resumable** — partial runs persist Explanation rows individually; re-running only fills missing (anomaly, model) cells
 - Report regenerable from persisted Explanation records (no rerun needed for figure tweaks)
 - Per-claim-type N reported in every figure; headline correlation analysis only on the 3 designated headline types
+- Phase 1 → Phase 2 delta computed per (model, claim_type): of claims passing Phase 1 grounding, what fraction fail Phase 2 corroboration?
 
 ### Bracco-readiness gate (Mon Jun 1, 22:00 CT)
 
@@ -486,9 +521,9 @@ This is the meeting that justifies the whole Month 2 framing. Materials to have 
 
 ### Month 2 completion gate (June 16)
 
-- `eval/report.py` generates correlation, calibration, and disagreement figures from real data
-- 50 anomalies in DB with ≥1 expert label each (Mason or Bracco)
-- 1-page Month 2 results summary committed to `docs/research/2026-06-16-month2-results-summary.md`
+- `eval/report.py` generates Phase 1 baseline, Phase 2 corroboration↔truth correlation, Phase 1 → Phase 2 delta, calibration, and disagreement figures from real data
+- 50 anomalies in DB with ≥1 expert label each (Mason or Bracco) and both Phase 1 + Phase 2 signals populated
+- 1-page Month 2 results summary committed to `docs/research/2026-06-16-month2-results-summary.md` with Phase 1 baseline + Phase 2 delta as the headline structure
 - Repo tagged `month2-complete`
 - 5-page methodology + results draft scheduled into Month 3 Week 1, not Month 2
 
@@ -498,27 +533,27 @@ This is the meeting that justifies the whole Month 2 framing. Materials to have 
 
 ```
 server/app/detection/{engine,zscore,stl,isolation_forest,consensus,enrichment}.py    [new]
-server/app/llm/{client_base,ollama_client,gpt_client,gemini_client,rag,prompt,reasoning_chain,parser,corroboration,validate,explain}.py    [new]
-server/app/eval/{harness,corroboration_correlation,calibration,disagreement,report,label_cli}.py    [new]
-server/app/db/models.py    [add Anomaly, EnrichmentRecord, Explanation, Claim (with per_source_verdicts JSON + evidence_n + partial_verifiability), ExpertLabel]
+server/app/llm/{client_base,ollama_client,gpt_client,gemini_client,rag,prompt,reasoning_chain,parser,validate,corroboration,explain}.py    [new — validate.py is Phase 1 grounding, corroboration.py is Phase 2 cross-source]
+server/app/eval/{harness,phase_analysis,calibration,disagreement,report,label_cli}.py    [new — phase_analysis.py reports Phase 1 baseline + Phase 2 corroboration↔truth + Phase 1 → Phase 2 delta]
+server/app/db/models.py    [add Anomaly, EnrichmentRecord, Explanation, Claim (with grounding_verdict + grounding_evidence_ref + skipped_phase2 + per_source_verdicts JSON + evidence_n + partial_verifiability + low_corroboration_flag), ExpertLabel]
 server/app/api/routes/{anomalies,explanations,evaluation}.py    [new]
 server/requirements.txt    [add chromadb, scikit-learn, statsmodels, ollama, openai, google-genai]
 server/data/chromadb/    [populate with EPA breakpoints + atmospheric reference + Houston context]
 server/tests/{detection,llm,eval}/    [new test trees]
 docs/specs/2026-05-16-month2-phase-plan.md    [copy of this plan after approval]
-docs/specs/2026-05-21-corroboration-scorer-design.md    [design memo committed; mirrors Section 4 of the Bracco meeting notes Doc, kept in repo as the durable design record]
-docs/bracco/2026-06-02-memo.pdf    [printed 1-page meeting handout — Section 1 of the Bracco notes doc]
-docs/bracco/2026-06-02-postmeeting-notes.md    [labeling commitment + co-authorship + CMCC constraints, captured in writing within 24h]
-docs/research/2026-06-16-month2-results-summary.md    [1-page end-of-month summary; 5-page methodology+results draft pushed to Month 3 W1]
+docs/specs/2026-05-21-corroboration-scorer-design.md    [design memo committed; mirrors Section 4 of the Bracco meeting notes Doc, kept in repo as the durable design record; covers Phase 1 grounding check + Phase 2 corroboration scorer]
+docs/bracco/2026-06-02-memo.pdf    [printed 1-page meeting handout — Section 1 of the Bracco notes doc, with Phase 1 / Phase 2 framing]
+docs/bracco/2026-06-02-postmeeting-notes.md    [labeling commitment + Phase 1 / Phase 2 sequencing sign-off + co-authorship + CMCC constraints, captured in writing within 24h]
+docs/research/2026-06-16-month2-results-summary.md    [1-page end-of-month summary with Phase 1 baseline + Phase 2 delta as the headline; 5-page methodology+results draft pushed to Month 3 W1]
 ```
 
 ### Load-bearing files (the ones that most need to be right)
 
-- `server/app/llm/corroboration.py` — where the paper's core claim lives
-- `server/app/llm/validate.py` — the CLAUDE.md-guaranteed hallucination gate; do not let claim-extraction logic squat here (that's `parser.py`)
-- `server/app/db/models.py` — `per_source_verdicts: JSON` is the load-bearing schema detail enabling downstream disagreement analysis
+- `server/app/llm/validate.py` — **Phase 1** grounded-in-retrieved-context check; the CLAUDE.md-mandated hallucination gate. Mistakes here propagate into the Phase 1 → Phase 2 delta analysis. Do not let claim-extraction logic squat here (that's `parser.py`); do not let cross-source corroboration logic squat here (that's `corroboration.py`).
+- `server/app/llm/corroboration.py` — **Phase 2** novelty; where the paper's core claim lives. Runs only on Phase 1 survivors.
+- `server/app/db/models.py` — `per_source_verdicts: JSON` is the load-bearing Phase 2 schema detail enabling downstream disagreement analysis; `grounding_verdict` + `grounding_evidence_ref` + `skipped_phase2` are the load-bearing Phase 1 fields enabling the Phase 1 → Phase 2 delta computation.
 - `server/app/detection/enrichment.py` — spatiotemporal cross-source joining; underestimated complexity (4 different spatial conventions across collectors: gridded GFS at 0.25°, point OpenAQ stations, single-anchor Sentinel-5P granule mean, 5-point OpenWeather grid)
-- `docs/specs/2026-05-21-corroboration-scorer-design.md` — if this memo is sharp, the Bracco meeting succeeds
+- `docs/specs/2026-05-21-corroboration-scorer-design.md` — if this memo is sharp, the Bracco meeting succeeds; covers both Phase 1 grounding-check design and Phase 2 corroboration scorer
 
 ---
 
@@ -526,4 +561,4 @@ docs/research/2026-06-16-month2-results-summary.md    [1-page end-of-month summa
 
 This phase produces the _mechanism_ and the _core empirical result_. Month 3 builds the visualization (web app) that exposes the corroboration scores per claim to a human user. Month 4 scales the eval (100+ anomalies, ablations including physics-grounded prompts and counterfactual attribution), runs the user comprehensibility study, and writes the preprint. Month 5 is competition submissions + stretch goals.
 
-The corroboration-as-eval-proxy framing established here is what makes the preprint defensible. Without it, the project is "yet another local-RAG-vs-cloud comparison." With it, the project contributes a generalizable methodology for evaluating LLM scientific reasoning at scale.
+The corroboration-as-eval-proxy framing established here — with **Phase 1 retrieval-grounded factuality as the baseline** and **Phase 2 cross-source corroboration as the novel upgrade** — is what makes the preprint defensible. Without it, the project is "yet another local-RAG-vs-cloud comparison." With it, the project contributes a generalizable methodology for evaluating LLM scientific reasoning at scale, and the Phase 1 → Phase 2 delta is what empirically grounds the "distinct from retrieval-grounded factuality" claim.

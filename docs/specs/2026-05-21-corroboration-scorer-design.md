@@ -1,6 +1,6 @@
 # AERIS Corroboration Scorer — Design Memo
 
-> **Date:** 2026-05-21 (design); committed 2026-05-24 from in-trip notes
+> **Date:** 2026-05-21 (initial design); committed 2026-05-24 from in-trip notes; revised 2026-05-26 to add Phase 1 / Phase 2 split per Dr. Bracco's 2026-05-25 email feedback
 > **Status:** Draft for Dr. Bracco review at the June 2 meeting
 > **Related:** [Month 2 phase plan](2026-05-16-month2-phase-plan.md); Section 4 of the June 2 Bracco meeting notes (Google Doc, where this same content lives in Mason's conversational voice)
 
@@ -8,11 +8,20 @@
 
 ## Purpose
 
-The corroboration scorer is the load-bearing piece of Month 2. For each LLM-generated claim about an atmospheric anomaly, it computes a `corroboration_score ∈ [-1, +1]` against the agreement of the four causally-coupled data sources: Sentinel-5P, OpenAQ, NOAA GFS, OpenWeather. The score is a label-free proxy for ground-truth verification; the Month 2 research question is whether the score correlates with expert labels strongly enough to stand in as a scalable evaluation signal.
+The corroboration scorer is the load-bearing piece of Month 2's **Phase 2 (novelty contribution)**. For each LLM-generated claim about an atmospheric anomaly that survives Phase 1 grounding, it computes a `corroboration_score ∈ [-1, +1]` against the agreement of the four causally-coupled data sources: Sentinel-5P, OpenAQ, NOAA GFS, OpenWeather. The score is a label-free proxy for ground-truth verification; the Month 2 research question is whether the score correlates with expert labels strongly enough to stand in as a scalable evaluation signal.
 
 Three of the ten claim types are designated **headline** (N≥20 targeted, sufficient for inferential statistics). The other seven are descriptive only.
 
 This memo specifies the taxonomy, the per-source scoring rules, the tolerance defaults, and the build structure. The tolerance defaults are draft values intended for Bracco to challenge.
+
+### Phase 1 / Phase 2 sequencing (added 2026-05-26)
+
+Per Bracco's 2026-05-25 email reply: do the more basic analysis first, then layer corroboration on top, to ensure the cross-source signal isn't dominated by fabricated claims. Month 2 therefore sequences as:
+
+- **Phase 1 (`validate.py`)** — retrieval-grounded factuality check (FActScore-style). For each `ClaimDraft`, verify the claim's content is present in the retrieved enrichment context the model was given. Emits `grounding_verdict ∈ {grounded, unverified}` and `grounding_evidence_ref` (which slice of the context grounded the claim, null if unverified). Runs before this scorer. This is the CLAUDE.md-mandated hallucination gate and is independent of the corroboration logic below.
+- **Phase 2 (this scorer, `corroboration.py`)** — per-claim agreement scoring across the 4 APIs, run only on Phase 1 survivors. Fabricated/unverified claims skip Phase 2 entirely with `corroboration_score=null, skipped_phase2=true`.
+
+The thesis (corroboration as a label-free eval proxy *distinct from retrieval-grounded factuality*) is preserved and arguably strengthened: the Phase 1 → Phase 2 delta — claims that pass grounding but fail corroboration — is what empirically demonstrates the distinctness.
 
 ---
 
@@ -60,7 +69,12 @@ Types 8–10 were added specifically to stress the patterns a small LLM is most 
 
 Implemented as **10 small functions, one per claim type**, in `server/app/llm/corroboration.py`. Each returns `(per_source_verdicts: dict, evidence_summary: str)`. A shared aggregator derives the scalar score and `evidence_n`.
 
-The scorer **only scores** — it does not make pass/fail decisions. Decisions (e.g., "corroboration_score ≤ −0.5 with `evidence_n ≥ 2` triggers a hallucination flag") live in `validate.py`. The separation matters: scoring is a research artifact for the correlation analysis; flagging is a product decision that depends on downstream tuning.
+The scorer **only scores** — flagging is tracked as metadata alongside the raw score but is kept analytically separate so the raw scores remain available for the correlation analysis.
+
+- **Phase 1 (`validate.py`) runs first.** Phase 1 is the retrieval-grounded factuality check (not the corroboration decision gate). It emits `grounding_verdict` + `grounding_evidence_ref` independently of any corroboration logic. Phase-1-unverified claims skip Phase 2 with `corroboration_score=null, skipped_phase2=true`.
+- **Phase 2 (this scorer) emits a `low_corroboration_flag` as metadata**, computed at scoring time as `corroboration_score ≤ -0.5 AND evidence_n ≥ 2`. The flag is metadata, not a gate — downstream product code can consume it, but the raw `corroboration_score` is what the research analysis correlates against expert labels.
+
+This separation matters: scoring is a research artifact for the correlation analysis; Phase 1 grounding and Phase 2 flagging are independent signals on the same Claim record.
 
 ---
 
@@ -76,7 +90,10 @@ The scorer **only scores** — it does not make pass/fail decisions. Decisions (
 
 ## Open questions for the June 2 Bracco meeting
 
-1. Are the tolerance defaults above reasonable for Houston-area meteorology?
-2. Are claim types 8 (`emissions_source_type`), 9 (`secondary_formation`), and 10 (`background_vs_event`) correctly framed for the Houston regime?
-3. Is there a claim type missing that an atmospheric scientist would consider obvious?
-4. For the `chemistry` and `point_source_attribution` partial-verifiability flags, is ±50% tolerance and silent-granule treatment defensible, or should they be excluded from any quantitative reporting?
+1. **Does the Phase 1 (retrieval-grounded factuality) → Phase 2 (cross-source corroboration) sequencing address the hallucination-dominance concern from your May 25 email? Is there a Phase 1 check I should add (e.g., entity-level grounding vs. statement-level grounding)?**
+2. Are the tolerance defaults above reasonable for Houston-area meteorology?
+3. Are claim types 8 (`emissions_source_type`), 9 (`secondary_formation`), and 10 (`background_vs_event`) correctly framed for the Houston regime?
+4. Is there a claim type missing that an atmospheric scientist would consider obvious?
+5. For the `chemistry` and `point_source_attribution` partial-verifiability flags, is ±50% tolerance and silent-granule treatment defensible, or should they be excluded from any quantitative reporting?
+
+**Meeting talking point (not a question):** the Phase 2 corroboration mechanism is structurally distinct from SHAP. SHAP attributes model output to input features via Shapley values; this scorer attributes per-claim correctness to physical evidence agreement across independent sensor channels. Carloni's physics-as-attribution framing is the inspiration; the mechanism itself is not Shapley-based. Bracco's May 25 reply used "evolution of SHAP" loosely — worth clarifying so Phase 2 isn't expected to literally compute Shapley values.

@@ -69,18 +69,26 @@ Web Application (React)
 
 ## Research
 
-**Question**: Can a locally-hosted 8B model match cloud GPT-class accuracy on climate-anomaly attribution when paired with a structured cross-source RAG pipeline and hallucination detection? Linking weather patterns to environmental events is well-established science; the open question is whether a small, locally-hosted model can do it reliably enough for independent deployment.
+**Questions**:
+1. Can the agreement of independent physical sensors serve as a label-free evaluation signal for LLM scientific attributions — one structurally distinct from retrieval-grounded factuality checks (FActScore-style) because it leverages constraints from the underlying physical system rather than textual overlap?
+2. When does a locally-hosted 8B model's attribution quality diverge from cloud GPT-class models, and is the local model overconfident on exactly the claims it gets wrong?
+
+Linking weather patterns to environmental events is well-established science; the open question is whether the correctness of an LLM's causal reasoning can be mechanically scored at scale, without relying entirely on expert labels.
 
 **Contributions**:
-1. A four-API cross-referencing architecture that gives an 8B model the structured context it needs to reason about heterogeneous atmospheric data.
-2. An automated hallucination-detection layer specialized for climate-physics claims, evaluated against intentionally-injected false statements.
-3. An empirical local-vs-cloud comparison on a domain where small models are widely assumed to fail.
+1. **Four-API cross-referencing architecture** (OpenAQ, Sentinel-5P, NOAA GFS, OpenWeather) — heterogeneous physical sources normalized to a common schema, giving an 8B local model the structured context to reason about atmospheric anomalies.
+2. **Phase 1: retrieval-grounded factuality check** — automated hallucination detection that verifies each claim against the retrieved enrichment context the model was given (FActScore-style). Filters fabricated claims before the corroboration scorer ever sees them.
+3. **Phase 2: cross-source corroboration scorer** (the novel contribution) — per-claim agreement scoring across the four independent physical sources via a 10-type claim taxonomy (3 headline types for inferential analysis, 7 descriptive). Tested as a label-free proxy for ground-truth verification of LLM scientific reasoning.
+4. **Empirical local-vs-cloud comparison** on a domain where small models are widely assumed to fail, with calibration curves (does stated confidence track corroboration?) and disagreement structure (where do local + cloud diverge?).
 
 **Evaluation**:
-- Expert-labeled anomaly ground truth (50-100 events, kept broad across categories — petrochemical upsets, ozone exceedances, wildfire-smoke transport, hurricanes, hard freezes — to test cross-category generalization, not category-specific tuning)
-- Local (Llama 3 8B) vs. cloud (GPT 5.4, Gemini 3 Thinking) attribution accuracy
-- Hallucination-detection precision/recall on injected false claims
-- User comprehension and actionability study with non-expert participants
+- ~50 anomalies labeled by Dr. Bracco (10–20) and Mason (rest), with an audit-subset Cohen's κ for inter-rater reliability — kept broad across categories (petrochemical upsets, ozone exceedances, wildfire-smoke transport, hurricanes, hard freezes) to test cross-category generalization.
+- Phase 1 metric: % verifiable per (model, claim type) + fabrication rate.
+- Phase 2 metric: Spearman/Pearson between corroboration scores and expert labels, per claim type.
+- **Phase 1 → Phase 2 delta**: claims grounded in retrieved context but contradicted by independent sensors — the empirical case for cross-source corroboration as a signal class distinct from retrieval-grounded factuality.
+- Local (Llama 3 8B) vs. cloud (GPT-5.4, Gemini 3 Thinking) on both phases.
+- Calibration: reliability diagrams of stated confidence vs. corroboration score, per model.
+- User comprehension and actionability study (Month 4).
 
 ## Getting Started
 

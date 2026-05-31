@@ -82,7 +82,7 @@ Linking weather patterns to environmental events is well-established science; th
 4. **Empirical local-vs-cloud comparison** on a domain where small models are widely assumed to fail, with calibration curves (does stated confidence track corroboration?) and disagreement structure (where do local + cloud diverge?).
 
 **Evaluation**:
-- ~50 anomalies labeled by Dr. Bracco (10–20) and Mason (rest), with an audit-subset Cohen's κ for inter-rater reliability — kept broad across categories (petrochemical upsets, ozone exceedances, wildfire-smoke transport, hurricanes, hard freezes) to test cross-category generalization.
+- ~50 anomalies labeled by me and Dr. Bracco, with an audit-subset Cohen's κ for inter-rater reliability — kept broad across categories (petrochemical upsets, ozone exceedances, wildfire-smoke transport, hurricanes, hard freezes) to test cross-category generalization.
 - Phase 1 metric: % verifiable per (model, claim type) + fabrication rate.
 - Phase 2 metric: Spearman/Pearson between corroboration scores and expert labels, per claim type.
 - **Phase 1 → Phase 2 delta**: claims grounded in retrieved context but contradicted by independent sensors — the empirical case for cross-source corroboration as a signal class distinct from retrieval-grounded factuality.

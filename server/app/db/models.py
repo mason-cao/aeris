@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -113,6 +114,16 @@ class Anomaly(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    explanations: Mapped[list["Explanation"]] = relationship(
+        back_populates="anomaly",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    expert_labels: Mapped[list["ExpertLabel"]] = relationship(
+        back_populates="anomaly",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     __table_args__ = (
         Index("ix_anomalies_timestamp", "timestamp"),
@@ -163,3 +174,121 @@ class EnrichmentRecord(Base):
             f"<EnrichmentRecord anomaly={self.anomaly_id} "
             f"window={self.context_window_start}..{self.context_window_end}>"
         )
+
+
+class Explanation(Base):
+    __tablename__ = "explanations"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    anomaly_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("anomalies.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    model_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    reasoning_steps_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    final_narrative: Mapped[str] = mapped_column(Text, nullable=False)
+    stated_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    prompt_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    completion_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    anomaly: Mapped["Anomaly"] = relationship(back_populates="explanations")
+    claims: Mapped[list["Claim"]] = relationship(
+        back_populates="explanation",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    __table_args__ = (
+        Index("ix_explanations_anomaly_id", "anomaly_id"),
+        Index("ix_explanations_model_name", "model_name"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Explanation anomaly={self.anomaly_id} model={self.model_name} "
+            f"conf={self.stated_confidence}>"
+        )
+
+
+class Claim(Base):
+    __tablename__ = "claims"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    explanation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("explanations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    step_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    claim_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    claim_text: Mapped[str] = mapped_column(Text, nullable=False)
+    cited_sources: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Phase 1 — retrieval-grounded factuality check (validate.py)
+    grounding_verdict: Mapped[str] = mapped_column(String(16), nullable=False)
+    grounding_evidence_ref: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    skipped_phase2: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    # Phase 2 — cross-source corroboration scorer (corroboration.py)
+    corroboration_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    evidence_n: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    per_source_verdicts: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    partial_verifiability: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    low_corroboration_flag: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+
+    explanation: Mapped["Explanation"] = relationship(back_populates="claims")
+
+    __table_args__ = (
+        Index("ix_claims_explanation_id", "explanation_id"),
+        Index("ix_claims_claim_type", "claim_type"),
+        Index("ix_claims_grounding_verdict", "grounding_verdict"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Claim type={self.claim_type} step={self.step_index} "
+            f"grounding={self.grounding_verdict} corr={self.corroboration_score}>"
+        )
+
+
+class ExpertLabel(Base):
+    __tablename__ = "expert_labels"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    anomaly_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("anomalies.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    labeler: Mapped[str] = mapped_column(String(64), nullable=False)
+    true_cause: Mapped[str | None] = mapped_column(Text, nullable=True)
+    claim_validations_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    anomaly: Mapped["Anomaly"] = relationship(back_populates="expert_labels")
+
+    __table_args__ = (
+        Index("ix_expert_labels_anomaly_id", "anomaly_id"),
+        Index("ix_expert_labels_labeler", "labeler"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ExpertLabel anomaly={self.anomaly_id} labeler={self.labeler}>"

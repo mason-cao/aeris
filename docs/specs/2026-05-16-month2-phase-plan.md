@@ -79,6 +79,7 @@ Either outcome is publishable:
 - **Phase 2: cross-source corroboration scorer (`corroboration.py`)** — the novel mechanism, run on Phase 1 survivors
 - Cloud comparison wrapper (GPT-5.4, Gemini 3 Thinking)
 - Eval harness on ~50 anomalies (10–20 expert-labeled), runs both Phase 1 and Phase 2 per (anomaly, model)
+- **Summer-window anomalies only** (added 2026-06-02, Bracco): the eval set is drawn from summer dates so seasonal variation doesn't confound the corroboration signal. This restricts the time window, not the cross-category breadth — all anomaly categories stay in, within summer.
 - Phase 1 grounding rate + Phase 2 corroboration↔truth correlation analysis, Phase 1 → Phase 2 delta characterization, calibration curves, disagreement analysis
 - Bracco-ready artifact for June 2 meeting
 

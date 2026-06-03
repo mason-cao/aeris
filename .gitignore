@@ -50,3 +50,6 @@ coverage/
 # Personal workflow files
 CLAUDE.md
 session_summary.md
+
+# Mentor materials (local only)
+docs/bracco/

@@ -24,7 +24,15 @@ def sqlite_url(tmp_path):
 
 @pytest.mark.parametrize(
     "table",
-    ["data_points", "data_sources", "anomalies", "enrichment_records"],
+    [
+        "data_points",
+        "data_sources",
+        "anomalies",
+        "enrichment_records",
+        "explanations",
+        "claims",
+        "expert_labels",
+    ],
 )
 def test_upgrade_head_creates_expected_table(sqlite_url, table) -> None:
     cfg = _alembic_config(sqlite_url)
@@ -33,6 +41,22 @@ def test_upgrade_head_creates_expected_table(sqlite_url, table) -> None:
     engine = create_engine(sqlite_url)
     try:
         assert table in set(inspect(engine).get_table_names())
+    finally:
+        engine.dispose()
+
+
+def test_upgrade_head_creates_claims_fk_to_explanations(sqlite_url) -> None:
+    cfg = _alembic_config(sqlite_url)
+    command.upgrade(cfg, "head")
+
+    engine = create_engine(sqlite_url)
+    try:
+        fks = inspect(engine).get_foreign_keys("claims")
+        assert any(
+            fk["referred_table"] == "explanations"
+            and fk["referred_columns"] == ["id"]
+            for fk in fks
+        ), f"expected FK claims.explanation_id -> explanations.id, got {fks!r}"
     finally:
         engine.dispose()
 

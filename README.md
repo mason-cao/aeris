@@ -25,6 +25,8 @@ All inference runs locally, ensuring complete data privacy and independent opera
 
 Geographic target: a 50km radius around downtown Houston, Texas. Houston was chosen for three high-contrast inputs that stress-test a 4-API attribution model: massive petrochemical emissions from the Ship Channel refinery complex, a dense government sensor network (EPA + TCEQ + harbor monitors), and dynamic Gulf-coast weather (sea-breeze fronts, hurricane corridor, frequent inversions). All collectors filter to this bounding box; the center coordinate is configurable via `AERIS_TARGET_LAT` / `AERIS_TARGET_LON` / `AERIS_TARGET_RADIUS_KM`.
 
+Temporal scope: the evaluation set is drawn from summer anomalies only, so seasonal variation doesn't confound the cross-source corroboration signal. Data collection itself runs year-round; the restriction applies to the labeled evaluation set, not to ingestion.
+
 ## Architecture
 
 ```
@@ -82,7 +84,7 @@ Linking weather patterns to environmental events is well-established science; th
 4. **Empirical local-vs-cloud comparison** on a domain where small models are widely assumed to fail, with calibration curves (does stated confidence track corroboration?) and disagreement structure (where do local + cloud diverge?).
 
 **Evaluation**:
-- ~50 anomalies labeled by me and Dr. Bracco, with an audit-subset Cohen's κ for inter-rater reliability — kept broad across categories (petrochemical upsets, ozone exceedances, wildfire-smoke transport, hurricanes, hard freezes) to test cross-category generalization.
+- ~50 anomalies drawn from the summer months (seasonal confounds removed), labeled by me and Dr. Bracco, with an audit-subset Cohen's κ for inter-rater reliability — kept broad across categories (petrochemical upsets, ozone exceedances, wildfire-smoke transport, hurricanes, Saharan dust intrusions) to test cross-category generalization.
 - Phase 1 metric: % verifiable per (model, claim type) + fabrication rate.
 - Phase 2 metric: Spearman/Pearson between corroboration scores and expert labels, per claim type.
 - **Phase 1 → Phase 2 delta**: claims grounded in retrieved context but contradicted by independent sensors — the empirical case for cross-source corroboration as a signal class distinct from retrieval-grounded factuality.

@@ -14,6 +14,7 @@ from app.llm.corroboration import (
     SUPPORTING,
     aggregate_verdicts,
     low_corroboration_flag,
+    score_concentration_elevation,
 )
 
 
@@ -91,3 +92,103 @@ def test_low_corroboration_flag_requires_strong_negative_and_two_sources():
     assert low_corroboration_flag(-0.4, evidence_n=3) is False
     # No evidence at all -> never flagged.
     assert low_corroboration_flag(None, evidence_n=0) is False
+
+
+# --- concentration_elevation (headline type 1: OpenAQ + Sentinel-5P) ---
+
+
+def _summary_with(metrics_by_source: dict) -> dict:
+    """A minimal enrichment summary carrying {source: {metric: {...}}}."""
+    return {
+        "schema_version": 1,
+        "sources": {
+            src: {"metrics": metrics}
+            for src, metrics in metrics_by_source.items()
+        },
+    }
+
+
+def test_concentration_threshold_claim_supported_by_openaq():
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": {
+                    "unit": "ppb",
+                    "value_range": {"min": 60.0, "max": 85.0, "mean": 72.0},
+                    "nearest_in_time": {"v": 82.0},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_concentration_elevation(
+        "Ground-level NO2 exceeded 80 ppb in the afternoon.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+
+
+def test_concentration_threshold_claim_contradicted_by_openaq():
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": {
+                    "unit": "ppb",
+                    "value_range": {"min": 8.0, "max": 15.0, "mean": 11.0},
+                    "nearest_in_time": {"v": 12.0},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_concentration_elevation("NO2 exceeded 80 ppb.", summary)
+    assert verdicts["openaq"] == CONTRADICTING
+
+
+def test_concentration_unmatched_pollutant_is_silent():
+    summary = _summary_with(
+        {
+            "openaq": {
+                "ozone": {
+                    "unit": "ppb",
+                    "value_range": {"min": 20.0, "max": 40.0, "mean": 30.0},
+                    "nearest_in_time": {"v": 35.0},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_concentration_elevation("NO2 exceeded 80 ppb.", summary)
+    assert verdicts.get("openaq", SILENT) == SILENT
+
+
+def test_concentration_qualitative_elevated_uses_window_baseline():
+    summary = _summary_with(
+        {
+            "openaq": {
+                "pm25": {
+                    "unit": "ug/m3",
+                    "value_range": {"min": 10.0, "max": 55.0, "mean": 20.0},
+                    "nearest_in_time": {"v": 52.0},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_concentration_elevation(
+        "PM2.5 was elevated across the area.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+
+
+def test_concentration_sentinel_column_supports_no2_claim():
+    summary = _summary_with(
+        {
+            "sentinel5p": {
+                "s5p_no2_column": {
+                    "unit": "mol/m^2",
+                    "value_range": {"min": 4.0e-5, "max": 9.0e-5, "mean": 6.0e-5},
+                    "nearest_in_time": {"v": 8.5e-5},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_concentration_elevation(
+        "Tropospheric NO2 was elevated.", summary
+    )
+    assert verdicts["sentinel5p"] == SUPPORTING

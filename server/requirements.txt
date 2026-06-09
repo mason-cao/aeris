@@ -21,6 +21,11 @@ pygrib==2.1.8
 scikit-learn==1.6.1
 statsmodels==0.14.4
 
+# LLM pipeline (Month 2) — RAG store + cloud baselines (Ollama uses httpx, no SDK)
+chromadb==1.5.9
+openai==2.41.0
+google-genai==2.8.0
+
 # Data validation / config
 pydantic==2.11.1
 pydantic-settings==2.8.1

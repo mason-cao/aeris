@@ -15,6 +15,8 @@ from app.llm.corroboration import (
     aggregate_verdicts,
     low_corroboration_flag,
     score_concentration_elevation,
+    score_meteorological_state,
+    score_transport_direction,
 )
 
 
@@ -192,3 +194,121 @@ def test_concentration_sentinel_column_supports_no2_claim():
         "Tropospheric NO2 was elevated.", summary
     )
     assert verdicts["sentinel5p"] == SUPPORTING
+
+
+# --- transport_direction (headline type 2: NOAA GFS 10m wind + OpenWeather) ---
+
+
+def test_transport_southerly_wind_matches_gfs():
+    # GFS u=0, v=4 -> wind FROM the south (180). "Southerly winds" -> from south.
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "u_10m": {"nearest_in_time": {"v": 0.0}},
+                "v_10m": {"nearest_in_time": {"v": 4.0}},
+            }
+        }
+    )
+    verdicts, _ = score_transport_direction(
+        "Southerly winds pushed the plume inland.", summary
+    )
+    assert verdicts["noaa_gfs"] == SUPPORTING
+
+
+def test_transport_northward_transport_matches_gfs():
+    # Wind from the south (180) carries pollution toward the north.
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "u_10m": {"nearest_in_time": {"v": 0.0}},
+                "v_10m": {"nearest_in_time": {"v": 4.0}},
+            }
+        }
+    )
+    verdicts, _ = score_transport_direction(
+        "Emissions were carried northward over the bay.", summary
+    )
+    assert verdicts["noaa_gfs"] == SUPPORTING
+
+
+def test_transport_opposite_direction_contradicts():
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "u_10m": {"nearest_in_time": {"v": 0.0}},
+                "v_10m": {"nearest_in_time": {"v": 4.0}},
+            }
+        }
+    )
+    verdicts, _ = score_transport_direction(
+        "Northerly winds kept the air clean.", summary
+    )
+    assert verdicts["noaa_gfs"] == CONTRADICTING
+
+
+def test_transport_uses_openweather_wind_direction():
+    # OpenWeather reports wind FROM 175 deg (~south); "southerly" -> from 180.
+    summary = _summary_with(
+        {"openweather": {"wind_direction": {"nearest_in_time": {"v": 175.0}}}}
+    )
+    verdicts, _ = score_transport_direction("Southerly flow dominated.", summary)
+    assert verdicts["openweather"] == SUPPORTING
+
+
+def test_transport_no_wind_data_is_silent():
+    summary = _summary_with({"openaq": {"no2": {"nearest_in_time": {"v": 50.0}}}})
+    verdicts, _ = score_transport_direction("Southerly winds.", summary)
+    assert verdicts.get("noaa_gfs", SILENT) == SILENT
+    assert verdicts.get("openweather", SILENT) == SILENT
+
+
+# --- meteorological_state (headline type 3: OpenWeather + NOAA GFS) ---
+
+
+def test_met_stagnant_supported_by_low_winds():
+    # GFS speed ~1.2 m/s, OpenWeather 1.5 m/s -> both below the 2 m/s stagnant cut.
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "u_10m": {"nearest_in_time": {"v": 0.8}},
+                "v_10m": {"nearest_in_time": {"v": 0.9}},
+            },
+            "openweather": {"wind_speed": {"nearest_in_time": {"v": 1.5}}},
+        }
+    )
+    verdicts, _ = score_meteorological_state(
+        "Conditions were stagnant with barely any air movement.", summary
+    )
+    assert verdicts["noaa_gfs"] == SUPPORTING
+    assert verdicts["openweather"] == SUPPORTING
+
+
+def test_met_stagnant_contradicted_by_strong_winds():
+    # GFS speed ~6.4 m/s -> not stagnant.
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "u_10m": {"nearest_in_time": {"v": 5.0}},
+                "v_10m": {"nearest_in_time": {"v": 4.0}},
+            }
+        }
+    )
+    verdicts, _ = score_meteorological_state("It was stagnant all afternoon.", summary)
+    assert verdicts["noaa_gfs"] == CONTRADICTING
+
+
+def test_met_numeric_temperature_supported_by_openweather():
+    summary = _summary_with(
+        {"openweather": {"temperature": {"nearest_in_time": {"v": 35.0}}}}
+    )
+    verdicts, _ = score_meteorological_state(
+        "Surface temperatures were around 34 C.", summary
+    )
+    assert verdicts["openweather"] == SUPPORTING
+
+
+def test_met_no_relevant_data_is_silent():
+    summary = _summary_with({"openaq": {"no2": {"nearest_in_time": {"v": 50.0}}}})
+    verdicts, _ = score_meteorological_state("Conditions were stagnant.", summary)
+    assert verdicts.get("noaa_gfs", SILENT) == SILENT
+    assert verdicts.get("openweather", SILENT) == SILENT

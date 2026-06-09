@@ -8,7 +8,7 @@
 
 ## Purpose
 
-The corroboration scorer is the load-bearing piece of Month 2's **Phase 2 (novelty contribution)**. For each LLM-generated claim about an atmospheric anomaly that survives Phase 1 grounding, it computes a `corroboration_score ∈ [-1, +1]` against the agreement of the four causally-coupled data sources: Sentinel-5P, OpenAQ, NOAA GFS, OpenWeather. The score is a label-free proxy for ground-truth verification; the Month 2 research question is whether the score correlates with expert labels strongly enough to stand in as a scalable evaluation signal.
+The corroboration scorer is the load-bearing piece of Month 2's **Phase 2 (novelty contribution)**. For each LLM-generated claim about an atmospheric anomaly that survives Phase 1 grounding, it computes a `corroboration_score ∈ [-1, +1]` against the agreement of the four data sources — Sentinel-5P, OpenAQ, NOAA GFS, OpenWeather — which sense different facets of one shared physical state through measurement processes that are largely independent. Their agreement is informative as a correctness signal to the degree those measurement errors stay independent even where the physical signal is shared. The score is a label-free proxy for ground-truth verification; the Month 2 research question is whether the score correlates with expert labels strongly enough to stand in as a scalable evaluation signal.
 
 Three of the ten claim types are designated **headline** (N≥20 targeted, sufficient for inferential statistics). The other seven are descriptive only.
 

@@ -1,5 +1,13 @@
 # AERIS (Autonomous Environmental RAG & Inference System) - Design Specification
 
+> **SUPERSEDED — original April 2026 design.** This spec reflects the project as first scoped and no longer matches the current build. Authoritative scope now lives in the [Month 2 phase plan](2026-05-16-month2-phase-plan.md) and the [corroboration scorer memo](2026-05-21-corroboration-scorer-design.md). What changed since this document:
+> - **Data sources: 9 → 4.** Kept OpenAQ, OpenWeather, Sentinel-5P; added NOAA GFS (upper-air). Dropped EPA AirNow, PurpleAir, NASA FIRMS, TomTom, USGS, EIA, and the static EPA TRI / ECHO / NWS reference layers.
+> - **Geography:** Atlanta metro (Month 1) → 50 km radius around Houston, TX (2026-05-13, mentor advice).
+> - **Research framing:** from "can a local LLM produce accurate causal explanations?" (headline metric: expert-labeled causal accuracy > 70%) to **inter-source physical corroboration as a label-free evaluation proxy for LLM scientific reasoning**, sequenced Phase 1 (retrieval-grounded factuality) → Phase 2 (cross-source corroboration scorer).
+> - **Evaluation:** ~50 summer-window anomalies, Mason + Bracco labels with an inter-rater audit subset (κ).
+>
+> The original plan below (9 sources, 5-page web app, public-facing health framing) is kept for provenance only.
+
 ## Context
 
 I'm a high school student giving myself 4-5 months to build a flagship capstone project for college applications (CS/CE major), competition submissions (ISEF, Regeneron STS, Congressional App Challenge), and a potential academic publication. I have strong Python + React skills, access to LLM APIs (OpenAI, Anthropic), and an old PC I'm repurposing as a home server.

@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -6,12 +7,26 @@ import httpx
 
 from app.collectors.base import BaseCollector, DataPointCreate
 from app.collectors.geo import target_bounding_box, within_target_radius
+from app.collectors.ratelimit import AsyncRateLimiter, rate_limited_get
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 API_BASE = "https://api.openaq.org/v3"
 LOCATIONS_LIMIT = 1000
+
+# Stay well under OpenAQ's documented 60/min. One shared limiter per process:
+# the collector and the API backfill spend from the same key's budget.
+OPENAQ_MAX_REQUESTS_PER_MINUTE = 30
+OPENAQ_LIMITER = AsyncRateLimiter(OPENAQ_MAX_REQUESTS_PER_MINUTE)
+
+# The station topology barely changes; refetch it daily, not hourly.
+LOCATIONS_CACHE_TTL_S = 24 * 3600.0
+_locations_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+
+
+def clear_locations_cache() -> None:
+    _locations_cache.clear()
 
 PARAMETER_MAP: dict[str, str] = {
     "pm25": "pm25",
@@ -76,21 +91,30 @@ class OpenAQCollector(BaseCollector):
     source_name = "openaq"
     collect_interval_minutes = 60
 
-    async def fetch(self) -> dict[str, Any]:
-        """Fetch current OpenAQ sensors for the target area."""
-        client = await self._get_client()
-        headers = (
-            {"X-API-Key": settings.openaq_api_key}
-            if settings.openaq_api_key
-            else {}
-        )
-        params = {
-            "bbox": target_bounding_box().as_csv(),
-            "limit": LOCATIONS_LIMIT,
-        }
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient | None = None,
+        *,
+        rate_limiter: AsyncRateLimiter | None = None,
+    ) -> None:
+        super().__init__(http_client)
+        self._limiter = rate_limiter or OPENAQ_LIMITER
 
-        response = await client.get(f"{API_BASE}/locations", params=params, headers=headers)
-        response.raise_for_status()
+    async def _target_locations(
+        self, client: httpx.AsyncClient, headers: dict[str, str]
+    ) -> list[dict[str, Any]]:
+        bbox = target_bounding_box().as_csv()
+        cached = _locations_cache.get(bbox)
+        if cached is not None and time.monotonic() - cached[0] < LOCATIONS_CACHE_TTL_S:
+            return cached[1]
+
+        response = await rate_limited_get(
+            client,
+            f"{API_BASE}/locations",
+            limiter=self._limiter,
+            params={"bbox": bbox, "limit": LOCATIONS_LIMIT},
+            headers=headers,
+        )
         payload = response.json()
 
         meta = payload.get("meta") or {}
@@ -106,6 +130,19 @@ class OpenAQCollector(BaseCollector):
             for location in payload.get("results", [])
             if location_within_target_radius(location)
         ]
+        _locations_cache[bbox] = (time.monotonic(), locations)
+        return locations
+
+    async def fetch(self) -> dict[str, Any]:
+        """Fetch current OpenAQ sensors for the target area."""
+        client = await self._get_client()
+        headers = (
+            {"X-API-Key": settings.openaq_api_key}
+            if settings.openaq_api_key
+            else {}
+        )
+
+        locations = await self._target_locations(client, headers)
         sensors_by_location_id: dict[str, list[dict[str, Any]]] = {}
 
         for location in locations:
@@ -114,11 +151,12 @@ class OpenAQCollector(BaseCollector):
                 continue
 
             try:
-                sensors_response = await client.get(
+                sensors_response = await rate_limited_get(
+                    client,
                     f"{API_BASE}/locations/{location_id}/sensors",
+                    limiter=self._limiter,
                     headers=headers,
                 )
-                sensors_response.raise_for_status()
             except httpx.HTTPError as exc:
                 logger.warning(
                     "OpenAQ sensor fetch failed",

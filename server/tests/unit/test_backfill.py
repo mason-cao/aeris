@@ -20,8 +20,13 @@ from app.collectors.backfill import (
     run_backfill,
 )
 from app.collectors.noaa_gfs import NOAAGFSCollector
+from app.collectors.ratelimit import AsyncRateLimiter
 from app.collectors.sentinel5p import Sentinel5PCollector
 from app.db.models import DataPoint
+
+
+def _fast_limiter() -> AsyncRateLimiter:
+    return AsyncRateLimiter(6_000_000)
 
 
 T0 = datetime(2026, 5, 1, 0, 0, tzinfo=timezone.utc)
@@ -164,7 +169,7 @@ class TestOpenAQBackfillSingleSensor:
             },
         )
         try:
-            strategy = OpenAQBackfill(http_client=client, page_size=2)
+            strategy = OpenAQBackfill(http_client=client, rate_limiter=_fast_limiter(), page_size=2)
             result = await strategy.backfill(
                 db_session,
                 since=T0 - timedelta(days=1),
@@ -215,7 +220,7 @@ class TestOpenAQBackfillSingleSensor:
             },
         )
         try:
-            strategy = OpenAQBackfill(http_client=client, page_size=100)
+            strategy = OpenAQBackfill(http_client=client, rate_limiter=_fast_limiter(), page_size=100)
             result = await strategy.backfill(
                 db_session,
                 since=T0 - timedelta(days=1),
@@ -254,7 +259,7 @@ class TestOpenAQBackfillSingleSensor:
             },
         )
         try:
-            strategy = OpenAQBackfill(http_client=client, page_size=100)
+            strategy = OpenAQBackfill(http_client=client, rate_limiter=_fast_limiter(), page_size=100)
             since = T0 - timedelta(days=30)
             until = T0
             await strategy.backfill(db_session, since=since, until=until)
@@ -291,7 +296,7 @@ class TestOpenAQBackfillSingleSensor:
             },
         )
         try:
-            strategy = OpenAQBackfill(http_client=client, page_size=100)
+            strategy = OpenAQBackfill(http_client=client, rate_limiter=_fast_limiter(), page_size=100)
             result = await strategy.backfill(
                 db_session,
                 since=T0 - timedelta(days=1),
@@ -325,13 +330,13 @@ class TestOpenAQBackfillSingleSensor:
         client1, _ = _build_client(routes=routes)
         client2, _ = _build_client(routes=routes)
         try:
-            r1 = await OpenAQBackfill(http_client=client1, page_size=100).backfill(
+            r1 = await OpenAQBackfill(http_client=client1, rate_limiter=_fast_limiter(), page_size=100).backfill(
                 db_session, since=T0 - timedelta(days=1), until=T0 + timedelta(days=1)
             )
         finally:
             await client1.aclose()
         try:
-            r2 = await OpenAQBackfill(http_client=client2, page_size=100).backfill(
+            r2 = await OpenAQBackfill(http_client=client2, rate_limiter=_fast_limiter(), page_size=100).backfill(
                 db_session, since=T0 - timedelta(days=1), until=T0 + timedelta(days=1)
             )
         finally:

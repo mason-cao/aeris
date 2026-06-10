@@ -30,13 +30,17 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import csv
+import gzip
+import io
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Sequence
 
 import httpx
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,11 +48,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.collectors.base import DataPointCreate
 from app.collectors.geo import target_bounding_box, within_target_radius
 from app.collectors.openaq import (
+    OPENAQ_LIMITER,
     PARAMETER_MAP,
     location_within_target_radius,
     normalize_openaq_unit,
     parse_openaq_datetime,
 )
+from app.collectors.ratelimit import AsyncRateLimiter, rate_limited_get
 from app.collectors.sentinel5p import Sentinel5PCollector, odata_filter
 from app.config import settings
 from app.db.models import DataPoint
@@ -144,11 +150,13 @@ class OpenAQBackfill(BackfillStrategy):
         *,
         page_size: int = OPENAQ_DEFAULT_PAGE_SIZE,
         sensor_delay_s: float = OPENAQ_SENSOR_DELAY_S,
+        rate_limiter: AsyncRateLimiter | None = None,
     ) -> None:
         self._client = http_client
         self._owns_client = http_client is None
         self.page_size = page_size
         self.sensor_delay_s = sensor_delay_s
+        self._limiter = rate_limiter or OPENAQ_LIMITER
 
     async def _client_or_default(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -222,15 +230,16 @@ class OpenAQBackfill(BackfillStrategy):
     async def _list_locations(
         self, client: httpx.AsyncClient, headers: dict[str, str]
     ) -> list[dict[str, Any]]:
-        response = await client.get(
+        response = await rate_limited_get(
+            client,
             f"{OPENAQ_API_BASE}/locations",
+            limiter=self._limiter,
             params={
                 "bbox": target_bounding_box().as_csv(),
                 "limit": OPENAQ_LOCATIONS_LIMIT,
             },
             headers=headers,
         )
-        response.raise_for_status()
         results = response.json().get("results", []) or []
         return [loc for loc in results if location_within_target_radius(loc)]
 
@@ -241,11 +250,12 @@ class OpenAQBackfill(BackfillStrategy):
         location_id: Any,
     ) -> list[dict[str, Any]]:
         try:
-            response = await client.get(
+            response = await rate_limited_get(
+                client,
                 f"{OPENAQ_API_BASE}/locations/{location_id}/sensors",
+                limiter=self._limiter,
                 headers=headers,
             )
-            response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.warning(
                 "OpenAQ sensor list failed",
@@ -281,8 +291,10 @@ class OpenAQBackfill(BackfillStrategy):
         page = 1
         while True:
             try:
-                response = await client.get(
+                response = await rate_limited_get(
+                    client,
                     f"{OPENAQ_API_BASE}/sensors/{sensor_id}/measurements",
+                    limiter=self._limiter,
                     headers=headers,
                     params={
                         "datetime_from": _iso_z(since),
@@ -291,7 +303,6 @@ class OpenAQBackfill(BackfillStrategy):
                         "page": page,
                     },
                 )
-                response.raise_for_status()
             except httpx.HTTPError as exc:
                 logger.warning(
                     "OpenAQ measurements page failed",
@@ -343,6 +354,184 @@ class OpenAQBackfill(BackfillStrategy):
             page += 1
 
         return points
+
+
+# OpenAQ S3 archive ----------------------------------------------------
+
+# Public open-data bucket; keyless and intended for exactly this bulk use.
+# One gzipped CSV per (location, day); objects land ~3-4 days after the
+# measurement day, so recent days legitimately 404.
+OPENAQ_ARCHIVE_BASE = "https://openaq-data-archive.s3.amazonaws.com"
+OPENAQ_ARCHIVE_DELAY_S = 0.05
+
+
+def archive_key(location_id: int, day: date) -> str:
+    return (
+        f"records/csv.gz/locationid={location_id}/year={day.year}/"
+        f"month={day.month:02d}/location-{location_id}-{day:%Y%m%d}.csv.gz"
+    )
+
+
+def parse_archive_csv(payload: bytes) -> list[DataPointCreate]:
+    """Map archive CSV rows to normalized DataPoints.
+
+    Columns: location_id, sensors_id, location, datetime (ISO with offset),
+    lat, lon, parameter, units, value. sensors_id shares the API collector's
+    entity-id space, so the dedup index treats both paths as one source.
+    """
+    text = gzip.decompress(payload).decode("utf-8")
+    points: list[DataPointCreate] = []
+    for row in csv.DictReader(io.StringIO(text)):
+        metric = PARAMETER_MAP.get(str(row.get("parameter", "")).lower())
+        if metric is None:
+            continue
+        timestamp = parse_openaq_datetime(row.get("datetime"))
+        if timestamp is None:
+            continue
+        try:
+            lat = float(row["lat"])
+            lon = float(row["lon"])
+            value = float(row["value"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if not within_target_radius(lat, lon):
+            continue
+        sensor_id = row.get("sensors_id")
+        if not sensor_id:
+            continue
+        points.append(
+            DataPointCreate(
+                timestamp=timestamp,
+                lat=lat,
+                lon=lon,
+                metric=metric,
+                value=value,
+                unit=normalize_openaq_unit(row.get("units")),
+                source="openaq",
+                source_entity_id=str(sensor_id),
+                raw_json={"archive": dict(row)},
+            )
+        )
+    return points
+
+
+async def db_location_ids(session: AsyncSession) -> list[int]:
+    """Distinct OpenAQ location ids from already-collected raw_json."""
+    latest_per_entity = (
+        select(func.max(DataPoint.id))
+        .where(DataPoint.source == "openaq")
+        .group_by(DataPoint.source_entity_id)
+    )
+    rows = await session.execute(
+        select(DataPoint.raw_json).where(DataPoint.id.in_(latest_per_entity))
+    )
+    ids: set[int] = set()
+    for raw in rows.scalars():
+        location_id = ((raw or {}).get("location") or {}).get("id")
+        if location_id is not None:
+            ids.add(int(location_id))
+    return sorted(ids)
+
+
+class OpenAQArchiveBackfill(BackfillStrategy):
+    """Bulk history from the OpenAQ S3 data archive instead of the API."""
+
+    source_name = "openaq"
+
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient | None = None,
+        *,
+        location_ids: Sequence[int] | None = None,
+        request_delay_s: float = OPENAQ_ARCHIVE_DELAY_S,
+    ) -> None:
+        self._client = http_client
+        self._owns_client = http_client is None
+        self.location_ids = list(location_ids) if location_ids else None
+        self.request_delay_s = request_delay_s
+
+    async def _client_or_default(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=60.0)
+        return self._client
+
+    async def close(self) -> None:
+        if self._owns_client and self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def backfill(
+        self,
+        session: AsyncSession,
+        *,
+        since: datetime,
+        until: datetime,
+    ) -> BackfillResult:
+        import time
+
+        start = time.monotonic()
+        total_inserted = 0
+        missing_days = 0
+        try:
+            location_ids = self.location_ids or await db_location_ids(session)
+            if not location_ids:
+                return BackfillResult(
+                    source=self.source_name,
+                    error=(
+                        "no OpenAQ location ids known; collect once via the API "
+                        "or pass --location-ids"
+                    ),
+                    duration_ms=(time.monotonic() - start) * 1000,
+                )
+
+            days = _days_between(since, until)
+            client = await self._client_or_default()
+            for location_id in location_ids:
+                for day in days:
+                    url = f"{OPENAQ_ARCHIVE_BASE}/{archive_key(location_id, day)}"
+                    try:
+                        response = await client.get(url)
+                        if response.status_code == 404:
+                            missing_days += 1
+                            continue
+                        response.raise_for_status()
+                    except httpx.HTTPError as exc:
+                        logger.warning(
+                            "OpenAQ archive object failed",
+                            extra={"url": url, "error": str(exc)},
+                        )
+                        continue
+
+                    points = parse_archive_csv(response.content)
+                    total_inserted += await _store_points(session, points)
+
+                    if self.request_delay_s > 0:
+                        await asyncio.sleep(self.request_delay_s)
+
+            return BackfillResult(
+                source=self.source_name,
+                records=total_inserted,
+                notes=(
+                    f"archive: {len(location_ids)} locations x {len(days)} days, "
+                    f"{missing_days} objects absent"
+                ),
+                duration_ms=(time.monotonic() - start) * 1000,
+            )
+        except Exception as exc:
+            return BackfillResult(
+                source=self.source_name,
+                records=total_inserted,
+                error=f"{type(exc).__name__}: {exc}",
+                duration_ms=(time.monotonic() - start) * 1000,
+            )
+        finally:
+            await self.close()
+
+
+def _days_between(since: datetime, until: datetime) -> list[date]:
+    first = since.astimezone(timezone.utc).date()
+    last = until.astimezone(timezone.utc).date()
+    return [first + timedelta(days=i) for i in range((last - first).days + 1)]
 
 
 # Sentinel-5P ---------------------------------------------------------
@@ -548,10 +737,17 @@ class OpenWeatherBackfill(BackfillStrategy):
 # Dispatcher ----------------------------------------------------------
 
 
-def available_strategies() -> list[BackfillStrategy]:
-    """Default strategy set covering all four data sources."""
+def available_strategies(
+    openaq_location_ids: Sequence[int] | None = None,
+) -> list[BackfillStrategy]:
+    """Default strategy set covering all four data sources.
+
+    OpenAQ history comes from the S3 archive, not the API: bulk pulls through
+    the hosted API are what got the key suspended (2026-06-10). The API-based
+    OpenAQBackfill remains available for explicit, small, rate-limited use.
+    """
     return [
-        OpenAQBackfill(),
+        OpenAQArchiveBackfill(location_ids=openaq_location_ids),
         Sentinel5PBackfill(),
         NOAAGFSBackfill(),
         OpenWeatherBackfill(),
@@ -615,6 +811,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="ISO date (or datetime); defaults to now UTC.",
     )
+    parser.add_argument(
+        "--location-ids",
+        default=None,
+        help=(
+            "Comma-separated OpenAQ location ids for the archive backfill. "
+            "Defaults to the ids already present in the database."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -660,9 +864,15 @@ def _parse_dt(raw: str) -> datetime:
 
 
 def _strategies_for(args: argparse.Namespace) -> list[BackfillStrategy]:
+    location_ids = (
+        [int(part) for part in args.location_ids.split(",") if part.strip()]
+        if args.location_ids
+        else None
+    )
+    strategies = available_strategies(openaq_location_ids=location_ids)
     if args.source is None:
-        return available_strategies()
-    return [s for s in available_strategies() if s.source_name == args.source]
+        return strategies
+    return [s for s in strategies if s.source_name == args.source]
 
 
 def _format_result(r: BackfillResult) -> str:

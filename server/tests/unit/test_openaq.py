@@ -7,10 +7,23 @@ import pytest
 from app.collectors.openaq import (
     PARAMETER_MAP,
     OpenAQCollector,
+    clear_locations_cache,
     normalize_openaq_unit,
     parse_openaq_datetime,
 )
+from app.collectors.ratelimit import AsyncRateLimiter
 from app.config import settings
+
+
+@pytest.fixture(autouse=True)
+def _fresh_locations_cache():
+    clear_locations_cache()
+    yield
+    clear_locations_cache()
+
+
+def fast_limiter() -> AsyncRateLimiter:
+    return AsyncRateLimiter(6_000_000)
 
 
 @pytest.fixture
@@ -168,7 +181,7 @@ class TestOpenAQFetch:
             return httpx.Response(404)
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-        collector = OpenAQCollector(http_client=client)
+        collector = OpenAQCollector(http_client=client, rate_limiter=fast_limiter())
 
         raw = await collector.fetch()
 
@@ -178,6 +191,63 @@ class TestOpenAQFetch:
         ]
         assert raw["locations"] == [location]
         assert raw["sensors_by_location_id"][str(location["id"])] == [sensor]
+        await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_second_fetch_reuses_cached_locations(self, monkeypatch) -> None:
+        monkeypatch.setattr(settings, "openaq_api_key", "test-key")
+        location = make_location()
+        locations_calls = 0
+        sensors_calls = 0
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal locations_calls, sensors_calls
+            if request.url.path == "/v3/locations":
+                locations_calls += 1
+                return httpx.Response(
+                    200, json={"meta": {"found": 1}, "results": [location]}
+                )
+            sensors_calls += 1
+            return httpx.Response(
+                200, json={"meta": {"found": 1}, "results": [make_sensor(1, "pm25")]}
+            )
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = OpenAQCollector(http_client=client, rate_limiter=fast_limiter())
+
+        await collector.fetch()
+        await collector.fetch()
+
+        # The topology is cached for a day; only the latest values re-poll.
+        assert locations_calls == 1
+        assert sensors_calls == 2
+        await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_expired_cache_refetches_locations(self, monkeypatch) -> None:
+        import app.collectors.openaq as openaq_module
+
+        monkeypatch.setattr(settings, "openaq_api_key", "test-key")
+        monkeypatch.setattr(openaq_module, "LOCATIONS_CACHE_TTL_S", 0.0)
+        location = make_location()
+        locations_calls = 0
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal locations_calls
+            if request.url.path == "/v3/locations":
+                locations_calls += 1
+                return httpx.Response(
+                    200, json={"meta": {"found": 1}, "results": [location]}
+                )
+            return httpx.Response(200, json={"meta": {"found": 0}, "results": []})
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = OpenAQCollector(http_client=client, rate_limiter=fast_limiter())
+
+        await collector.fetch()
+        await collector.fetch()
+
+        assert locations_calls == 2
         await client.aclose()
 
 

@@ -17,9 +17,10 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from statistics import fmean, pstdev
 
 # Per-source verdict on a single claim. A source either supports the claim,
@@ -1034,4 +1035,163 @@ def score_background_vs_event(
     return (
         {"openaq": verdict},
         f"openaq: {metric} spatial_cv={cv:.2f} over {len(means)} stations intent={intent}",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Claim-type classification + dispatch (memo flow, step 1)
+# ---------------------------------------------------------------------------
+
+
+class ClaimType(str, Enum):
+    """The 10-type claim taxonomy, plus a routing fallback for claims the
+    rules don't recognize (still stored, scored all-silent)."""
+
+    CONCENTRATION_ELEVATION = "concentration_elevation"
+    TRANSPORT_DIRECTION = "transport_direction"
+    METEOROLOGICAL_STATE = "meteorological_state"
+    ATMOSPHERIC_TRAP = "atmospheric_trap"
+    TEMPORAL_PATTERN = "temporal_pattern"
+    CHEMISTRY = "chemistry"
+    POINT_SOURCE_ATTRIBUTION = "point_source_attribution"
+    EMISSIONS_SOURCE_TYPE = "emissions_source_type"
+    SECONDARY_FORMATION = "secondary_formation"
+    BACKGROUND_VS_EVENT = "background_vs_event"
+    UNCLASSIFIED = "unclassified"
+
+
+# Headline types get inferential statistics (N>=20 target); the rest are
+# descriptive only.
+HEADLINE_TYPES = frozenset(
+    {
+        ClaimType.CONCENTRATION_ELEVATION,
+        ClaimType.TRANSPORT_DIRECTION,
+        ClaimType.METEOROLOGICAL_STATE,
+    }
+)
+
+# Bracco 2026-06-10: scored and stored but excluded from all quantitative
+# reporting. Coincides with the taxonomy's partial-verifiability column today;
+# kept separate because the addendum can move independently of the taxonomy.
+QUALITATIVE_ONLY_TYPES = frozenset(
+    {ClaimType.CHEMISTRY, ClaimType.POINT_SOURCE_ATTRIBUTION}
+)
+
+PARTIALLY_VERIFIABLE_TYPES = frozenset(
+    {ClaimType.CHEMISTRY, ClaimType.POINT_SOURCE_ATTRIBUTION}
+)
+
+# Classifier-only keyword groups. Routing cues, not verdict logic — the
+# scorers re-derive what they need from the claim text themselves.
+_TRAP_WORDS = _PBL_WORDS + ("inversion", "trapped", "trapping", "capping", "mixing height")
+_ATTRIBUTION_WORDS = ("plume", "ship channel", "smokestack", "stack emissions")
+_SECONDARY_WORDS = ("secondary", "photochem", "precursor", "ozone formation", "ozone production")
+# Word-boundary matched so "ratio" doesn't fire inside "concentrations".
+_CHEM_RE = re.compile(
+    r"\bhcho\b|\bformaldehyde\b|\bratios?\b|\bvocs?\b|\bnox-limited\b|\btitration\b"
+)
+_ELEVATION_RE = re.compile(rf"{_UP_ADJ}|spike|exceed|surpass|topped")
+_HEAT_RE = re.compile(r"\bhot\b|\bheat\b|\bhumid")
+
+
+def classify_claim(claim_text: str) -> list[ClaimType]:
+    """Rule-based routing of a claim into taxonomy types, most specific first.
+
+    A claim can match several types ("PM2.5 was elevated across all stations"
+    is both background_vs_event and concentration_elevation); the first entry
+    is the primary type the dispatcher scores. No match -> [UNCLASSIFIED].
+    """
+    text = claim_text.lower()
+    openaq_metric, sentinel_metric = _resolve_pollutant(text)
+    has_pollutant = openaq_metric is not None or sentinel_metric is not None
+
+    checks: tuple[tuple[ClaimType, bool], ...] = (
+        (ClaimType.ATMOSPHERIC_TRAP, any(w in text for w in _TRAP_WORDS)),
+        (
+            ClaimType.POINT_SOURCE_ATTRIBUTION,
+            _claimed_coordinates(text) is not None
+            or any(w in text for w in _ATTRIBUTION_WORDS),
+        ),
+        (
+            ClaimType.EMISSIONS_SOURCE_TYPE,
+            _earliest_keyword(text, _SOURCE_TYPE_KEYWORDS) is not None,
+        ),
+        (ClaimType.SECONDARY_FORMATION, any(w in text for w in _SECONDARY_WORDS)),
+        (
+            ClaimType.CHEMISTRY,
+            len(_species_directions(text)) >= 2
+            or _CHEM_RE.search(text) is not None,
+        ),
+        (
+            ClaimType.BACKGROUND_VS_EVENT,
+            _earliest_keyword(text, _BACKGROUND_KEYWORDS) is not None,
+        ),
+        (ClaimType.TRANSPORT_DIRECTION, _claimed_from_bearing(text) is not None),
+        (ClaimType.TEMPORAL_PATTERN, _trend_intent(text) is not None),
+        (
+            ClaimType.METEOROLOGICAL_STATE,
+            _wind_intent(text) is not None
+            or _claimed_temperature(text) is not None
+            or _HEAT_RE.search(text) is not None,
+        ),
+        (
+            ClaimType.CONCENTRATION_ELEVATION,
+            has_pollutant
+            and (
+                _threshold_value(text) is not None
+                or _ELEVATION_RE.search(text) is not None
+            ),
+        ),
+    )
+    matches = [claim_type for claim_type, hit in checks if hit]
+    return matches or [ClaimType.UNCLASSIFIED]
+
+
+_SCORERS: dict[ClaimType, Callable[[str, Mapping], tuple[dict[str, int], str]]] = {
+    ClaimType.CONCENTRATION_ELEVATION: score_concentration_elevation,
+    ClaimType.TRANSPORT_DIRECTION: score_transport_direction,
+    ClaimType.METEOROLOGICAL_STATE: score_meteorological_state,
+    ClaimType.ATMOSPHERIC_TRAP: score_atmospheric_trap,
+    ClaimType.TEMPORAL_PATTERN: score_temporal_pattern,
+    ClaimType.CHEMISTRY: score_chemistry,
+    ClaimType.POINT_SOURCE_ATTRIBUTION: score_point_source_attribution,
+    ClaimType.EMISSIONS_SOURCE_TYPE: score_emissions_source_type,
+    ClaimType.SECONDARY_FORMATION: score_secondary_formation,
+    ClaimType.BACKGROUND_VS_EVENT: score_background_vs_event,
+}
+
+
+@dataclass(frozen=True)
+class ScoredClaim:
+    """One claim routed and scored: everything Phase 2 contributes to a Claim row."""
+
+    claim_type: ClaimType
+    matched_types: tuple[ClaimType, ...]
+    result: CorroborationResult
+    evidence_summary: str
+    partial_verifiability: bool
+    qualitative_only: bool
+
+
+def score_claim(claim_text: str, summary: Mapping) -> ScoredClaim:
+    """Classify a claim and run its primary type's scorer.
+
+    Unclassified claims aggregate an empty verdict set (all-silent,
+    ``unverified=True``) rather than being dropped, so the eval can report how
+    often the model asserts things outside the taxonomy.
+    """
+    matched = classify_claim(claim_text)
+    primary = matched[0]
+    verdicts: dict[str, int]
+    if primary is ClaimType.UNCLASSIFIED:
+        verdicts, note = {}, "no claim type recognized"
+    else:
+        verdicts, note = _SCORERS[primary](claim_text, summary)
+    return ScoredClaim(
+        claim_type=primary,
+        matched_types=tuple(matched),
+        result=aggregate_verdicts(verdicts),
+        evidence_summary=note,
+        partial_verifiability=primary in PARTIALLY_VERIFIABLE_TYPES,
+        qualitative_only=primary in QUALITATIVE_ONLY_TYPES,
     )

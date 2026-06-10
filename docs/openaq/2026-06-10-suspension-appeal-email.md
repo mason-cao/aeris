@@ -1,5 +1,11 @@
 # Email draft — OpenAQ suspension appeal
 
+> **Resolved 2026-06-10:** OpenAQ (Russ) lifted the suspension same day; cause
+> confirmed as repeated rate-limit violations. Requires generating a new API
+> key. OpenAQ does not send Retry-After; the client now drives off the
+> documented `x-ratelimit-*` headers instead (proactive defer when
+> `x-ratelimit-remaining` hits 0, `x-ratelimit-reset` as the 429 wait).
+
 > Draft, 2026-06-10. To: dev@openaq.org. Send from the account email
 > (masoncao7@gmail.com). Before sending: confirm only one account/key was ever
 > registered, confirm the Acer's scheduled collector no longer hits OpenAQ, and

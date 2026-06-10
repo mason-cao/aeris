@@ -42,16 +42,45 @@ class AsyncRateLimiter:
         if wait > 0:
             await self._sleeper(wait)
 
+    async def defer(self, seconds: float) -> None:
+        """Push the next acquire at least ``seconds`` into the future.
 
-def _retry_after_seconds(response: httpx.Response) -> float:
-    raw = response.headers.get("Retry-After")
+        Used when an API's rate-limit headers say the budget for the current
+        period is spent: stop spending before a 429 happens, not after.
+        """
+        async with self._lock:
+            self._next_at = max(self._next_at, self._clock() + seconds)
+
+
+def _header_seconds(response: httpx.Response, name: str) -> float | None:
+    raw = response.headers.get(name)
     if raw is None:
-        return DEFAULT_RETRY_AFTER_S
+        return None
     try:
         return max(float(raw), 0.0)
     except ValueError:
-        # HTTP-date form; not worth parsing for this client.
-        return DEFAULT_RETRY_AFTER_S
+        # e.g. an HTTP-date Retry-After; not worth parsing for this client.
+        return None
+
+
+def _retry_wait_seconds(response: httpx.Response) -> float:
+    # OpenAQ sends x-ratelimit-reset (seconds until the period restarts) and
+    # no Retry-After; other APIs do the opposite. Prefer the precise one.
+    for header in ("x-ratelimit-reset", "Retry-After"):
+        seconds = _header_seconds(response, header)
+        if seconds is not None:
+            return seconds
+    return DEFAULT_RETRY_AFTER_S
+
+
+async def _defer_if_budget_spent(
+    response: httpx.Response, limiter: AsyncRateLimiter
+) -> None:
+    remaining = _header_seconds(response, "x-ratelimit-remaining")
+    if remaining is not None and remaining <= 0:
+        reset = _header_seconds(response, "x-ratelimit-reset")
+        if reset:
+            await limiter.defer(reset)
 
 
 async def rate_limited_get(
@@ -69,11 +98,12 @@ async def rate_limited_get(
         await limiter.acquire()
         response = await client.get(url, **request_kwargs)
         if response.status_code != 429:
+            await _defer_if_budget_spent(response, limiter)
             response.raise_for_status()
             return response
 
         if attempt < max_attempts:
-            wait = _retry_after_seconds(response)
+            wait = _retry_wait_seconds(response)
             logger.warning(
                 "Rate limited (429); waiting %.0fs before retry",
                 wait,

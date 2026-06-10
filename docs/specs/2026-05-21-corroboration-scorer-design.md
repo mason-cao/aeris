@@ -1,6 +1,6 @@
 # AERIS Corroboration Scorer — Design Memo
 
-> **Date:** 2026-05-21 (initial design); committed 2026-05-24 from in-trip notes; revised 2026-05-26 to add Phase 1 / Phase 2 split per Dr. Bracco's 2026-05-25 email feedback
+> **Date:** 2026-05-21 (initial design); committed 2026-05-24 from in-trip notes; revised 2026-05-26 to add Phase 1 / Phase 2 split per Dr. Bracco's 2026-05-25 email feedback; revised 2026-06-10 per her post-meeting email on claim types 6, 7, and 10 (see addendum at end)
 > **Status:** Draft for Dr. Bracco review at the June 2 meeting
 > **Related:** [Month 2 phase plan](2026-05-16-month2-phase-plan.md); Section 4 of the June 2 Bracco meeting notes (Google Doc, where this same content lives in Mason's conversational voice)
 
@@ -101,3 +101,17 @@ This separation matters: scoring is a research artifact for the correlation anal
 5. For the `chemistry` and `point_source_attribution` partial-verifiability flags, is ±50% tolerance and silent-granule treatment defensible, or should they be excluded from any quantitative reporting?
 
 **Meeting talking point (not a question):** the Phase 2 corroboration mechanism is structurally distinct from SHAP. SHAP attributes model output to input features via Shapley values; this scorer attributes per-claim correctness to physical evidence agreement across independent sensor channels. Carloni's physics-as-attribution framing is the inspiration; the mechanism itself is not Shapley-based. Bracco's May 25 reply used "evolution of SHAP" loosely — worth clarifying so Phase 2 isn't expected to literally compute Shapley values.
+
+---
+
+## Addendum — Bracco feedback, 2026-06-10
+
+Her post-meeting email flagged types 6 and 7 as "difficult to handle" if they rely on satellite data, and type 10 ("regional/local") as dependent on data quality. This effectively answers open question 5 above. Changes:
+
+1. **Types 6 (`chemistry`) and 7 (`point_source_attribution`) are demoted to qualitative-only.** They were already `partial_verifiability=true` and excluded from headline correlations; they are now excluded from *all* quantitative reporting (no per-type correlation numbers at any N). They stay in the taxonomy and still get scored — how often the LLM leans on weakly-verifiable claim types is itself a result — but they are reported as case examples only. The `partial_verifiability` flag on the Claim record is unchanged.
+
+2. **Type 10 (`background_vs_event`) gains a verifiability precondition.** The spatial-CV check is only meaningful when enough stations report. The scorer returns all-silent (`evidence_n=0`, `unverified=true` — not a verdict) unless, within the claim's spatiotemporal window:
+   - **≥ 5 distinct OpenAQ stations** report the relevant pollutant, and
+   - each counted station has **≥ 6 in-window observations** (enough to call it coverage rather than a stray reading).
+
+   Both thresholds are draft values to confirm with Bracco, like every other tolerance in this memo. The station count and coverage actually available in the Houston network will be measured from collected data and reported alongside any type-10 result, so "data quality" is an explicit, inspectable precondition rather than an assumption.

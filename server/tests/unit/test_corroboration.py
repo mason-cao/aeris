@@ -312,3 +312,440 @@ def test_met_no_relevant_data_is_silent():
     verdicts, _ = score_meteorological_state("Conditions were stagnant.", summary)
     assert verdicts.get("noaa_gfs", SILENT) == SILENT
     assert verdicts.get("openweather", SILENT) == SILENT
+
+
+# --- the seven descriptive claim types (4-10) ---------------------------
+
+from app.llm.corroboration import (  # noqa: E402
+    score_atmospheric_trap,
+    score_background_vs_event,
+    score_chemistry,
+    score_emissions_source_type,
+    score_point_source_attribution,
+    score_secondary_formation,
+    score_temporal_pattern,
+)
+
+
+def _series(start_hour: int, values: list[float]) -> list[list]:
+    """Hourly [iso, value] pairs starting at start_hour UTC on 2026-06-05."""
+    return [
+        [f"2026-06-05T{(start_hour + i) % 24:02d}:00:00+00:00", v]
+        for i, v in enumerate(values)
+    ]
+
+
+def _entity(entity_id: str, series: list[list], *, lat: float = 29.76, lon: float = -95.37) -> dict:
+    return {
+        "entity_id": entity_id,
+        "lat": lat,
+        "lon": lon,
+        "distance_km": 5.0,
+        "n_points": len(series),
+        "series": series,
+    }
+
+
+def _metric_from_entities(entities: list[dict]) -> dict:
+    values = [v for e in entities for _, v in e["series"]]
+    return {
+        "unit": "ug/m3",
+        "n_points": len(values),
+        "n_entities": len(entities),
+        "value_range": {
+            "min": min(values),
+            "max": max(values),
+            "mean": sum(values) / len(values),
+        },
+        "nearest_in_time": {"v": values[-1]},
+        "entities": entities,
+    }
+
+
+# --- atmospheric_trap (type 4) ---
+
+
+def test_trap_inversion_supported_when_aloft_warmer_than_surface():
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "t_850": {"nearest_in_time": {"v": 24.0}},
+                "pbl_height": {
+                    "nearest_in_time": {"v": 300.0},
+                    "value_range": {"mean": 700.0},
+                },
+            },
+            "openweather": {"temperature": {"nearest_in_time": {"v": 20.0}}},
+        }
+    )
+    verdicts, _ = score_atmospheric_trap(
+        "A low boundary layer and a thermal inversion trapped emissions near the surface.",
+        summary,
+    )
+    assert verdicts["noaa_gfs"] == SUPPORTING
+    assert verdicts["openweather"] == SUPPORTING
+
+
+def test_trap_inversion_contradicted_when_surface_warmer():
+    summary = _summary_with(
+        {
+            "noaa_gfs": {"t_850": {"nearest_in_time": {"v": 15.0}}},
+            "openweather": {"temperature": {"nearest_in_time": {"v": 30.0}}},
+        }
+    )
+    verdicts, _ = score_atmospheric_trap(
+        "An inversion kept the pollution near the ground.", summary
+    )
+    assert verdicts["noaa_gfs"] == CONTRADICTING
+    assert verdicts["openweather"] == CONTRADICTING
+
+
+def test_trap_numeric_pbl_checked_within_tolerance():
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "pbl_height": {
+                    "nearest_in_time": {"v": 480.0},
+                    "value_range": {"mean": 900.0},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_atmospheric_trap(
+        "The boundary layer height was around 400 m, trapping emissions.", summary
+    )
+    assert verdicts["noaa_gfs"] == SUPPORTING
+
+
+def test_trap_no_data_is_silent():
+    verdicts, _ = score_atmospheric_trap(
+        "An inversion trapped pollution.", _summary_with({})
+    )
+    assert verdicts["noaa_gfs"] == SILENT
+    assert verdicts["openweather"] == SILENT
+
+
+# --- temporal_pattern (type 5) ---
+
+
+def test_temporal_rising_trend_supported():
+    entities = [_entity("a", _series(10, [10, 12, 15, 18, 22, 26]))]
+    summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
+    verdicts, _ = score_temporal_pattern(
+        "PM2.5 concentrations climbed steadily through the afternoon.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+
+
+def test_temporal_rising_claim_contradicted_by_falling_series():
+    entities = [_entity("a", _series(10, [30, 26, 22, 15, 12, 8]))]
+    summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
+    verdicts, _ = score_temporal_pattern(
+        "PM2.5 levels rose all afternoon.", summary
+    )
+    assert verdicts["openaq"] == CONTRADICTING
+
+
+def test_temporal_too_few_points_is_silent():
+    entities = [_entity("a", _series(10, [10, 12]))]
+    summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
+    verdicts, _ = score_temporal_pattern("PM2.5 rose sharply.", summary)
+    assert verdicts["openaq"] == SILENT
+
+
+def test_temporal_without_direction_or_pollutant_returns_no_verdicts():
+    verdicts, note = score_temporal_pattern(
+        "The situation evolved overnight.", _summary_with({})
+    )
+    assert verdicts == {}
+    assert note
+
+
+# --- chemistry (type 6, qualitative-only) ---
+
+
+def test_chemistry_elevated_hcho_and_depressed_ozone_supported():
+    summary = _summary_with(
+        {
+            "sentinel5p": {
+                "s5p_hcho_column": {
+                    "nearest_in_time": {"v": 8e-5},
+                    "value_range": {"mean": 4e-5},
+                }
+            },
+            "openaq": {
+                "ozone": {
+                    "nearest_in_time": {"v": 20.0},
+                    "value_range": {"mean": 45.0},
+                }
+            },
+        }
+    )
+    verdicts, _ = score_chemistry(
+        "Elevated HCHO with depressed ozone suggests fresh VOC emissions.", summary
+    )
+    assert verdicts["sentinel5p"] == SUPPORTING
+    assert verdicts["openaq"] == SUPPORTING
+
+
+def test_chemistry_hcho_silent_granule_is_silent_not_contradicting():
+    summary = _summary_with({"sentinel5p": {}})
+    verdicts, _ = score_chemistry("Elevated HCHO points to fresh VOCs.", summary)
+    assert verdicts["sentinel5p"] == SILENT
+
+
+def test_chemistry_noisy_zone_is_silent():
+    # Nearest below the mean but within the 50% noise buffer: no verdict.
+    summary = _summary_with(
+        {
+            "sentinel5p": {
+                "s5p_hcho_column": {
+                    "nearest_in_time": {"v": 3.6e-5},
+                    "value_range": {"mean": 4e-5},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_chemistry("Elevated HCHO points to fresh VOCs.", summary)
+    assert verdicts["sentinel5p"] == SILENT
+
+
+def test_chemistry_clear_contradiction():
+    summary = _summary_with(
+        {
+            "sentinel5p": {
+                "s5p_hcho_column": {
+                    "nearest_in_time": {"v": 1e-5},
+                    "value_range": {"mean": 4e-5},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_chemistry("Elevated HCHO points to fresh VOCs.", summary)
+    assert verdicts["sentinel5p"] == CONTRADICTING
+
+
+# --- point_source_attribution (type 7, qualitative-only) ---
+
+
+def _summary_with_anomaly(metrics_by_source: dict) -> dict:
+    summary = _summary_with(metrics_by_source)
+    summary["anomaly"] = {"lat": 29.76, "lon": -95.37}
+    return summary
+
+
+def test_point_source_wind_from_source_direction_supports():
+    # Claimed source ESE of the anomaly; wind from ~101 deg (ESE).
+    summary = _summary_with_anomaly(
+        {
+            "noaa_gfs": {
+                "u_10m": {"nearest_in_time": {"v": -5.0}},
+                "v_10m": {"nearest_in_time": {"v": 1.0}},
+            }
+        }
+    )
+    verdicts, _ = score_point_source_attribution(
+        "Plume signature consistent with a refinery upset near 29.73N, -95.22W.",
+        summary,
+    )
+    assert verdicts["noaa_gfs"] == SUPPORTING
+
+
+def test_point_source_wind_from_opposite_direction_contradicts():
+    summary = _summary_with_anomaly(
+        {
+            "noaa_gfs": {
+                "u_10m": {"nearest_in_time": {"v": 5.0}},
+                "v_10m": {"nearest_in_time": {"v": -1.0}},
+            }
+        }
+    )
+    verdicts, _ = score_point_source_attribution(
+        "Plume signature consistent with a refinery upset near 29.73N, -95.22W.",
+        summary,
+    )
+    assert verdicts["noaa_gfs"] == CONTRADICTING
+
+
+def test_point_source_uses_openweather_direction():
+    summary = _summary_with_anomaly(
+        {"openweather": {"wind_direction": {"nearest_in_time": {"v": 100.0}}}}
+    )
+    verdicts, _ = score_point_source_attribution(
+        "Plume consistent with an upset near 29.73N, -95.22W.", summary
+    )
+    assert verdicts["openweather"] == SUPPORTING
+
+
+def test_point_source_without_coordinates_is_silent():
+    summary = _summary_with_anomaly(
+        {
+            "noaa_gfs": {
+                "u_10m": {"nearest_in_time": {"v": -5.0}},
+                "v_10m": {"nearest_in_time": {"v": 1.0}},
+            }
+        }
+    )
+    verdicts, _ = score_point_source_attribution(
+        "This came from the refinery by the Ship Channel.", summary
+    )
+    assert verdicts["noaa_gfs"] == SILENT
+
+
+# --- emissions_source_type (type 8) ---
+
+
+def test_source_type_mobile_supported_by_morning_peak():
+    # Peak at 13:00 UTC = 08:00 CDT, inside the morning-rush window.
+    entities = [_entity("a", _series(10, [5, 8, 12, 30, 14, 9, 6]))]
+    summary = _summary_with({"openaq": {"no2": _metric_from_entities(entities)}})
+    verdicts, _ = score_emissions_source_type(
+        "NO2 pattern consistent with rush-hour mobile traffic emissions.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+
+
+def test_source_type_point_supported_by_localized_concentration():
+    entities = [
+        _entity("a", _series(10, [80, 85, 82, 88])),
+        _entity("b", _series(10, [10, 11, 9, 12])),
+        _entity("c", _series(10, [11, 10, 12, 9])),
+    ]
+    summary = _summary_with({"openaq": {"no2": _metric_from_entities(entities)}})
+    verdicts, _ = score_emissions_source_type(
+        "Persistent NO2 consistent with a Ship Channel point source.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+
+
+def test_source_type_point_contradicted_by_uniform_field():
+    entities = [
+        _entity("a", _series(10, [20, 21, 19, 22])),
+        _entity("b", _series(10, [21, 20, 22, 19])),
+        _entity("c", _series(10, [19, 22, 20, 21])),
+    ]
+    summary = _summary_with({"openaq": {"no2": _metric_from_entities(entities)}})
+    verdicts, _ = score_emissions_source_type(
+        "Persistent NO2 from a single industrial point source.", summary
+    )
+    assert verdicts["openaq"] == CONTRADICTING
+
+
+def test_source_type_unknown_intent_returns_no_verdicts():
+    verdicts, note = score_emissions_source_type(
+        "The pollution had some origin.", _summary_with({})
+    )
+    assert verdicts == {}
+    assert note
+
+
+# --- secondary_formation (type 9) ---
+
+
+def test_secondary_formation_supported_by_lag_and_clear_sky():
+    no2 = _entity("n", _series(10, [40, 55, 30, 20, 15, 12]))  # peak 11:00
+    o3 = _entity("o", _series(10, [20, 25, 30, 45, 60, 72]))  # peak 15:00
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": _metric_from_entities([no2]),
+                "ozone": _metric_from_entities([o3]),
+            },
+            "openweather": {"cloud_cover": {"value_range": {"mean": 15.0}}},
+        }
+    )
+    verdicts, _ = score_secondary_formation(
+        "Afternoon ozone peak consistent with photochemical formation from morning NOx.",
+        summary,
+    )
+    assert verdicts["openaq"] == SUPPORTING
+    assert verdicts["openweather"] == SUPPORTING
+
+
+def test_secondary_formation_contradicted_when_ozone_peaks_first():
+    no2 = _entity("n", _series(10, [10, 12, 15, 30, 45, 50]))  # peak 15:00
+    o3 = _entity("o", _series(10, [60, 72, 45, 30, 22, 18]))  # peak 11:00
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": _metric_from_entities([no2]),
+                "ozone": _metric_from_entities([o3]),
+            }
+        }
+    )
+    verdicts, _ = score_secondary_formation(
+        "The afternoon ozone formed from the morning NO2 emissions.", summary
+    )
+    assert verdicts["openaq"] == CONTRADICTING
+
+
+def test_secondary_formation_overcast_contradicts_insolation():
+    summary = _summary_with(
+        {"openweather": {"cloud_cover": {"value_range": {"mean": 85.0}}}}
+    )
+    verdicts, _ = score_secondary_formation(
+        "Photochemical ozone formation from morning emissions.", summary
+    )
+    assert verdicts["openweather"] == CONTRADICTING
+    assert verdicts["openaq"] == SILENT
+
+
+# --- background_vs_event (type 10) ---
+
+
+def _stations(means: list[float], obs_per_station: int = 6) -> list[dict]:
+    return [
+        _entity(f"s{i}", _series(10, [m] * obs_per_station))
+        for i, m in enumerate(means)
+    ]
+
+
+def test_background_regional_claim_supported_by_uniform_stations():
+    entities = _stations([20, 21, 19, 22, 20])
+    summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
+    verdicts, _ = score_background_vs_event(
+        "Elevated PM2.5 across all monitors suggests regional transport.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+
+
+def test_background_regional_claim_contradicted_by_localized_spike():
+    entities = _stations([95, 12, 10, 11, 13])
+    summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
+    verdicts, _ = score_background_vs_event(
+        "The haze was regional, not a local source.", summary
+    )
+    assert verdicts["openaq"] == CONTRADICTING
+
+
+def test_background_local_claim_supported_by_localized_spike():
+    entities = _stations([95, 12, 10, 11, 13])
+    summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
+    verdicts, _ = score_background_vs_event(
+        "An isolated spike at one monitor points to a local source.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+
+
+def test_background_precondition_unmet_is_silent():
+    # Bracco data-quality precondition: needs >= 5 qualifying stations.
+    entities = _stations([20, 21, 19])
+    summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
+    verdicts, note = score_background_vs_event(
+        "Uniform PM2.5 suggests a regional event.", summary
+    )
+    assert verdicts["openaq"] == SILENT
+    assert "precondition" in note.lower()
+
+
+def test_background_sparse_stations_do_not_count_toward_precondition():
+    # 5 stations but two have fewer than 6 observations each.
+    entities = _stations([20, 21, 19], obs_per_station=8) + _stations(
+        [22, 18], obs_per_station=3
+    )
+    summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
+    verdicts, note = score_background_vs_event(
+        "Uniform PM2.5 suggests a regional event.", summary
+    )
+    assert verdicts["openaq"] == SILENT
+    assert "precondition" in note.lower()

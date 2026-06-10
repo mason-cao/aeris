@@ -6,9 +6,11 @@ OpenWeather), which sense different facets of one shared physical state through
 largely independent measurement processes. Design + claim taxonomy:
 docs/specs/2026-05-21-corroboration-scorer-design.md.
 
-This module currently provides the shared aggregator that collapses per-source
-verdicts into the scalar ``corroboration_score`` + ``evidence_n``. The ten
-per-claim-type scorers build on top of it.
+The module provides the shared aggregator that collapses per-source verdicts
+into the scalar ``corroboration_score`` + ``evidence_n``, plus one scorer per
+claim type: 3 headline types (1-3) and 7 descriptive types (4-10, of which
+``chemistry`` and ``point_source_attribution`` are qualitative-only per the
+memo's 2026-06-10 addendum).
 """
 
 from __future__ import annotations
@@ -17,6 +19,8 @@ import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
+from statistics import fmean, pstdev
 
 # Per-source verdict on a single claim. A source either supports the claim,
 # contradicts it, or is silent (no data bearing on it within the window).
@@ -420,3 +424,614 @@ def score_meteorological_state(
         "openweather": _combine(wind_verdict(ow_speed), temp_verdict(ow_temp)),
     }
     return verdicts, f"wind_intent={wind} temp={temp}"
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers for the descriptive claim types (4-10)
+# ---------------------------------------------------------------------------
+
+
+def _metric_block(summary: Mapping, source: str, metric: str) -> Mapping | None:
+    block = summary.get("sources", {}).get(source, {}).get("metrics", {}).get(metric)
+    return block or None
+
+
+def _nearest(block: Mapping | None) -> float | None:
+    if not block:
+        return None
+    return block.get("nearest_in_time", {}).get("v")
+
+
+def _window_mean(block: Mapping | None) -> float | None:
+    if not block:
+        return None
+    return block.get("value_range", {}).get("mean")
+
+
+def _pooled_series(block: Mapping | None) -> list[tuple[datetime, float]]:
+    """All entities' (timestamp, value) pairs merged and time-sorted."""
+    if not block:
+        return []
+    pairs: list[tuple[datetime, float]] = []
+    for entity in block.get("entities", []):
+        for iso, value in entity.get("series", []):
+            try:
+                pairs.append((datetime.fromisoformat(iso), float(value)))
+            except (TypeError, ValueError):
+                continue
+    return sorted(pairs)
+
+
+def _station_means(block: Mapping | None, *, min_obs: int = 1) -> list[float]:
+    """Per-station mean of in-window values, for stations with enough coverage."""
+    if not block:
+        return []
+    means: list[float] = []
+    for entity in block.get("entities", []):
+        values = [v for _, v in entity.get("series", [])]
+        if len(values) >= min_obs:
+            means.append(fmean(values))
+    return means
+
+
+def _spatial_cv(means: list[float]) -> float | None:
+    """Coefficient of variation across station means; None when undefined."""
+    if len(means) < 2:
+        return None
+    mean = fmean(means)
+    if mean == 0:
+        return None
+    return pstdev(means) / abs(mean)
+
+
+def _earliest_keyword(text: str, groups: Mapping[str, tuple[str, ...]]) -> str | None:
+    """The group whose keyword appears first in the text; None if none match.
+
+    First-mention wins so "a point source rather than rush-hour mobile" reads
+    as a point-source assertion, not a mobile one.
+    """
+    best: tuple[int, str] | None = None
+    for group, keywords in groups.items():
+        for keyword in keywords:
+            index = text.find(keyword)
+            if index >= 0 and (best is None or index < best[0]):
+                best = (index, group)
+    return best[1] if best else None
+
+
+# ---------------------------------------------------------------------------
+# Claim type 4 — atmospheric_trap (GFS PBL height + T@850, OpenWeather sfc T)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class TrapTolerance:
+    """Draft tolerances for atmospheric_trap (pending Dr. Bracco)."""
+
+    pbl_m: float = 200.0  # numeric PBL-height claim within this of GFS
+
+
+DEFAULT_TRAP_TOLERANCE = TrapTolerance()
+
+_PBL_WORDS = ("pbl", "boundary layer")
+_LOW_PBL_WORDS = ("low", "shallow")
+
+
+def _claimed_pbl_height(text: str) -> float | None:
+    if not any(word in text for word in _PBL_WORDS):
+        return None
+    m = re.search(r"(\d+(?:\.\d+)?)\s*m\b", text)
+    return float(m.group(1)) if m else None
+
+
+def score_atmospheric_trap(
+    claim_text: str,
+    summary: Mapping,
+    *,
+    tolerance: TrapTolerance = DEFAULT_TRAP_TOLERANCE,
+) -> tuple[dict[str, int], str]:
+    """Score a PBL / inversion trapping claim.
+
+    Inversion = air aloft (GFS 850 hPa) warmer than the surface (OpenWeather);
+    the verdict lands on both sources because each contributes one leg.
+    A numeric PBL claim is checked within ``pbl_m`` of GFS; a qualitative
+    "low/shallow" PBL is checked against the in-window mean.
+    """
+    text = claim_text.lower()
+    wants_inversion = "inversion" in text
+
+    pbl_block = _metric_block(summary, "noaa_gfs", "pbl_height")
+    t_850 = _nearest(_metric_block(summary, "noaa_gfs", "t_850"))
+    surface_t = _nearest(_metric_block(summary, "openweather", "temperature"))
+
+    pbl_verdict: int | None = None
+    pbl_nearest = _nearest(pbl_block)
+    if pbl_nearest is not None and any(word in text for word in _PBL_WORDS):
+        claimed = _claimed_pbl_height(text)
+        if claimed is not None:
+            pbl_verdict = (
+                SUPPORTING
+                if abs(pbl_nearest - claimed) <= tolerance.pbl_m
+                else CONTRADICTING
+            )
+        elif any(word in text for word in _LOW_PBL_WORDS):
+            mean = _window_mean(pbl_block)
+            if mean is not None:
+                pbl_verdict = SUPPORTING if pbl_nearest < mean else CONTRADICTING
+
+    inversion_verdict: int | None = None
+    if wants_inversion and t_850 is not None and surface_t is not None:
+        inversion_verdict = SUPPORTING if t_850 > surface_t else CONTRADICTING
+
+    verdicts = {
+        "noaa_gfs": _combine(pbl_verdict, inversion_verdict),
+        "openweather": _combine(inversion_verdict),
+    }
+    note = (
+        f"pbl_nearest={pbl_nearest} t_850={t_850} surface_t={surface_t} "
+        f"inversion_claimed={wants_inversion}"
+    )
+    return verdicts, note
+
+
+# ---------------------------------------------------------------------------
+# Claim type 5 — temporal_pattern (trend direction on any source's series)
+# ---------------------------------------------------------------------------
+
+_RISE_WORDS = ("rose", "rising", "climb", "increas", "grew", "build", "accumulat", "ramp")
+_FALL_WORDS = ("fell", "falling", "declin", "decreas", "drop", "subsid", "dissipat", "eased")
+
+# Below this many in-window points a half-vs-half trend test is meaningless.
+_MIN_TREND_POINTS = 4
+
+
+def _trend_intent(text: str) -> str | None:
+    if any(word in text for word in _RISE_WORDS):
+        return "up"
+    if any(word in text for word in _FALL_WORDS):
+        return "down"
+    return None
+
+
+def score_temporal_pattern(
+    claim_text: str,
+    summary: Mapping,
+) -> tuple[dict[str, int], str]:
+    """Score a 'levels rose / fell' claim by trend direction, no fixed tolerance.
+
+    Trend = second-half mean vs first-half mean of the pooled in-window series
+    (memo: "just whether the trend actually moved that way").
+    """
+    text = claim_text.lower()
+    openaq_metric, sentinel_metric = _resolve_pollutant(text)
+    intent = _trend_intent(text)
+    if openaq_metric is None or intent is None:
+        return {}, "no recognized pollutant + trend direction in claim"
+
+    verdicts: dict[str, int] = {}
+    notes: list[str] = []
+    for source, metric in (("openaq", openaq_metric), ("sentinel5p", sentinel_metric)):
+        if metric is None:
+            continue
+        series = _pooled_series(_metric_block(summary, source, metric))
+        if len(series) < _MIN_TREND_POINTS:
+            verdicts[source] = SILENT
+            notes.append(f"{source}: {len(series)} points < {_MIN_TREND_POINTS}")
+            continue
+        values = [v for _, v in series]
+        half = len(values) // 2
+        first, second = fmean(values[:half]), fmean(values[half:])
+        if second == first:
+            verdicts[source] = SILENT
+            notes.append(f"{source}: flat series")
+            continue
+        observed = "up" if second > first else "down"
+        verdicts[source] = SUPPORTING if observed == intent else CONTRADICTING
+        notes.append(
+            f"{source}: {metric} first_half={first:.2f} second_half={second:.2f} "
+            f"observed={observed} claimed={intent}"
+        )
+    return verdicts, "; ".join(notes)
+
+
+# ---------------------------------------------------------------------------
+# Claim type 6 — chemistry (Sentinel-5P HCHO, OpenAQ O3/NO2) — qualitative-only
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ChemistryTolerance:
+    """Draft tolerance for chemistry (pending Dr. Bracco).
+
+    TROPOMI HCHO is noisy at single-orbit resolution, so directional checks
+    get a +/-50% buffer zone around the window mean in which the granule is
+    treated as silent rather than contradicting (memo rule).
+    """
+
+    noise_buffer: float = 0.5
+
+
+DEFAULT_CHEMISTRY_TOLERANCE = ChemistryTolerance()
+
+_UP_ADJ = r"elevated|enhanced|high|increased|excess"
+_DOWN_ADJ = r"depressed|low|suppressed|reduced|depleted"
+_CHEM_SPECIES: tuple[tuple[str, str], ...] = (
+    (r"hcho|formaldehyde", "hcho"),
+    (r"ozone|o3", "ozone"),
+    (r"no2|nitrogen dioxide", "no2"),
+)
+
+
+def _species_directions(text: str) -> dict[str, str]:
+    """{'hcho': 'up', 'ozone': 'down', ...} for adjective-species mentions."""
+    directions: dict[str, str] = {}
+    for pattern, species in _CHEM_SPECIES:
+        m = re.search(
+            rf"({_UP_ADJ}|{_DOWN_ADJ})\s+(?:\w+\s+)?(?:{pattern})\b", text
+        )
+        if m:
+            directions[species] = "up" if re.fullmatch(_UP_ADJ, m.group(1)) else "down"
+    return directions
+
+
+def _direction_verdict(
+    nearest: float | None,
+    mean: float | None,
+    direction: str,
+    *,
+    noise_buffer: float = 0.0,
+) -> int | None:
+    if nearest is None or mean is None:
+        return None
+    if direction == "up":
+        if nearest > mean:
+            return SUPPORTING
+        return CONTRADICTING if nearest < mean * (1 - noise_buffer) else SILENT
+    if nearest < mean:
+        return SUPPORTING
+    return CONTRADICTING if nearest > mean * (1 + noise_buffer) else SILENT
+
+
+def score_chemistry(
+    claim_text: str,
+    summary: Mapping,
+    *,
+    tolerance: ChemistryTolerance = DEFAULT_CHEMISTRY_TOLERANCE,
+) -> tuple[dict[str, int], str]:
+    """Score a chemical-signature claim. Qualitative-only per Bracco 2026-06-10:
+    scored and stored, but excluded from all quantitative reporting."""
+    directions = _species_directions(claim_text.lower())
+    verdicts: dict[str, int] = {}
+    notes: list[str] = []
+
+    if "hcho" in directions:
+        block = _metric_block(summary, "sentinel5p", "s5p_hcho_column")
+        verdict = _direction_verdict(
+            _nearest(block),
+            _window_mean(block),
+            directions["hcho"],
+            noise_buffer=tolerance.noise_buffer,
+        )
+        verdicts["sentinel5p"] = SILENT if verdict is None else verdict
+        notes.append(
+            "sentinel5p: hcho granule silent"
+            if verdict is None
+            else f"sentinel5p: hcho {directions['hcho']} vs window mean"
+        )
+
+    openaq_species = [s for s in ("ozone", "no2") if s in directions]
+    if openaq_species:
+        legs = []
+        for species in openaq_species:
+            block = _metric_block(summary, "openaq", species)
+            legs.append(
+                _direction_verdict(_nearest(block), _window_mean(block), directions[species])
+            )
+            notes.append(f"openaq: {species} {directions[species]} checked")
+        verdicts["openaq"] = _combine(*legs)
+
+    if not directions:
+        notes.append("no species direction recognized in claim")
+    return verdicts, "; ".join(notes)
+
+
+# ---------------------------------------------------------------------------
+# Claim type 7 — point_source_attribution (wind direction only) — qualitative-only
+# ---------------------------------------------------------------------------
+
+_COORD_RE = re.compile(
+    r"(-?\d+(?:\.\d+)?)\s*°?\s*([ns])\b[^a-z0-9-]*(-?\d+(?:\.\d+)?)\s*°?\s*([ew])\b"
+)
+
+
+def _claimed_coordinates(text: str) -> tuple[float, float] | None:
+    m = _COORD_RE.search(text)
+    if not m:
+        return None
+    lat = abs(float(m.group(1))) * (1.0 if m.group(2) == "n" else -1.0)
+    lon = abs(float(m.group(3))) * (1.0 if m.group(4) == "e" else -1.0)
+    return lat, lon
+
+
+def _bearing_deg(from_lat: float, from_lon: float, to_lat: float, to_lon: float) -> float:
+    """Initial bearing from one point to another (equirectangular, fine at 50 km)."""
+    mid_lat = math.radians((from_lat + to_lat) / 2.0)
+    dx = (to_lon - from_lon) * math.cos(mid_lat)
+    dy = to_lat - from_lat
+    return math.degrees(math.atan2(dx, dy)) % 360.0
+
+
+def score_point_source_attribution(
+    claim_text: str,
+    summary: Mapping,
+    *,
+    tolerance: WindTolerance = DEFAULT_WIND_TOLERANCE,
+) -> tuple[dict[str, int], str]:
+    """Direction-only check: does the wind blow from the claimed source toward
+    the anomaly? Qualitative-only per Bracco 2026-06-10. Sentinel-5P is silent
+    in v1 (granule-mean carries no spatial gradient; per-pixel is Month 4)."""
+    anomaly = summary.get("anomaly") or {}
+    coords = _claimed_coordinates(claim_text.lower())
+    expected_from: float | None = None
+    if coords and anomaly.get("lat") is not None and anomaly.get("lon") is not None:
+        expected_from = _bearing_deg(
+            anomaly["lat"], anomaly["lon"], coords[0], coords[1]
+        )
+
+    measured: dict[str, float] = {}
+    u, v = _gfs_wind_components(summary)
+    if u is not None and v is not None:
+        measured["noaa_gfs"] = _wind_from_bearing(u, v)
+    ow_dir = _nearest(_metric_block(summary, "openweather", "wind_direction"))
+    if ow_dir is not None:
+        measured["openweather"] = float(ow_dir) % 360.0
+
+    verdicts: dict[str, int] = {}
+    notes: list[str] = []
+    for source in ("noaa_gfs", "openweather"):
+        if expected_from is None or source not in measured:
+            verdicts[source] = SILENT
+            notes.append(f"{source}: no claimed coordinates or wind data")
+            continue
+        diff = _angular_diff(expected_from, measured[source])
+        verdicts[source] = (
+            SUPPORTING if diff <= tolerance.bearing_deg else CONTRADICTING
+        )
+        notes.append(
+            f"{source}: source_bearing={expected_from:.0f} "
+            f"wind_from={measured[source]:.0f} diff={diff:.0f}"
+        )
+    notes.append("sentinel5p: granule-mean only, no spatial check in v1")
+    return verdicts, "; ".join(notes)
+
+
+# ---------------------------------------------------------------------------
+# Claim type 8 — emissions_source_type (OpenAQ temporal + spatial pattern)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SourceTypeTolerance:
+    """Draft thresholds for emissions_source_type (pending Dr. Bracco)."""
+
+    cv_localized: float = 0.5   # spatial CV at/above this reads as a point source
+    cv_uniform: float = 0.3     # spatial CV at/below this reads as area-wide
+    morning_start_h: int = 6    # local rush-hour window for the mobile check
+    morning_end_h: int = 10
+    min_stations: int = 3
+    min_points: int = 4
+
+
+DEFAULT_SOURCE_TYPE_TOLERANCE = SourceTypeTolerance()
+
+# Houston CDT. Fixed offset is correct for the summer-only eval window (v1).
+_LOCAL_UTC_OFFSET_H = -5
+
+_SOURCE_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "mobile": ("mobile", "traffic", "rush-hour", "rush hour", "vehicle", "highway", "cars"),
+    "point": ("point source", "refinery", "industrial", "plant", "facility", "upset"),
+    "area": ("area source", "area-wide", "areawide", "city-wide", "distributed"),
+}
+
+
+def score_emissions_source_type(
+    claim_text: str,
+    summary: Mapping,
+    *,
+    tolerance: SourceTypeTolerance = DEFAULT_SOURCE_TYPE_TOLERANCE,
+) -> tuple[dict[str, int], str]:
+    """Score a mobile / point / area source-type claim against OpenAQ patterns.
+
+    mobile: pooled series peaks in the local morning-rush window.
+    point: high spatial CV across stations (one dominates).
+    area: low spatial CV (uniform field).
+    Sentinel-5P spatial pattern and wind legs are deferred (granule-mean v1).
+    """
+    text = claim_text.lower()
+    intent = _earliest_keyword(text, _SOURCE_TYPE_KEYWORDS)
+    if intent is None:
+        return {}, "no source-type intent recognized in claim"
+
+    metric, _sentinel = _resolve_pollutant(text)
+    metric = metric or "no2"
+    block = _metric_block(summary, "openaq", metric)
+
+    if intent == "mobile":
+        series = _pooled_series(block)
+        if len(series) < tolerance.min_points:
+            return {"openaq": SILENT}, f"openaq: {len(series)} points, need {tolerance.min_points}"
+        peak_ts, _peak_v = max(series, key=lambda pair: pair[1])
+        local_hour = (peak_ts.hour + _LOCAL_UTC_OFFSET_H) % 24
+        in_rush = tolerance.morning_start_h <= local_hour < tolerance.morning_end_h
+        return (
+            {"openaq": SUPPORTING if in_rush else CONTRADICTING},
+            f"openaq: {metric} peak at {local_hour:02d}:00 local",
+        )
+
+    means = _station_means(block)
+    if len(means) < tolerance.min_stations:
+        return (
+            {"openaq": SILENT},
+            f"openaq: {len(means)} stations, need {tolerance.min_stations}",
+        )
+    cv = _spatial_cv(means)
+    if cv is None:
+        return {"openaq": SILENT}, "openaq: spatial CV undefined"
+
+    if intent == "point":
+        if cv >= tolerance.cv_localized:
+            verdict = SUPPORTING
+        elif cv <= tolerance.cv_uniform:
+            verdict = CONTRADICTING
+        else:
+            verdict = SILENT
+    else:  # area
+        if cv <= tolerance.cv_uniform:
+            verdict = SUPPORTING
+        elif cv >= tolerance.cv_localized:
+            verdict = CONTRADICTING
+        else:
+            verdict = SILENT
+    return {"openaq": verdict}, f"openaq: {metric} spatial_cv={cv:.2f} intent={intent}"
+
+
+# ---------------------------------------------------------------------------
+# Claim type 9 — secondary_formation (O3 lags NO2 + insolation)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SecondaryTolerance:
+    """Draft thresholds for secondary_formation (pending Dr. Bracco)."""
+
+    min_lag_h: float = 2.0           # O3 peak at least this many hours after NO2
+    clear_sky_max_cloud_pct: float = 50.0
+    min_points: int = 3
+
+
+DEFAULT_SECONDARY_TOLERANCE = SecondaryTolerance()
+
+
+def score_secondary_formation(
+    claim_text: str,
+    summary: Mapping,
+    *,
+    tolerance: SecondaryTolerance = DEFAULT_SECONDARY_TOLERANCE,
+) -> tuple[dict[str, int], str]:
+    """Score a photochemical-formation claim: O3 peak lags NO2 peak by >= 2 h
+    (OpenAQ) on a day with sufficient insolation (OpenWeather cloud cover)."""
+    ozone = _pooled_series(_metric_block(summary, "openaq", "ozone"))
+    no2 = _pooled_series(_metric_block(summary, "openaq", "no2"))
+
+    verdicts: dict[str, int] = {}
+    notes: list[str] = []
+
+    if len(ozone) >= tolerance.min_points and len(no2) >= tolerance.min_points:
+        o3_peak = max(ozone, key=lambda pair: pair[1])[0]
+        no2_peak = max(no2, key=lambda pair: pair[1])[0]
+        lag_h = (o3_peak - no2_peak).total_seconds() / 3600.0
+        verdicts["openaq"] = (
+            SUPPORTING if lag_h >= tolerance.min_lag_h else CONTRADICTING
+        )
+        notes.append(f"openaq: o3 peak lags no2 by {lag_h:.1f} h")
+    else:
+        verdicts["openaq"] = SILENT
+        notes.append("openaq: insufficient o3/no2 series")
+
+    cloud_mean = _window_mean(_metric_block(summary, "openweather", "cloud_cover"))
+    if cloud_mean is None:
+        verdicts["openweather"] = SILENT
+        notes.append("openweather: no cloud cover in window")
+    else:
+        verdicts["openweather"] = (
+            SUPPORTING
+            if cloud_mean <= tolerance.clear_sky_max_cloud_pct
+            else CONTRADICTING
+        )
+        notes.append(f"openweather: mean cloud {cloud_mean:.0f}%")
+    return verdicts, "; ".join(notes)
+
+
+# ---------------------------------------------------------------------------
+# Claim type 10 — background_vs_event (OpenAQ spatial uniformity)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class BackgroundTolerance:
+    """Draft thresholds for background_vs_event (pending Dr. Bracco).
+
+    min_stations / min_obs_per_station implement the data-quality precondition
+    from her 2026-06-10 email (memo addendum): without enough reporting
+    stations the spatial-CV check returns silent, never a verdict.
+    """
+
+    cv_regional: float = 0.3   # CV at/below this reads as a regional regime
+    cv_local: float = 0.6      # CV at/above this reads as a localized event
+    min_stations: int = 5
+    min_obs_per_station: int = 6
+
+
+DEFAULT_BACKGROUND_TOLERANCE = BackgroundTolerance()
+
+_BACKGROUND_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "regional": (
+        "regional", "widespread", "across all", "across every", "background",
+        "whole area", "saharan", "area-wide",
+    ),
+    "local": (
+        "local source", "localized", "isolated", "single monitor", "one monitor",
+        "one spot", "local event",
+    ),
+}
+
+
+def score_background_vs_event(
+    claim_text: str,
+    summary: Mapping,
+    *,
+    tolerance: BackgroundTolerance = DEFAULT_BACKGROUND_TOLERANCE,
+) -> tuple[dict[str, int], str]:
+    """Score a regional-vs-local claim by spatial CV across OpenAQ stations."""
+    text = claim_text.lower()
+    intent = _earliest_keyword(text, _BACKGROUND_KEYWORDS)
+    if intent is None:
+        return {}, "no regional/local intent recognized in claim"
+
+    metric, _sentinel = _resolve_pollutant(text)
+    metric = metric or "pm25"
+    block = _metric_block(summary, "openaq", metric)
+    means = _station_means(block, min_obs=tolerance.min_obs_per_station)
+
+    if len(means) < tolerance.min_stations:
+        return (
+            {"openaq": SILENT},
+            (
+                f"openaq: data-quality precondition unmet — {len(means)} stations "
+                f"with >= {tolerance.min_obs_per_station} obs, need "
+                f"{tolerance.min_stations}"
+            ),
+        )
+
+    cv = _spatial_cv(means)
+    if cv is None:
+        return {"openaq": SILENT}, "openaq: spatial CV undefined"
+
+    if intent == "regional":
+        if cv <= tolerance.cv_regional:
+            verdict = SUPPORTING
+        elif cv >= tolerance.cv_local:
+            verdict = CONTRADICTING
+        else:
+            verdict = SILENT
+    else:  # local
+        if cv >= tolerance.cv_local:
+            verdict = SUPPORTING
+        elif cv <= tolerance.cv_regional:
+            verdict = CONTRADICTING
+        else:
+            verdict = SILENT
+    return (
+        {"openaq": verdict},
+        f"openaq: {metric} spatial_cv={cv:.2f} over {len(means)} stations intent={intent}",
+    )

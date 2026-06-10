@@ -48,6 +48,53 @@ class TestCheckGrounding:
         assert result.verdict == UNVERIFIED
 
 
+class TestNumericGrounding:
+    def test_numeric_claim_contradicted_by_context_is_unverified(self) -> None:
+        # Vocabulary overlaps, but the claimed magnitude is far off the
+        # context's measurement — lexical overlap alone must not ground it.
+        result = check_grounding(
+            "no2 exceeded 80 ppb in the afternoon",
+            "openaq reports no2 at 30 ppb elevated during the afternoon hours",
+            cited_sources=["openaq"],
+        )
+
+        assert result.verdict == UNVERIFIED
+        assert result.evidence_ref is None
+
+    def test_numeric_claim_within_tolerance_is_grounded(self) -> None:
+        result = check_grounding(
+            "no2 reached 78 ppb in the afternoon",
+            "openaq reports no2 peaked at 80 ppb during the afternoon hours",
+            cited_sources=["openaq"],
+        )
+
+        assert result.verdict == GROUNDED
+        assert result.evidence_ref is not None
+        assert result.evidence_ref["matched_numbers"] == [
+            {"claim": 78.0, "context": 80.0, "unit": "ppb"}
+        ]
+
+    def test_unit_mismatch_is_unverified(self) -> None:
+        # Same magnitude, different unit — not the same measurement.
+        result = check_grounding(
+            "no2 reached 80 ppb in the afternoon",
+            "openaq reports no2 elevated at 80 µg/m3 during the afternoon hours",
+            cited_sources=["openaq"],
+        )
+
+        assert result.verdict == UNVERIFIED
+
+    def test_time_of_day_tokens_are_not_measurements(self) -> None:
+        # 14:00/18:00 are clock times, not quantities needing numeric support.
+        result = check_grounding(
+            "ozone was elevated between 14:00 and 18:00",
+            CONTEXT,
+            cited_sources=["openaq"],
+        )
+
+        assert result.verdict == GROUNDED
+
+
 class TestGroundClaimDrafts:
     def test_returns_verdict_per_draft(self) -> None:
         drafts = [

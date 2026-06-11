@@ -11,9 +11,10 @@ from app.llm.client_base import LLMClient, RawCompletion
 logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-# The spec's "Gemini 3 Thinking" baseline; the API has no *-thinking id,
-# the pro tier is the thinking-by-default one.
-DEFAULT_MODEL = "gemini-3-pro-preview"
+# The cloud baseline (spec's "Gemini 3 Thinking" has no API id). Flash
+# rather than pro: pro has zero free-tier quota, flash runs free — decided
+# 2026-06-11, note the substitution in the methodology.
+DEFAULT_MODEL = "gemini-3-flash-preview"
 DEFAULT_REQUEST_TIMEOUT = 120.0
 # Free-tier Gemini quotas are per-minute, so 429s are expected during eval
 # sweeps; retried here (unlike OpenAI) because the API tells us how long to

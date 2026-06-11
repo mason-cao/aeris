@@ -88,7 +88,7 @@ Linking weather patterns to environmental events is well-established science; th
 - Phase 1 metric: % verifiable per (model, claim type) + fabrication rate.
 - Phase 2 metric: Spearman/Pearson between corroboration scores and expert labels, per claim type.
 - **Phase 1 → Phase 2 delta**: claims grounded in retrieved context but contradicted by independent sensors — the empirical case for cross-source corroboration as a signal class distinct from retrieval-grounded factuality.
-- Local (Llama 3 8B) vs. cloud (GPT-5.4, Gemini 3 Thinking) on both phases.
+- Local (Llama 3 8B) vs. cloud (GPT-5.4, Gemini 3 Flash) on both phases.
 - Calibration: reliability diagrams of stated confidence vs. corroboration score, per model.
 - User comprehension and actionability study (Month 4).
 
@@ -130,7 +130,7 @@ Copy `server/.env.example` and fill in:
 - `OPENWEATHER_API_KEY` - OpenWeather
 - `CDSE_USERNAME` / `CDSE_PASSWORD` - Copernicus Data Space (Sentinel-5P granule downloads)
 - `NASA_EARTHDATA_TOKEN` - NASA Earthdata fallback (optional)
-- `OPENAI_API_KEY` / `GOOGLE_API_KEY` - cloud LLM comparison (GPT-5.4, Gemini 3 Thinking)
+- `OPENAI_API_KEY` / `GOOGLE_API_KEY` - cloud LLM comparison (GPT-5.4, Gemini 3 Flash)
 - `MAPBOX_TOKEN` - Mapbox GL JS (Month 3, frontend)
 
 ## Roadmap

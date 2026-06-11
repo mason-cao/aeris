@@ -15,6 +15,8 @@ Bracco's stated expertise is **"weather fields and AI physics-to-logic"** (her p
 
 **The core problem with the README's stated contributions** (4-API architecture, hallucination detection, local-vs-cloud comparison): individually they read as solid engineering, not novel research. Reviewers see RAG + multi-source + comparison and shrug. This phase reframes them around one tight thesis with a discovery question, so the three contributions collapse into one coherent system rather than three parallel engineering deliverables.
 
+**Gemini baseline correction (added 2026-06-11).** Wherever this plan says "Gemini 3 Thinking" or `gemini-3-thinking`, read **Gemini 3 Flash** (`gemini-3-flash-preview`). The live API has no `gemini-3-thinking` id, and `gemini-3-pro-preview` (the thinking-by-default tier) has zero free-tier quota; the eval standardizes on flash and the substitution gets a methodology note in the paper.
+
 **Phase 1 / Phase 2 split (added 2026-05-26).** After a preview email to Dr. Bracco describing this corroboration-centric framing, her 2026-05-25 reply recommended sequencing the basic analysis first ("multi-API RAG + hallucination detection + local-vs-cloud") before layering corroboration on top, to ensure the cross-source signal isn't dominated by fabricated claims. Month 2 therefore sequences as **Phase 1** (baseline: retrieval-grounded factuality check + local-vs-cloud comparison) → **Phase 2** (cross-source corroboration scorer as the novel upgrade). The corroboration thesis is preserved — and arguably strengthened, because the empirical claim that corroboration is "distinct from retrieval-grounded factuality checks" requires both signals to be measured. The Phase 1 → Phase 2 delta is what quantifies the distinctness.
 
 ---

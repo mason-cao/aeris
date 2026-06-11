@@ -207,6 +207,8 @@ E) RECOMMENDED ACTIONS: Practical steps for affected populations
 
 Model: Llama 3 8B (primary, local via Ollama) - with GPT 5.4 Standard Thinking / Gemini 3 Thinking as cloud baselines for research comparison.
 
+> **Amendment (2026-06-11):** the Gemini baseline is **Gemini 3 Flash** (`gemini-3-flash-preview`), not Gemini 3 Thinking/Pro. The API exposes no `gemini-3-thinking` id, and the pro-preview tier has zero free-tier quota; the substitution gets a methodology note in the paper. Applies wherever this document says "Gemini 3 Thinking."
+
 ### Step 4: Post-Processing & Hallucination Detection
 - **Factual grounding check**: Extract all factual claims from the explanation. For each claim, verify against the actual data provided in Step 1:
   - "Wildfire 40 miles NW" → check FIRMS data for fires in that direction/distance

@@ -1,4 +1,5 @@
 import httpx
+from pydantic import BaseModel
 
 from app.llm.client_base import LLMClient, RawCompletion
 
@@ -27,7 +28,10 @@ class OllamaClient(LLMClient):
         self._base_url = base_url.rstrip("/")
         self._request_timeout = request_timeout
 
-    async def _complete(self, prompt: str) -> RawCompletion:
+    # Schema-constrained decoding stays off here: per the phase plan the
+    # local model runs plain JSON mode, so its parse-failure rate is a
+    # measured result rather than masked by the decoder.
+    async def _complete(self, prompt: str, schema: type[BaseModel]) -> RawCompletion:
         client = await self._get_client()
         response = await client.post(
             f"{self._base_url}/api/generate",

@@ -1,0 +1,70 @@
+import httpx
+from pydantic import BaseModel
+
+from app.config import settings
+from app.llm.client_base import LLMClient, RawCompletion
+
+DEFAULT_BASE_URL = "https://api.openai.com/v1"
+DEFAULT_MODEL = "gpt-5.4"
+# Thinking-tier responses routinely exceed the 30s collector timeout.
+DEFAULT_REQUEST_TIMEOUT = 120.0
+
+
+class GPTClient(LLMClient):
+    """LLMClient backed by the OpenAI chat completions API.
+
+    Cloud comparison baseline only (GPT-5.4 Standard Thinking). Requests use
+    ``response_format: json_schema`` so decoding is constrained to the target
+    pydantic schema; ``model_version`` is filled in from the resolved model
+    snapshot the API reports (e.g. ``gpt-5.4-2026-03-11``) after the first
+    call, so explanation rows record exactly which snapshot answered.
+    """
+
+    def __init__(
+        self,
+        model: str = DEFAULT_MODEL,
+        api_key: str | None = None,
+        base_url: str = DEFAULT_BASE_URL,
+        http_client: httpx.AsyncClient | None = None,
+        request_timeout: float = DEFAULT_REQUEST_TIMEOUT,
+    ) -> None:
+        super().__init__(http_client=http_client)
+        self.model_name = model
+        self.model_version = None
+        key = api_key if api_key is not None else settings.openai_api_key
+        if not key:
+            raise ValueError(
+                "OpenAI API key not configured; set OPENAI_API_KEY in server/.env"
+            )
+        self._api_key = key
+        self._base_url = base_url.rstrip("/")
+        self._request_timeout = request_timeout
+
+    async def _complete(self, prompt: str, schema: type[BaseModel]) -> RawCompletion:
+        client = await self._get_client()
+        response = await client.post(
+            f"{self._base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+            json={
+                "model": self.model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema.__name__,
+                        "schema": schema.model_json_schema(),
+                    },
+                },
+            },
+            timeout=self._request_timeout,
+        )
+        response.raise_for_status()
+        data = response.json()
+        if data.get("model"):
+            self.model_version = data["model"]
+        usage = data.get("usage", {})
+        return RawCompletion(
+            text=data["choices"][0]["message"]["content"],
+            prompt_tokens=usage.get("prompt_tokens"),
+            completion_tokens=usage.get("completion_tokens"),
+        )

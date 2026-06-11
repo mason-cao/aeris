@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from pydantic import BaseModel
 
 from app.llm.client_base import LLMClient, RawCompletion
 from app.llm.prompt import STEP_SEQUENCE, ReasoningStep
@@ -18,7 +19,7 @@ class ScriptedClient(LLMClient):
         self._texts = list(texts)
         self.prompts: list[str] = []
 
-    async def _complete(self, prompt: str) -> RawCompletion:
+    async def _complete(self, prompt: str, schema: type[BaseModel]) -> RawCompletion:
         self.prompts.append(prompt)
         return RawCompletion(
             text=self._texts.pop(0), prompt_tokens=10, completion_tokens=5

@@ -26,6 +26,8 @@ from app.llm.corroboration import (
     low_corroboration_flag,
     score_claim,
 )
+from app.llm.gemini_client import GeminiClient
+from app.llm.gpt_client import GPTClient
 from app.llm.ollama_client import OllamaClient
 from app.llm.parser import ClaimDraft, extract_claim_drafts
 from app.llm.reasoning_chain import run_reasoning_chain
@@ -227,6 +229,15 @@ async def persist_explanation(
     return True
 
 
+def make_client(model: str) -> LLMClient:
+    """Pick the provider from the model name; anything unrecognized is Ollama."""
+    if model.startswith("gpt"):
+        return GPTClient(model=model)
+    if model.startswith("gemini"):
+        return GeminiClient(model=model)
+    return OllamaClient(model=model)
+
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m app.llm.explain",
@@ -244,7 +255,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--model",
         default="llama3:8b",
-        help="Ollama model name (default: llama3:8b)",
+        help=(
+            "model to explain with; gpt-* and gemini-* route to the cloud "
+            "clients, anything else to local Ollama (default: llama3:8b)"
+        ),
     )
     return parser.parse_args(argv)
 
@@ -278,7 +292,7 @@ async def _amain(argv: list[str] | None = None) -> int:
     from app.db.session import async_session
 
     args = _parse_args(argv)
-    client = OllamaClient(model=args.model)
+    client = make_client(args.model)
     try:
         async with async_session() as session:
             explanation = await generate_explanation(

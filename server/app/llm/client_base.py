@@ -61,8 +61,14 @@ class LLMClient(ABC):
             self._client = None
 
     @abstractmethod
-    async def _complete(self, prompt: str) -> RawCompletion:
-        """Call the model once and return raw text plus token counts."""
+    async def _complete(self, prompt: str, schema: type[BaseModel]) -> RawCompletion:
+        """Call the model once and return raw text plus token counts.
+
+        ``schema`` is the pydantic model the caller will parse the output
+        into; backends that support schema-constrained decoding (OpenAI
+        ``json_schema``, Gemini ``responseJsonSchema``) pass it to the API,
+        others may ignore it.
+        """
 
     async def generate(
         self,
@@ -75,7 +81,7 @@ class LLMClient(ABC):
 
         for attempt in range(1, max_attempts + 1):
             start = time.monotonic()
-            completion = await self._complete(prompt)
+            completion = await self._complete(prompt, schema)
             latency_ms = (time.monotonic() - start) * 1000
 
             try:

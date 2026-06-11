@@ -25,7 +25,7 @@ class MockLLMClient(LLMClient):
         self._responses = list(responses)
         self.calls = 0
 
-    async def _complete(self, prompt: str) -> RawCompletion:
+    async def _complete(self, prompt: str, schema: type[BaseModel]) -> RawCompletion:
         self.calls += 1
         return self._responses.pop(0)
 

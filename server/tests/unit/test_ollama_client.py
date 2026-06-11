@@ -40,7 +40,7 @@ class TestOllamaClient:
             )
 
         client = _client_with(handler, model="llama3:8b")
-        raw = await client._complete("explain this anomaly")
+        raw = await client._complete("explain this anomaly", _Attribution)
 
         assert captured["method"] == "POST"
         assert captured["path"] == "/api/generate"
@@ -84,7 +84,7 @@ class TestOllamaClient:
         client = _client_with(
             handler, model="llama3:8b", base_url="http://server.local:11434"
         )
-        await client._complete("p")
+        await client._complete("p", _Attribution)
 
         assert captured["url"] == "http://server.local:11434/api/generate"
         await client.close()
@@ -96,5 +96,5 @@ class TestOllamaClient:
 
         client = _client_with(handler, model="llama3:8b")
         with pytest.raises(httpx.HTTPStatusError):
-            await client._complete("p")
+            await client._complete("p", _Attribution)
         await client.close()

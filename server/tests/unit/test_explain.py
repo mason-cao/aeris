@@ -10,6 +10,7 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
+from pydantic import BaseModel
 from sqlalchemy import func, select
 
 from app.db.models import Anomaly, Claim, EnrichmentRecord, Explanation
@@ -17,6 +18,7 @@ from app.llm.client_base import LLMClient, RawCompletion
 from app.llm.explain import (
     _parse_args,
     generate_explanation,
+    make_client,
     persist_explanation,
     render_anomaly_text,
     render_enrichment_text,
@@ -35,7 +37,7 @@ class ScriptedClient(LLMClient):
         super().__init__()
         self._texts = list(texts)
 
-    async def _complete(self, prompt: str) -> RawCompletion:
+    async def _complete(self, prompt: str, schema: type[BaseModel]) -> RawCompletion:
         return RawCompletion(
             text=self._texts.pop(0), prompt_tokens=10, completion_tokens=5
         )
@@ -248,3 +250,19 @@ def test_parse_args_takes_anomaly_id_and_model():
     args = _parse_args(["--anomaly-id", "abc-123", "--model", "llama3:8b"])
     assert args.anomaly_id == "abc-123"
     assert args.model == "llama3:8b"
+
+
+def test_make_client_routes_models_to_providers(monkeypatch):
+    from app.config import settings
+    from app.llm.gemini_client import GeminiClient
+    from app.llm.gpt_client import GPTClient
+    from app.llm.ollama_client import OllamaClient
+
+    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
+    monkeypatch.setattr(settings, "google_api_key", "g-test")
+
+    assert isinstance(make_client("gpt-5.4"), GPTClient)
+    assert isinstance(make_client("gemini-3-thinking"), GeminiClient)
+    local = make_client("llama3:8b")
+    assert isinstance(local, OllamaClient)
+    assert local.model_name == "llama3:8b"

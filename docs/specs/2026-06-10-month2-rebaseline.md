@@ -64,6 +64,14 @@ The Month 2 deliverable for June is no longer "eval complete." It is: **pipeline
 - **IRR gate (Jul 20):** κ on the Mason–Bracco overlap; ≥0.6 keeps the "expert-labeled" framing, below downgrades to "expert-audited" (unchanged rule).
 - **Month 2 completion gate (Jul 24):** five analyses generated from real data; 1-page summary committed; repo tagged `month2-complete`.
 
+## Addendum 2026-06-12
+
+1. **API routes (`anomalies.py`, `explanations.py`, `evaluation.py`) are explicitly deferred to Month 3.** The original phase plan listed them; the build-finish list above silently dropped them. Nothing in the Month 2 eval path needs HTTP routes — the harness, freeze, and labeling tools are CLIs against the DB — and the web app is their first consumer.
+2. **The eval-set freeze is now code, not a manual step.** `python -m app.eval.freeze --start 2026-06-01 --end 2026-08-31 --top 50 --out fixtures/eval50.json` merges same-metric anomalies within 30 min / 10 km into events (single-linkage), ranks event representatives by detector-consensus count then |z|, and writes the frozen fixture with the criteria recorded next to the ids. Committing the rule before July 13 is the defense against any post-hoc-selection critique.
+3. **Decoding parameters are pinned for the eval.** Llama (Ollama) and Gemini run at temperature 0; GPT's thinking tier rejects sampling overrides and runs at the API default — that asymmetry goes in the methodology note. Without the pin, Ollama's 0.8 default made every sweep unreproducible.
+4. **Phase 1 grounding is threshold-aware** (extends scope change 2 above): "exceeded N" claims are now matched directionally, not as point values, with cue detection shared between `validate.py` and the Phase 2 concentration scorer. The strictness sensitivity analysis gains a third axis (lexical-only / numeric-point / numeric-threshold-aware).
+5. **Data-pipeline repair is a prerequisite for everything above** — see [2026-06-12 pipeline repair](2026-06-12-data-pipeline-repair.md). Until the OpenAQ key and CDSE credentials are fixed on the Acer, the eval window is accumulating PM/ozone ground data only, with no live OpenAQ rows since June 7 and no satellite column values at all.
+
 ## Risks added by the extension
 
 | Risk                                                      | Mitigation                                                                                                       |

@@ -113,10 +113,65 @@ def test_regional_elevation_claim_ranks_background_over_concentration():
     assert ClaimType.CONCENTRATION_ELEVATION in types
 
 
-def test_facility_claim_ranks_attribution_over_source_type():
+def test_facility_claim_without_coordinates_ranks_source_type_first():
+    # Without coordinates the point-source scorer has nothing to check, so a
+    # facility claim routes to emissions_source_type, whose point/area/mobile
+    # pattern check actually applies. Attribution stays in the match list.
     types = classify_claim("A plume from the refinery reached the monitor.")
-    assert types[0] is ClaimType.POINT_SOURCE_ATTRIBUTION
-    assert ClaimType.EMISSIONS_SOURCE_TYPE in types
+    assert types[0] is ClaimType.EMISSIONS_SOURCE_TYPE
+    assert ClaimType.POINT_SOURCE_ATTRIBUTION in types
+
+
+def test_transport_claim_mentioning_ship_channel_stays_transport():
+    # The memo's own headline example for transport_direction. "Ship Channel"
+    # is a geographic reference, not an attribution cue — routing on it sent
+    # headline transport claims into a qualitative-only type.
+    types = classify_claim(
+        "Southerly winds advected pollutants from the Ship Channel northward"
+    )
+    assert types[0] is ClaimType.TRANSPORT_DIRECTION
+
+
+def test_memo_examples_route_to_their_taxonomy_rows():
+    # The design memo's example column, one per claim type. If routing drifts,
+    # the taxonomy table and the dispatcher have diverged.
+    memo_examples = {
+        ClaimType.CONCENTRATION_ELEVATION: (
+            "Ground-level NO2 exceeded 80 ppb between 14:00-18:00 CT"
+        ),
+        ClaimType.TRANSPORT_DIRECTION: (
+            "Southerly winds advected pollutants from the Ship Channel northward"
+        ),
+        ClaimType.METEOROLOGICAL_STATE: "Stagnant conditions: wind speed <2 m/s",
+        ClaimType.ATMOSPHERIC_TRAP: (
+            "A low PBL combined with thermal inversion trapped emissions "
+            "near the surface"
+        ),
+        ClaimType.TEMPORAL_PATTERN: (
+            "Concentrations rose monotonically over a 4-hour window"
+        ),
+        ClaimType.CHEMISTRY: (
+            "Elevated HCHO with depressed O3 suggests fresh VOC emissions"
+        ),
+        ClaimType.POINT_SOURCE_ATTRIBUTION: (
+            "Plume signature consistent with a refinery upset near "
+            "29.73 N, -95.22 W"
+        ),
+        ClaimType.EMISSIONS_SOURCE_TYPE: (
+            "Pattern consistent with a Ship Channel point source rather than "
+            "mobile-source rush-hour"
+        ),
+        ClaimType.SECONDARY_FORMATION: (
+            "Afternoon O3 peak consistent with photochemical formation "
+            "downwind of morning NOx emissions"
+        ),
+        ClaimType.BACKGROUND_VS_EVENT: (
+            "Elevated PM2.5 across all monitors with similar magnitude "
+            "suggests regional transport, not a local source"
+        ),
+    }
+    for expected, example in memo_examples.items():
+        assert classify_claim(example)[0] is expected, example
 
 
 # --- dispatch ---

@@ -6,11 +6,13 @@ differs sharply:
 * **OpenAQ** — ``/v3/sensors/{id}/measurements`` with ``datetime_from`` /
   ``datetime_to``, paginated. The high-value backfill: ~720 points per
   sensor over 30 days, enough to anchor every detector.
-* **Sentinel-5P** — the existing collector's catalog query takes a ``now``
-  parameter; backfill walks 48h windows backward through the date range.
-  Catalog-only: it records granule availability and metadata cloud cover
-  but does not download granules, so no column densities are produced.
-  Column extraction stays with the scheduled collector.
+* **Sentinel-5P** — backfill walks 48h catalog windows backward through the
+  date range. With CDSE credentials set it also downloads granules for the
+  mapped column products and extracts column densities, exactly like the
+  scheduled collector; granules whose columns already exist in the DB are
+  not re-downloaded, so an interrupted backfill resumes on re-run. Without
+  credentials it degrades to catalog-only (availability + cloud cover) and
+  says so loudly. Granules run hundreds of MB each — budget bandwidth.
 * **NOAA GFS** — NOMADS retains roughly the last 10 days of cycles. The
   backfill walks past 6-hour cycles backward through the requested range
   and reuses the collector's ``_load_cycle`` GRIB-filter fetch + parse.
@@ -35,7 +37,7 @@ import gzip
 import io
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Sequence
 
@@ -55,7 +57,14 @@ from app.collectors.openaq import (
     parse_openaq_datetime,
 )
 from app.collectors.ratelimit import AsyncRateLimiter, rate_limited_get
-from app.collectors.sentinel5p import Sentinel5PCollector, odata_filter
+from app.collectors.sentinel5p import (
+    COLUMN_PRODUCTS,
+    PRODUCT_TYPE_MAP,
+    Sentinel5PCollector,
+    extract_product_code,
+    fetch_access_token,
+    odata_filter,
+)
 from app.config import settings
 from app.db.models import DataPoint
 
@@ -538,7 +547,15 @@ def _days_between(since: datetime, until: datetime) -> list[date]:
 
 
 class Sentinel5PBackfill(BackfillStrategy):
-    """Walk the Sentinel-5P collector's catalog query backward in 48h windows."""
+    """Walk the Sentinel-5P catalog backward in 48h windows, extracting columns.
+
+    Column extraction reuses the scheduled collector's download path and
+    requires CDSE credentials; without them the backfill degrades to
+    catalog-only. Granules whose column values are already in the DB are
+    skipped before download, so re-running resumes where a previous run
+    stopped. The bearer token is refreshed per window because granule
+    downloads easily outlive a single CDSE token.
+    """
 
     source_name = "sentinel5p"
 
@@ -547,9 +564,11 @@ class Sentinel5PBackfill(BackfillStrategy):
         collector: Sentinel5PCollector | None = None,
         *,
         window_hours: int = SENTINEL_WINDOW_HOURS,
+        extract_columns: bool = True,
     ) -> None:
         self.collector = collector or Sentinel5PCollector()
         self.window_hours = window_hours
+        self.extract_columns = extract_columns
 
     async def backfill(
         self,
@@ -562,17 +581,36 @@ class Sentinel5PBackfill(BackfillStrategy):
 
         start = time.monotonic()
         total = 0
+        columns_extracted = 0
+        columns_skipped = 0
         window = timedelta(hours=self.window_hours)
         cursor = until
+
+        creds_present = bool(settings.cdse_username and settings.cdse_password)
+        do_columns = self.extract_columns and creds_present
+        notes: str | None = None
+        if self.extract_columns and not creds_present:
+            notes = (
+                "CDSE credentials not set; catalog-only (no column densities "
+                "recovered — set CDSE_USERNAME/CDSE_PASSWORD and re-run)"
+            )
+            logger.warning("Sentinel-5P backfill: %s", notes)
+
         try:
             while cursor > since:
-                # Temporarily monkey-patch the catalog filter's "now" via
-                # the module-level helper: the collector itself calls
-                # ``odata_filter()`` with no args, so we patch by invoking
-                # the internals directly to keep the existing extraction
-                # path intact.
+                # The collector itself calls ``odata_filter()`` with no args,
+                # so the window is anchored here and the payload is shaped to
+                # match what ``Sentinel5PCollector.normalize`` reads.
                 catalog = await self._fetch_window(cursor)
-                points = self.collector.normalize(catalog)
+                raw: dict[str, Any] = catalog
+                if do_columns:
+                    extracted, skipped = await self._extract_window_columns(
+                        session, catalog
+                    )
+                    columns_extracted += len(extracted)
+                    columns_skipped += skipped
+                    raw = {**catalog, "extracted_columns": extracted}
+                points = self.collector.normalize(raw)
                 inserted = await _store_points(session, points)
                 total += inserted
                 cursor -= window
@@ -581,28 +619,26 @@ class Sentinel5PBackfill(BackfillStrategy):
                 source=self.source_name,
                 records=total,
                 error=f"{type(exc).__name__}: {exc}",
+                notes=notes,
                 duration_ms=(time.monotonic() - start) * 1000,
             )
         finally:
             await self.collector.close()
 
+        if do_columns:
+            notes = (
+                f"columns: {columns_extracted} granules extracted, "
+                f"{columns_skipped} already in DB"
+            )
         return BackfillResult(
             source=self.source_name,
             records=total,
+            notes=notes,
             duration_ms=(time.monotonic() - start) * 1000,
         )
 
     async def _fetch_window(self, window_end: datetime) -> dict[str, Any]:
-        """Catalog-only fetch anchored at ``window_end``.
-
-        Mirrors :class:`Sentinel5PCollector._fetch_catalog` but with a
-        caller-supplied window end. Column extraction is intentionally
-        skipped here to keep the backfill bounded — the existing scheduled
-        collector handles column downloads on the rolling 48h tail.
-
-        Records are returned under the ``value`` key so the payload matches
-        what :meth:`Sentinel5PCollector.normalize` reads.
-        """
+        """Catalog fetch anchored at ``window_end`` instead of now."""
         from app.collectors.sentinel5p import API_BASE, RESULT_LIMIT
 
         client = await self.collector._get_client()
@@ -610,10 +646,62 @@ class Sentinel5PBackfill(BackfillStrategy):
             "$filter": odata_filter(window_end),
             "$top": str(RESULT_LIMIT),
             "$orderby": "ContentDate/Start desc",
+            "$expand": "Attributes",
         }
         response = await client.get(API_BASE, params=params, timeout=60.0)
         response.raise_for_status()
         return {"value": response.json().get("value", []) or []}
+
+    async def _extract_window_columns(
+        self,
+        session: AsyncSession,
+        catalog: dict[str, Any],
+    ) -> tuple[dict[str, float], int]:
+        """Extract column densities for one window's not-yet-stored granules.
+
+        Returns the ``extracted_columns`` mapping for ``normalize`` plus the
+        count of granules skipped because their column row already exists.
+        """
+        candidates: list[dict[str, Any]] = []
+        candidate_ids: list[str] = []
+        for record in catalog.get("value", []):
+            product_id = record.get("Id")
+            code = extract_product_code(record.get("Name"))
+            if not product_id or code not in COLUMN_PRODUCTS:
+                continue
+            candidates.append(record)
+            candidate_ids.append(str(product_id))
+
+        if not candidates:
+            return {}, 0
+
+        column_metrics = [
+            f"{PRODUCT_TYPE_MAP[code]}_column" for code in COLUMN_PRODUCTS
+        ]
+        rows = await session.execute(
+            select(DataPoint.source_entity_id).where(
+                DataPoint.source == self.source_name,
+                DataPoint.metric.in_(column_metrics),
+                DataPoint.source_entity_id.in_(candidate_ids),
+            )
+        )
+        already_stored = {str(entity_id) for entity_id in rows.scalars()}
+        remaining = [
+            record
+            for record in candidates
+            if str(record.get("Id")) not in already_stored
+        ]
+        if not remaining:
+            return {}, len(candidates)
+
+        client = await self.collector._get_client()
+        token = await fetch_access_token(
+            client, settings.cdse_username, settings.cdse_password
+        )
+        extracted = await self.collector._extract_columns(
+            client, {"value": remaining}, token
+        )
+        return extracted, len(candidates) - len(remaining)
 
 
 # NOAA GFS ------------------------------------------------------------
@@ -886,8 +974,10 @@ def _format_result(r: BackfillResult) -> str:
 
 
 async def _amain(argv: list[str] | None = None) -> int:
+    from app.collectors.logsetup import configure_logging
     from app.db.session import async_session, engine
 
+    configure_logging()
     args = _parse_args(argv)
     since, until = _resolve_window(args)
     strategies = _strategies_for(args)

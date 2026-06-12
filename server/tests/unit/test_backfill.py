@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -22,6 +21,7 @@ from app.collectors.backfill import (
 from app.collectors.noaa_gfs import NOAAGFSCollector
 from app.collectors.ratelimit import AsyncRateLimiter
 from app.collectors.sentinel5p import Sentinel5PCollector
+from app.config import settings
 from app.db.models import DataPoint
 
 
@@ -65,8 +65,10 @@ def _measurement(ts: datetime, value: float) -> dict[str, Any]:
     per-measurement ``coordinates`` field — the caller falls back to the
     location's coordinates.
     """
+    def iso_z(d: datetime) -> str:
+        return d.isoformat().replace("+00:00", "Z")
+
     end = ts + timedelta(hours=1)
-    iso_z = lambda d: d.isoformat().replace("+00:00", "Z")
     return {
         "value": value,
         "period": {
@@ -221,7 +223,7 @@ class TestOpenAQBackfillSingleSensor:
         )
         try:
             strategy = OpenAQBackfill(http_client=client, rate_limiter=_fast_limiter(), page_size=100)
-            result = await strategy.backfill(
+            await strategy.backfill(
                 db_session,
                 since=T0 - timedelta(days=1),
                 until=T0 + timedelta(days=1),
@@ -336,7 +338,7 @@ class TestOpenAQBackfillSingleSensor:
         finally:
             await client1.aclose()
         try:
-            r2 = await OpenAQBackfill(http_client=client2, rate_limiter=_fast_limiter(), page_size=100).backfill(
+            await OpenAQBackfill(http_client=client2, rate_limiter=_fast_limiter(), page_size=100).backfill(
                 db_session, since=T0 - timedelta(days=1), until=T0 + timedelta(days=1)
             )
         finally:
@@ -393,42 +395,50 @@ class TestNOAAGFSBackfill:
         assert {row.source for row in rows} == {"noaa_gfs"}
 
 
+def _s5p_catalog_records() -> list[dict[str, Any]]:
+    return [
+        {
+            "Id": "prod-no2-1",
+            "Name": (
+                "S5P_NRTI_L2__NO2____20260501T120000_20260501T123000"
+                "_00001_03_020800_20260501T140000.nc"
+            ),
+            "ContentDate": {"Start": "2026-05-01T12:00:00.000Z"},
+            "Attributes": [{"Name": "cloudCover", "Value": 12.5}],
+        },
+        {
+            "Id": "prod-so2-1",
+            "Name": (
+                "S5P_NRTI_L2__SO2____20260501T120000_20260501T123000"
+                "_00001_03_020800_20260501T140000.nc"
+            ),
+            "ContentDate": {"Start": "2026-05-01T12:00:00.000Z"},
+            "Attributes": [{"Name": "cloudCover", "Value": 8.0}],
+        },
+    ]
+
+
+def _s5p_collector() -> Sentinel5PCollector:
+    response = MagicMock()
+    response.raise_for_status = MagicMock(return_value=None)
+    response.json = MagicMock(return_value={"value": _s5p_catalog_records()})
+    client = MagicMock()
+    client.get = AsyncMock(return_value=response)
+    return Sentinel5PCollector(http_client=client)
+
+
 class TestSentinel5PBackfill:
     @pytest.mark.asyncio
-    async def test_stores_catalog_points_from_window(self, db_session) -> None:
+    async def test_catalog_only_without_credentials(
+        self, db_session, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(settings, "cdse_username", "")
+        monkeypatch.setattr(settings, "cdse_password", "")
         # since < until by 1h triggers exactly one 48h catalog window.
         until = datetime.now(timezone.utc)
         since = until - timedelta(hours=1)
 
-        catalog_records = [
-            {
-                "Id": "prod-no2-1",
-                "Name": (
-                    "S5P_NRTI_L2__NO2____20260501T120000_20260501T123000"
-                    "_00001_03_020800_20260501T140000.nc"
-                ),
-                "ContentDate": {"Start": "2026-05-01T12:00:00.000Z"},
-                "Attributes": [{"Name": "cloudCover", "Value": 12.5}],
-            },
-            {
-                "Id": "prod-so2-1",
-                "Name": (
-                    "S5P_NRTI_L2__SO2____20260501T120000_20260501T123000"
-                    "_00001_03_020800_20260501T140000.nc"
-                ),
-                "ContentDate": {"Start": "2026-05-01T12:00:00.000Z"},
-                "Attributes": [{"Name": "cloudCover", "Value": 8.0}],
-            },
-        ]
-
-        response = MagicMock()
-        response.raise_for_status = MagicMock(return_value=None)
-        response.json = MagicMock(return_value={"value": catalog_records})
-        client = MagicMock()
-        client.get = AsyncMock(return_value=response)
-        collector = Sentinel5PCollector(http_client=client)
-
-        result = await Sentinel5PBackfill(collector=collector).backfill(
+        result = await Sentinel5PBackfill(collector=_s5p_collector()).backfill(
             db_session, since=since, until=until
         )
 
@@ -436,6 +446,7 @@ class TestSentinel5PBackfill:
         # Catalog-only mode: each mapped product emits _granule_available
         # plus _cloud_cover — no column densities without a granule download.
         assert result.records == 4
+        assert result.notes is not None and "CDSE credentials" in result.notes
 
         rows = (await db_session.execute(select(DataPoint))).scalars().all()
         assert {row.metric for row in rows} == {
@@ -444,6 +455,89 @@ class TestSentinel5PBackfill:
             "s5p_so2_granule_available",
             "s5p_so2_cloud_cover",
         }
+
+    @pytest.mark.asyncio
+    async def test_extracts_columns_with_credentials(
+        self, db_session, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(settings, "cdse_username", "alice")
+        monkeypatch.setattr(settings, "cdse_password", "secret")
+        until = datetime.now(timezone.utc)
+        since = until - timedelta(hours=1)
+
+        collector = _s5p_collector()
+        extract = AsyncMock(return_value={"prod-no2-1": 0.000123})
+        monkeypatch.setattr(collector, "_extract_columns", extract)
+        monkeypatch.setattr(
+            "app.collectors.backfill.fetch_access_token",
+            AsyncMock(return_value="tok"),
+        )
+
+        result = await Sentinel5PBackfill(collector=collector).backfill(
+            db_session, since=since, until=until
+        )
+
+        assert result.error is None
+        assert result.records == 5  # 2 availability + 2 cloud cover + 1 column
+        assert result.notes is not None and "1 granules extracted" in result.notes
+
+        rows = (await db_session.execute(select(DataPoint))).scalars().all()
+        columns = [row for row in rows if row.metric == "s5p_no2_column"]
+        assert len(columns) == 1
+        assert columns[0].value == pytest.approx(0.000123)
+        # Both catalog records are column products; with nothing stored yet
+        # the whole window goes to extraction.
+        passed_catalog = extract.call_args.args[1]
+        assert [r["Id"] for r in passed_catalog["value"]] == [
+            "prod-no2-1",
+            "prod-so2-1",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_skips_granules_whose_columns_are_already_stored(
+        self, db_session, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(settings, "cdse_username", "alice")
+        monkeypatch.setattr(settings, "cdse_password", "secret")
+        until = datetime.now(timezone.utc)
+        since = until - timedelta(hours=1)
+
+        db_session.add(
+            DataPoint(
+                timestamp=datetime(2026, 5, 1, 12, 0, tzinfo=timezone.utc),
+                lat=29.7604,
+                lon=-95.3698,
+                metric="s5p_no2_column",
+                value=0.0002,
+                unit="mol/m^2",
+                source="sentinel5p",
+                source_entity_id="prod-no2-1",
+            )
+        )
+        await db_session.commit()
+
+        collector = _s5p_collector()
+        extract = AsyncMock(return_value={"prod-so2-1": 0.0005})
+        monkeypatch.setattr(collector, "_extract_columns", extract)
+        monkeypatch.setattr(
+            "app.collectors.backfill.fetch_access_token",
+            AsyncMock(return_value="tok"),
+        )
+
+        result = await Sentinel5PBackfill(collector=collector).backfill(
+            db_session, since=since, until=until
+        )
+
+        assert result.error is None
+        assert result.notes is not None and "1 already in DB" in result.notes
+        # The granule with a stored column never reaches the download path.
+        passed_catalog = extract.call_args.args[1]
+        assert [r["Id"] for r in passed_catalog["value"]] == ["prod-so2-1"]
+
+        rows = (await db_session.execute(select(DataPoint))).scalars().all()
+        so2_columns = [row for row in rows if row.metric == "s5p_so2_column"]
+        assert len(so2_columns) == 1
+        assert so2_columns[0].value == pytest.approx(0.0005)
 
 
 class TestRunBackfillDispatcher:

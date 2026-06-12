@@ -28,12 +28,14 @@ Additional facts:
 
 1. [ ] **OpenAQ key.** Generate the new key in the restored account, update `OPENAQ_API_KEY` in the Acer's `C:\temp\aeris\aeris\server\.env` (and the Mac copy), run `python -m app.collectors.run_all --source=openaq`, confirm `ok`.
 2. [ ] **CDSE credentials.** Register the free Copernicus Data Space account, add `CDSE_USERNAME` / `CDSE_PASSWORD` to both `.env` files, run `python -m app.collectors.run_all --source=sentinel5p`, confirm `s5p_*_column` rows appear (not just `_granule_available`). Granules are hundreds of MB each — leave the Acer on Ethernet and don't schedule anything else heavy in that hour.
-3. [ ] **Backfill the gaps.** OpenAQ archive backfill from June 7 to now (archive lags ~1–2 days; re-run a few days later to top up). Sentinel-5P column backfill to June 1 once item 2 works — CDSE keeps the archive, so nothing is lost permanently.
+3. [ ] **Backfill the gaps.** Run on the Acer (the production DB lives there); both are idempotent and safe to re-run.
+   - OpenAQ: `python -m app.collectors.backfill --source openaq --since 2026-06-06` (archive lags ~1–2 days; re-run a few days later to top up).
+   - Sentinel-5P: `python -m app.collectors.backfill --source sentinel5p --since 2026-06-01` **after item 2**. As of 2026-06-12 the backfill downloads granules and extracts column densities (it was catalog-only before — the missed weeks were unrecoverable by code). Granules are hundreds of MB each; an interrupted run resumes on re-run because already-extracted granules are skipped.
 4. [ ] **Fix the corrupted id** on the Acer's file before the next detection run:
    `UPDATE data_points SET id = lower(hex(randomblob(16))) WHERE typeof(id) = 'real';`
-   and figure out how the backfill wrote a float id (one row out of 105k — likely a malformed CSV row reaching the raw insert; add a guard).
+   Root cause (found 2026-06-12, see `test_guid_type.py`): the ORM declared ids with the bare `UUID` DDL keyword, which SQLite gives NUMERIC affinity, and bound them as undashed 32-char hex. ~1 in 10⁶ uuid4 hex strings is all digits plus a single `e`; SQLite reads that as scientific notation and stores a REAL — here the exponent overflowed to `Inf`. Fixed in `models.py` (`GUID` type, binds the dashed 36-char form, which can never parse as a number — no migration needed; legacy undashed rows still read fine). The UPDATE above repairs the one already-corrupted row.
 5. [ ] **Delete the 77 stale rows** (optional, hygiene): `DELETE FROM data_points WHERE source = 'openaq' AND timestamp < '2026-05-01';`
-6. [ ] **Set `AERIS_ENV=production`** in the Acer's `.env` (kills the engine echo), and add a real logging config to `run_all` so collector INFO/WARNING lines land in `collector.log`. A startup check that fails loudly when a registered collector is missing its credentials would have caught item 2 on day one.
+6. [ ] **Set `AERIS_ENV=production`** in the Acer's `.env` (kills the engine echo). The code half landed 2026-06-12: `run_all` and `backfill` now configure stderr logging (`logsetup.py`), so collector INFO/WARNING lines reach `collector.log`, and `run_all` prints a loud per-source warning when credentials are missing — the check that would have caught item 2 on day one.
 7. [ ] **Weekly row-count check** during the accumulation window (already in the rebaseline): per-source rows + max timestamp, eyeballed against expectations. The numbers go in the weekly Bracco update emails.
 
 ## Consequences for the eval design (already applied in code)

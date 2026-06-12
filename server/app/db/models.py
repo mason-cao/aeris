@@ -1,20 +1,63 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
+    CHAR,
     Boolean,
     DateTime,
+    Dialect,
     Float,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
+    TypeDecorator,
     UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import TypeEngine
+
+
+class GUID(TypeDecorator[uuid.UUID]):
+    """UUID column stored in a form SQLite cannot misread as a number.
+
+    Postgres keeps the native UUID type. Every other dialect stores the
+    dashed 36-char string: the bare ``UUID`` DDL keyword gets NUMERIC
+    affinity on SQLite, and an undashed hex id made of digits plus a single
+    ``e`` (~1 in 10^6 of them) is silently coerced to a REAL — one such id
+    landed as ``Inf`` in the production data_points table and broke every
+    read of it. Dashes make the value unparseable as a number, so existing
+    NUMERIC-affinity tables are safe without a migration. Reads accept both
+    the dashed and the legacy undashed form.
+    """
+
+    impl = CHAR(36)
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect: Dialect) -> TypeEngine[Any]:
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(UUID(as_uuid=True))
+        return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(
+        self, value: uuid.UUID | str | None, dialect: Dialect
+    ) -> uuid.UUID | str | None:
+        if value is None or dialect.name == "postgresql":
+            return value
+        if isinstance(value, uuid.UUID):
+            return str(value)
+        return str(uuid.UUID(str(value)))
+
+    def process_result_value(
+        self, value: Any, dialect: Dialect
+    ) -> uuid.UUID | None:
+        if value is None or isinstance(value, uuid.UUID):
+            return value
+        return uuid.UUID(str(value))
 
 
 class Base(DeclarativeBase):
@@ -25,7 +68,7 @@ class DataPoint(Base):
     __tablename__ = "data_points"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        GUID(), primary_key=True, default=uuid.uuid4
     )
     # Composite primary key: TimescaleDB requires the partitioning column
     # (timestamp) to be part of any unique constraint on a hypertable.
@@ -71,7 +114,7 @@ class DataSource(Base):
     __tablename__ = "data_sources"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        GUID(), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     source_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -91,7 +134,7 @@ class Anomaly(Base):
     __tablename__ = "anomalies"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        GUID(), primary_key=True, default=uuid.uuid4
     )
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
@@ -145,10 +188,10 @@ class EnrichmentRecord(Base):
     __tablename__ = "enrichment_records"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        GUID(), primary_key=True, default=uuid.uuid4
     )
     anomaly_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("anomalies.id", ondelete="CASCADE"),
         nullable=False,
     )
@@ -180,10 +223,10 @@ class Explanation(Base):
     __tablename__ = "explanations"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        GUID(), primary_key=True, default=uuid.uuid4
     )
     anomaly_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("anomalies.id", ondelete="CASCADE"),
         nullable=False,
     )
@@ -222,10 +265,10 @@ class Claim(Base):
     __tablename__ = "claims"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        GUID(), primary_key=True, default=uuid.uuid4
     )
     explanation_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("explanations.id", ondelete="CASCADE"),
         nullable=False,
     )
@@ -269,10 +312,10 @@ class ExpertLabel(Base):
     __tablename__ = "expert_labels"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        GUID(), primary_key=True, default=uuid.uuid4
     )
     anomaly_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("anomalies.id", ondelete="CASCADE"),
         nullable=False,
     )

@@ -59,10 +59,10 @@ from app.collectors.openaq import (
 from app.collectors.ratelimit import AsyncRateLimiter, rate_limited_get
 from app.collectors.sentinel5p import (
     COLUMN_PRODUCTS,
-    PRODUCT_TYPE_MAP,
     Sentinel5PCollector,
     extract_product_code,
     fetch_access_token,
+    ids_with_stored_columns,
     odata_filter,
 )
 from app.config import settings
@@ -675,17 +675,7 @@ class Sentinel5PBackfill(BackfillStrategy):
         if not candidates:
             return {}, 0
 
-        column_metrics = [
-            f"{PRODUCT_TYPE_MAP[code]}_column" for code in COLUMN_PRODUCTS
-        ]
-        rows = await session.execute(
-            select(DataPoint.source_entity_id).where(
-                DataPoint.source == self.source_name,
-                DataPoint.metric.in_(column_metrics),
-                DataPoint.source_entity_id.in_(candidate_ids),
-            )
-        )
-        already_stored = {str(entity_id) for entity_id in rows.scalars()}
+        already_stored = await ids_with_stored_columns(session, candidate_ids)
         remaining = [
             record
             for record in candidates

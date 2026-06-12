@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import patch
@@ -20,6 +21,7 @@ from app.collectors.sentinel5p import (
     parse_iso_datetime,
 )
 from app.config import settings
+from app.db.models import DataPoint
 
 
 @pytest.fixture
@@ -545,3 +547,171 @@ class TestSentinel5PHelpers:
         url = granule_download_url("abc-123")
 
         assert url.endswith("Products(abc-123)/$value")
+
+
+class TestDownloadGranule:
+    @pytest.mark.asyncio
+    async def test_follows_redirect_and_reattaches_auth_header(
+        self, tmp_path
+    ) -> None:
+        # The $value endpoint 301s to a different host; httpx strips the
+        # Authorization header across hosts, so the collector must follow
+        # by hand and re-attach it — this is the bug that 401'd every
+        # granule on the first credentialed run (2026-06-12).
+        seen: list[tuple[str, str | None]] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append((request.url.host, request.headers.get("authorization")))
+            if request.url.host == "catalogue.dataspace.copernicus.eu":
+                return httpx.Response(
+                    301,
+                    headers={"location": "https://download.example.eu/p/abc.nc"},
+                )
+            return httpx.Response(200, content=b"granule-bytes")
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = Sentinel5PCollector(http_client=client)
+        path = tmp_path / "granule.nc"
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT)
+        try:
+            await collector._download_granule(client, "abc-123", "tok-1", fd)
+        finally:
+            await client.aclose()
+
+        assert path.read_bytes() == b"granule-bytes"
+        assert seen[0] == ("catalogue.dataspace.copernicus.eu", "Bearer tok-1")
+        assert seen[1] == ("download.example.eu", "Bearer tok-1")
+
+    @pytest.mark.asyncio
+    async def test_gives_up_after_redirect_limit(self, tmp_path) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                301, headers={"location": str(request.url) + "x"}
+            )
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = Sentinel5PCollector(http_client=client)
+        fd = os.open(tmp_path / "granule.nc", os.O_WRONLY | os.O_CREAT)
+        try:
+            with pytest.raises(RuntimeError, match="redirects"):
+                await collector._download_granule(client, "abc-123", "tok", fd)
+        finally:
+            await client.aclose()
+
+
+class TestExtractColumnsTokenRefresh:
+    @pytest.mark.asyncio
+    async def test_refreshes_token_when_stale(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "cdse_username", "alice")
+        monkeypatch.setattr(settings, "cdse_password", "secret")
+        # Age limit 0 forces a refresh before every granule, standing in for
+        # downloads that outlive the ~10-minute CDSE token.
+        monkeypatch.setattr("app.collectors.sentinel5p.TOKEN_MAX_AGE_S", 0.0)
+
+        token_requests: list[int] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if "openid-connect/token" in str(request.url):
+                token_requests.append(1)
+                return httpx.Response(
+                    200, json={"access_token": f"tok-{len(token_requests)}"}
+                )
+            return httpx.Response(404)
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = Sentinel5PCollector(http_client=client)
+        catalog = make_payload(
+            make_record(product_id="no2-1"),
+            make_record(product_id="no2-2"),
+        )
+
+        used_tokens: list[str] = []
+
+        async def fake_extract(
+            self,
+            client_arg: httpx.AsyncClient,
+            product_id: str,
+            product_code: str,
+            token: str,
+            bbox: BoundingBox,
+        ) -> float | None:
+            used_tokens.append(token)
+            return 1.0e-4
+
+        with patch.object(
+            Sentinel5PCollector, "_download_and_extract", fake_extract
+        ):
+            try:
+                extracted = await collector._extract_columns(
+                    client, catalog, "tok-stale"
+                )
+            finally:
+                await client.aclose()
+
+        assert len(extracted) == 2
+        assert used_tokens == ["tok-1", "tok-2"]
+
+
+class TestCollectSkipsStoredColumns:
+    @pytest.mark.asyncio
+    async def test_collect_does_not_redownload_stored_granules(
+        self, db_session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "cdse_username", "alice")
+        monkeypatch.setattr(settings, "cdse_password", "secret")
+
+        db_session.add(
+            DataPoint(
+                timestamp=datetime(2026, 4, 30, 12, 0, tzinfo=timezone.utc),
+                lat=29.7604,
+                lon=-95.3698,
+                metric="s5p_no2_column",
+                value=2.0e-4,
+                unit="mol/m^2",
+                source="sentinel5p",
+                source_entity_id="no2-stored",
+            )
+        )
+        await db_session.commit()
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if "openid-connect/token" in str(request.url):
+                return httpx.Response(200, json={"access_token": "tok-123"})
+            return httpx.Response(
+                200,
+                json=make_payload(
+                    make_record(product_id="no2-stored"),
+                    make_record(
+                        product_id="no2-new", start="2026-04-30T13:00:00.000Z"
+                    ),
+                ),
+            )
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = Sentinel5PCollector(http_client=client)
+
+        downloaded: list[str] = []
+
+        async def fake_extract(
+            self,
+            client_arg: httpx.AsyncClient,
+            product_id: str,
+            product_code: str,
+            token: str,
+            bbox: BoundingBox,
+        ) -> float | None:
+            downloaded.append(product_id)
+            return 3.0e-4
+
+        with patch.object(
+            Sentinel5PCollector, "_download_and_extract", fake_extract
+        ):
+            try:
+                result = await collector.collect(db_session, max_retries=1)
+            finally:
+                await client.aclose()
+
+        assert result.success
+        assert downloaded == ["no2-new"]

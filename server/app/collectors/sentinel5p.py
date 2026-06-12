@@ -3,15 +3,19 @@ import logging
 import os
 import re
 import tempfile
+import time
 from datetime import datetime, timedelta, timezone
 from math import isfinite, isnan
 from typing import Any, Sequence
 
 import httpx
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.collectors.base import BaseCollector, DataPointCreate
+from app.collectors.base import BaseCollector, CollectionResult, DataPointCreate
 from app.collectors.geo import BoundingBox, target_bounding_box
 from app.config import settings
+from app.db.models import DataPoint
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +31,10 @@ CDSE_TOKEN_URL = (
 CDSE_CLIENT_ID = "cdse-public"
 GRANULE_DOWNLOAD_TIMEOUT_S = 300.0
 TOKEN_REQUEST_TIMEOUT_S = 30.0
+# CDSE access tokens expire after ~600s; a multi-granule download run easily
+# outlives one, so refresh ahead of the deadline.
+TOKEN_MAX_AGE_S = 540.0
+DOWNLOAD_MAX_REDIRECTS = 5
 MIN_VALID_PIXELS = 10
 COLUMN_UNIT = "mol/m^2"
 
@@ -120,6 +128,31 @@ def odata_filter(now: datetime | None = None) -> str:
 
 def granule_download_url(product_id: str) -> str:
     return f"{API_BASE}({product_id})/$value"
+
+
+async def ids_with_stored_columns(
+    session: AsyncSession,
+    candidate_ids: Sequence[str],
+) -> set[str]:
+    """Product ids that already have a ``*_column`` DataPoint row.
+
+    Checked before download, not just at insert: granules run hundreds of MB,
+    and both the hourly collector (rolling 48h window) and a re-run backfill
+    would otherwise re-fetch payloads whose values are already stored.
+    """
+    if not candidate_ids:
+        return set()
+    column_metrics = [
+        f"{PRODUCT_TYPE_MAP[code]}_column" for code in COLUMN_PRODUCTS
+    ]
+    rows = await session.execute(
+        select(DataPoint.source_entity_id).where(
+            DataPoint.source == "sentinel5p",
+            DataPoint.metric.in_(column_metrics),
+            DataPoint.source_entity_id.in_([str(c) for c in candidate_ids]),
+        )
+    )
+    return {str(entity_id) for entity_id in rows.scalars()}
 
 
 async def fetch_access_token(
@@ -219,6 +252,22 @@ class Sentinel5PCollector(BaseCollector):
     source_name = "sentinel5p"
     collect_interval_minutes = 360
 
+    def __init__(self, http_client: httpx.AsyncClient | None = None) -> None:
+        super().__init__(http_client)
+        self._session: AsyncSession | None = None
+
+    async def collect(
+        self, session: AsyncSession, max_retries: int = 3
+    ) -> CollectionResult:
+        # fetch() needs the session to skip granules whose columns are
+        # already stored, but BaseCollector's fetch() signature doesn't
+        # carry one.
+        self._session = session
+        try:
+            return await super().collect(session, max_retries=max_retries)
+        finally:
+            self._session = None
+
     async def fetch(self) -> dict[str, Any]:
         client = await self._get_client()
         catalog = await self._fetch_catalog(client)
@@ -228,6 +277,10 @@ class Sentinel5PCollector(BaseCollector):
                 "CDSE credentials not set; running Sentinel-5P in catalog-only mode"
             )
             return catalog
+
+        to_extract = await self._granules_needing_columns(catalog)
+        if not to_extract:
+            return {**catalog, "extracted_columns": {}}
 
         try:
             token = await fetch_access_token(
@@ -240,8 +293,33 @@ class Sentinel5PCollector(BaseCollector):
             )
             return catalog
 
-        extracted = await self._extract_columns(client, catalog, token)
+        extracted = await self._extract_columns(
+            client, {"value": to_extract}, token
+        )
         return {**catalog, "extracted_columns": extracted}
+
+    async def _granules_needing_columns(
+        self, catalog: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Column-product records minus those already extracted to the DB."""
+        candidates = [
+            record
+            for record in catalog.get("value", [])
+            if record.get("Id")
+            and extract_product_code(record.get("Name")) in COLUMN_PRODUCTS
+        ]
+        if not candidates or self._session is None:
+            return candidates
+        stored = await ids_with_stored_columns(
+            self._session, [str(record["Id"]) for record in candidates]
+        )
+        if stored:
+            logger.info(
+                "Sentinel-5P: %d of %d column granules already stored; skipping",
+                len(stored),
+                len(candidates),
+            )
+        return [r for r in candidates if str(r["Id"]) not in stored]
 
     async def _fetch_catalog(self, client: httpx.AsyncClient) -> dict[str, Any]:
         params = {
@@ -262,6 +340,7 @@ class Sentinel5PCollector(BaseCollector):
     ) -> dict[str, float]:
         bbox = target_bounding_box()
         results: dict[str, float] = {}
+        token_fetched_at = time.monotonic()
 
         for record in catalog.get("value", []):
             product_id = record.get("Id")
@@ -271,6 +350,12 @@ class Sentinel5PCollector(BaseCollector):
             product_code = extract_product_code(name)
             if product_code not in COLUMN_PRODUCTS:
                 continue
+
+            if time.monotonic() - token_fetched_at > TOKEN_MAX_AGE_S:
+                token = await fetch_access_token(
+                    client, settings.cdse_username, settings.cdse_password
+                )
+                token_fetched_at = time.monotonic()
 
             try:
                 mean = await self._download_and_extract(
@@ -322,16 +407,33 @@ class Sentinel5PCollector(BaseCollector):
         token: str,
         fd: int,
     ) -> None:
+        """Stream a granule to ``fd``, following redirects by hand.
+
+        The OData ``$value`` endpoint 301s to a separate download host, and
+        httpx drops the Authorization header on cross-host redirects (so
+        auto-following yields a 401). The header has to be re-attached on
+        every hop, per the CDSE download documentation.
+        """
         url = granule_download_url(product_id)
         headers = {"Authorization": f"Bearer {token}"}
         with os.fdopen(fd, "wb") as out:
-            async with client.stream(
-                "GET", url, headers=headers, timeout=GRANULE_DOWNLOAD_TIMEOUT_S
-            ) as response:
-                response.raise_for_status()
-                async for chunk in response.aiter_bytes():
-                    if chunk:
-                        out.write(chunk)
+            for _ in range(DOWNLOAD_MAX_REDIRECTS + 1):
+                async with client.stream(
+                    "GET", url, headers=headers, timeout=GRANULE_DOWNLOAD_TIMEOUT_S
+                ) as response:
+                    if response.is_redirect:
+                        url = str(
+                            httpx.URL(url).join(response.headers["location"])
+                        )
+                        continue
+                    response.raise_for_status()
+                    async for chunk in response.aiter_bytes():
+                        if chunk:
+                            out.write(chunk)
+                    return
+        raise RuntimeError(
+            f"S5P granule download exceeded {DOWNLOAD_MAX_REDIRECTS} redirects"
+        )
 
     def normalize(self, raw_data: dict[str, Any]) -> list[DataPointCreate]:
         if not isinstance(raw_data, dict):

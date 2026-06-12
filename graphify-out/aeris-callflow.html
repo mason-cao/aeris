@@ -1,0 +1,2954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aeris — Complete Call Flow &amp; Architecture Documentation</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+:root {
+  --bg: #0f172a; --surface: #1e293b; --border: #334155;
+  --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
+  --warn: #fbbf24; --err: #f87171; --ok: #34d399;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+.container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+h1 { font-size: 2.4rem; margin-bottom: 8px; background: linear-gradient(135deg, var(--accent), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+h2 { font-size: 1.7rem; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 2px solid var(--accent); }
+h3 { font-size: 1.25rem; margin: 32px 0 12px; color: var(--accent); }
+h4 { font-size: 1.05rem; margin: 20px 0 8px; color: var(--warn); }
+p { margin: 8px 0; color: var(--muted); }
+.subtitle { color: var(--muted); font-size: 1.1rem; margin-bottom: 32px; }
+.mermaid { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin: 20px 0; overflow-x: auto; position: relative; }
+.mermaid.is-enhanced { padding: 0; overflow: hidden; min-height: 260px; }
+.mermaid-viewport { padding: 54px 24px 24px; overflow: hidden; cursor: grab; touch-action: none; min-height: 260px; }
+.mermaid-viewport.is-dragging { cursor: grabbing; }
+.mermaid-viewport svg { max-width: none !important; height: auto; transform-origin: 0 0; transition: transform 120ms ease; }
+.mermaid-toolbar { position: absolute; top: 10px; right: 10px; z-index: 3; display: flex; align-items: center; gap: 6px; padding: 6px; background: rgba(15,23,42,0.92); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.28); }
+.mermaid-toolbar button, .mermaid-toolbar .zoom-level { height: 28px; min-width: 32px; border: 1px solid var(--border); border-radius: 6px; background: #1e293b; color: var(--text); font: 600 0.78rem system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; }
+.mermaid-toolbar button { cursor: pointer; }
+.mermaid-toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+.mermaid-toolbar .zoom-level { min-width: 52px; color: var(--muted); background: transparent; }
+.call-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.92rem; }
+.call-table th { background: #1a2744; color: var(--accent); text-align: left; padding: 10px 14px; border: 1px solid var(--border); }
+.call-table td { padding: 8px 14px; border: 1px solid var(--border); vertical-align: top; }
+.call-table tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+.tag-async { background: #7c3aed33; color: #a78bfa; }
+.tag-class { background: #05966933; color: var(--ok); }
+.tag-func { background: #2563eb33; color: var(--accent); }
+.tag-cmd { background: #d9770633; color: var(--warn); }
+.tag-endpoint { background: #dc262633; color: var(--err); }
+.tag-hook { background: #db277733; color: #f472b6; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 16px 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin: 16px 0; }
+.arrow-chain { font-family: 'Fira Code', monospace; font-size: 0.85rem; color: var(--accent); padding: 10px; background: rgba(56,189,248,0.06); border-radius: 6px; }
+code { font-family: 'Fira Code', 'Cascadia Code', monospace; background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 3px; font-size: 0.88em; }
+ul, ol { margin: 8px 0 8px 24px; color: var(--muted); }
+li { margin: 4px 0; }
+a { color: var(--accent); }
+hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+.nav { position: sticky; top: 0; background: var(--bg); z-index: 10; padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.9rem; }
+.nav a { text-decoration: none; }
+.nav a:hover { text-decoration: underline; }
+@media (max-width: 768px) { .container { padding: 16px; } h1 { font-size: 1.8rem; } }
+
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>aeris — Complete Call Flow &amp; Architecture Documentation</h1>
+<p class="subtitle">Generated from graphify knowledge graph: 1807 nodes, 5036 edges, 90 communities. Commit: 45b795d</p>
+
+<div class="nav">
+    <a href="#overview">Architecture Overview</a>
+    <a href="#build-graph">Graph Build</a>
+    <a href="#analysis-clustering">Analysis &amp; Clustering</a>
+    <a href="#ingest-cache-update">Ingestion &amp; Updates</a>
+    <a href="#serve-api">Serving API</a>
+    <a href="#tests-fixtures">Tests &amp; Fixtures</a>
+    <a href="#server-app-enrichmentpy">Server App Enrichmentpy</a>
+    <a href="#runpy-detection-server">Runpy Detection Server</a>
+    <a href="#detection-server-app">Detection Server App</a>
+    <a href="#server-app-collector">Server App Collector</a>
+    <a href="#llm-server-app">Llm Server App</a>
+    <a href="#envpy-server-alembic">Envpy Server Alembic</a>
+    <a href="#d2b9f4a7c1e8-add-llm">D2B9F4A7C1E8 Add Llm</a>
+    <a href="#server-app-detection">Server App Detection</a>
+    <a href="#server-app-fastapi">Server App Fastapi</a>
+    <a href="#other">Other</a>
+</div>
+
+<!-- ====== Architecture Overview ====== -->
+<h2 id="overview">1. Architecture Overview</h2>
+
+<div class="mermaid">
+
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    BUILD_GRAPH_321CBB04("Graph Build<br/><small>3 nodes</small>")
+    class BUILD_GRAPH_321CBB04 module;
+    ANALYSIS_CLUSTERING_C79796DA("Analysis &amp; Clustering<br/><small>33 nodes</small>")
+    class ANALYSIS_CLUSTERING_C79796DA module;
+    INGEST_CACHE_UPDATE_FF457338("Ingestion &amp; Updates<br/><small>164 nodes</small>")
+    class INGEST_CACHE_UPDATE_FF457338 module;
+    SERVE_API_35EC8E86("Serving API<br/><small>2 nodes</small>")
+    class SERVE_API_35EC8E86 module;
+    TESTS_FIXTURES_B84B1DCC("Tests &amp; Fixtures<br/><small>1513 nodes</small>")
+    class TESTS_FIXTURES_B84B1DCC module;
+    SERVER_APP_ENRICHMENTPY_8AF8908C("Server App Enrichmentpy<br/><small>29 nodes</small>")
+    class SERVER_APP_ENRICHMENTPY_8AF8908C module;
+    RUNPY_DETECTION_SERVER_8A6424C2("Runpy Detection Server<br/><small>19 nodes</small>")
+    class RUNPY_DETECTION_SERVER_8A6424C2 module;
+    DETECTION_SERVER_APP_F391B667("Detection Server App<br/><small>14 nodes</small>")
+    class DETECTION_SERVER_APP_F391B667 module;
+    SERVER_APP_COLLECTOR_97ACAB3E("Server App Collector<br/><small>6 nodes</small>")
+    class SERVER_APP_COLLECTOR_97ACAB3E module;
+    LLM_SERVER_APP_3DC82474("Llm Server App<br/><small>5 nodes</small>")
+    class LLM_SERVER_APP_3DC82474 module;
+    ENVPY_SERVER_ALEMBIC_DBB1300B("Envpy Server Alembic<br/><small>4 nodes</small>")
+    class ENVPY_SERVER_ALEMBIC_DBB1300B module;
+    D2B9F4A7C1E8_ADD_LLM_F04A9379("D2B9F4A7C1E8 Add Llm<br/><small>3 nodes</small>")
+    class D2B9F4A7C1E8_ADD_LLM_F04A9379 module;
+    SERVER_APP_DETECTION_BAD9106C("Server App Detection<br/><small>2 nodes</small>")
+    class SERVER_APP_DETECTION_BAD9106C module;
+    SERVER_APP_FASTAPI_121041C3("Server App Fastapi<br/><small>2 nodes</small>")
+    class SERVER_APP_FASTAPI_121041C3 module;
+    OTHER_D0941E68("Other<br/><small>8 nodes</small>")
+    class OTHER_D0941E68 module;
+    INGEST_CACHE_UPDATE_FF457338 -->|method x28| TESTS_FIXTURES_B84B1DCC
+    DETECTION_SERVER_APP_F391B667 -->|contains x25| TESTS_FIXTURES_B84B1DCC
+    RUNPY_DETECTION_SERVER_8A6424C2 -->|contains x23| TESTS_FIXTURES_B84B1DCC
+    TESTS_FIXTURES_B84B1DCC -->|contains x19| ANALYSIS_CLUSTERING_C79796DA
+    ANALYSIS_CLUSTERING_C79796DA -->|method x19| TESTS_FIXTURES_B84B1DCC
+    SERVER_APP_ENRICHMENTPY_8AF8908C -->|contains x18| TESTS_FIXTURES_B84B1DCC
+    TESTS_FIXTURES_B84B1DCC -->|contains x12| INGEST_CACHE_UPDATE_FF457338
+    TESTS_FIXTURES_B84B1DCC -->|imports x10| RUNPY_DETECTION_SERVER_8A6424C2
+    TESTS_FIXTURES_B84B1DCC -->|references x7| SERVER_APP_ENRICHMENTPY_8AF8908C
+    TESTS_FIXTURES_B84B1DCC -->|imports x6| DETECTION_SERVER_APP_F391B667
+    DETECTION_SERVER_APP_F391B667 -->|imports x3| RUNPY_DETECTION_SERVER_8A6424C2
+    RUNPY_DETECTION_SERVER_8A6424C2 -->|imports x2| DETECTION_SERVER_APP_F391B667
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h4>Architecture Layers</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>Layer</th><th>Nodes</th><th>Communities</th></tr>
+      <tr><td>Graph Build</td><td>3</td><td><code>72</code></td></tr><tr><td>Analysis &amp; Clustering</td><td>33</td><td><code>14</code></td></tr><tr><td>Ingestion &amp; Updates</td><td>164</td><td><code>0, 37</code></td></tr><tr><td>Serving API</td><td>2</td><td><code>76, 83</code></td></tr><tr><td>Tests &amp; Fixtures</td><td>1513</td><td><code>1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 38, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 70, 71, 81, 86, 87, 88</code></td></tr><tr><td>Server App Enrichmentpy</td><td>29</td><td><code>23</code></td></tr><tr><td>Runpy Detection Server</td><td>19</td><td><code>39</code></td></tr><tr><td>Detection Server App</td><td>14</td><td><code>50</code></td></tr><tr><td>Server App Collector</td><td>6</td><td><code>66</code></td></tr><tr><td>Llm Server App</td><td>5</td><td><code>68</code></td></tr><tr><td>Envpy Server Alembic</td><td>4</td><td><code>69</code></td></tr><tr><td>D2B9F4A7C1E8 Add Llm</td><td>3</td><td><code>73</code></td></tr><tr><td>Server App Detection</td><td>2</td><td><code>74</code></td></tr><tr><td>Server App Fastapi</td><td>2</td><td><code>75</code></td></tr><tr><td>Other</td><td>8</td><td><code>77, 78, 79, 80, 82, 84, 85, 89</code></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Core Flow</h4>
+    <div class="arrow-chain">Graph Build -&gt; Analysis &amp; Clustering -&gt; Tests &amp; Fixtures -&gt; Ingestion &amp; Updates -&gt; Serving API -&gt; Server App Enrichmentpy -&gt; Runpy Detection Server</div>
+  </div>
+</div>
+<hr>
+<!-- ====== 2. Graph Build ====== -->
+<h2 id="build-graph">2. Graph Build</h2>
+<p>Graph Build groups implementation around data, b7c11efca53b, initial, schema, mostly in alembic/versions/b7c11efca53b_initial_schema_with_data_points_data_.py. This section covers 3 nodes and 2 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Graph Build (3 nodes, 2 edges)
+    versions_b7c11efca53b_initial_schema_with_data_p_55e1f5c5("b7c11efca53b_initial_schema_with_data_points_data_.py")
+    versions_b7c11efca53b_initial_schema_with_data_p_bbad91cf("downgrade()<br/><small>alembic/versions/b7c11efca53b_initial_schema_with_data_points_data_.py</small>")
+    versions_b7c11efca53b_initial_schema_with_data_p_ecc14473("upgrade()<br/><small>alembic/versions/b7c11efca53b_initial_schema_with_data_points_data_.py</small>")
+    versions_b7c11efca53b_initial_schema_with_data_p_55e1f5c5 -->|contains| versions_b7c11efca53b_initial_schema_with_data_p_bbad91cf
+    versions_b7c11efca53b_initial_schema_with_data_p_55e1f5c5 -->|contains| versions_b7c11efca53b_initial_schema_with_data_p_ecc14473
+    class versions_b7c11efca53b_initial_schema_with_data_p_55e1f5c5 module;
+    class versions_b7c11efca53b_initial_schema_with_data_p_bbad91cf function;
+    class versions_b7c11efca53b_initial_schema_with_data_p_ecc14473 function;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>b7c11efca53b_initial_schema_with_data_points_data_.py</code><br><small style="color:var(--muted)">alembic/versions/b7c11efca53b_initial_schema_with_data_points_data_.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in alembic/versions/b7c11efca53b_initial_schema_with_data_points_data_.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>upgrade()</code><br><small style="color:var(--muted)">alembic/versions/b7c11efca53b_initial_schema_with_data_points_data_.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>upgrade() node in alembic/versions/b7c11efca53b_initial_schema_with_data_points_data_.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>downgrade()</code><br><small style="color:var(--muted)">alembic/versions/b7c11efca53b_initial_schema_with_data_points_data_.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>downgrade() node in alembic/versions/b7c11efca53b_initial_schema_with_data_points_data_.py.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>alembic/versions/b7c11efca53b_initial_schema_with_data_points_data_.py</code></td><td>3 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x2. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 3. Analysis & Clustering ====== -->
+<h2 id="analysis-clustering">3. Analysis &amp; Clustering</h2>
+<p>Analysis &amp; Clustering groups implementation around server, app, llm, explainpy, mostly in app/llm/explain.py, app/llm/validate.py, app/llm/ollama_client.py. This section covers 33 nodes and 82 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Analysis &amp; Clustering (33 nodes, 82 edges)
+    subgraph analysis_clustering_app_llm_explain_py_8c6c211d["app/llm/explain.py"]
+        server_app_llm_explain_py_anomaly_0d659ad4("Anomaly<br/><small>app/llm/explain.py</small>")
+        server_app_llm_explain_py_asyncsession_f0f882b7("AsyncSession<br/><small>app/llm/explain.py</small>")
+        server_app_llm_explain_py_claim_a7a54b84("Claim<br/><small>app/llm/explain.py</small>")
+        server_app_llm_explain_py_claimdraft_f2d8ac7e("ClaimDraft<br/><small>app/llm/explain.py</small>")
+        server_app_llm_explain_py_explanation_bbf053ff("Explanation<br/><small>app/llm/explain.py</small>")
+        groundingresult_4897ddc4("GroundingResult<br/><small>app/llm/explain.py</small>")
+        server_app_llm_explain_py_llmclient_7d427f15("LLMClient<br/><small>app/llm/explain.py</small>")
+        server_app_llm_explain_py_namespace_6b33b443("Namespace<br/><small>app/llm/explain.py</small>")
+        server_app_llm_explain_py_uuid_954f453e("UUID<br/><small>app/llm/explain.py</small>")
+        llm_explain_claim_row_af868c37("_claim_row()<br/><small>app/llm/explain.py</small>")
+        server_app_llm_explain_py_datetime_fe7b308e("datetime<br/><small>app/llm/explain.py</small>")
+        llm_explain_persist_explanation_c4902bc5("persist_explanation()<br/><small>app/llm/explain.py</small>")
+    end
+    subgraph analysis_clustering_tests_unit_test_validate_py_95c7fccf["tests/unit/test_validate.py"]
+        unit_test_validate_testgroundclaimdrafts_bb47bc8c("TestGroundClaimDrafts<br/><small>tests/unit/test_validate.py</small>")
+        unit_test_validate_testgroundclaimdrafts_test_re_928eac65("test_returns_verdict_per_draft()<br/><small>tests/unit/test_validate.py</small>")
+    end
+    llmclient_a3ff1c5e("LLMClient")
+    llm_gemini_client_geminiclient_e79a2e5c("GeminiClient<br/><small>app/llm/gemini_client.py</small>")
+    llm_gpt_client_gptclient_c0be0066("GPTClient<br/><small>app/llm/gpt_client.py</small>")
+    llm_ollama_client_ollamaclient_86165428("OllamaClient<br/><small>app/llm/ollama_client.py</small>")
+    unit_test_validate_testgroundclaimdrafts_bb47bc8c -->|method| unit_test_validate_testgroundclaimdrafts_test_re_928eac65
+    %% Omitted for readability: 15 nodes, 0 edges
+    class server_app_llm_explain_py_anomaly_0d659ad4 klass;
+    class server_app_llm_explain_py_asyncsession_f0f882b7 async;
+    class server_app_llm_explain_py_claim_a7a54b84 klass;
+    class server_app_llm_explain_py_claimdraft_f2d8ac7e klass;
+    class server_app_llm_explain_py_explanation_bbf053ff klass;
+    class groundingresult_4897ddc4 klass;
+    class server_app_llm_explain_py_llmclient_7d427f15 entry;
+    class server_app_llm_explain_py_namespace_6b33b443 klass;
+    class server_app_llm_explain_py_uuid_954f453e klass;
+    class llm_explain_claim_row_af868c37 function;
+    class server_app_llm_explain_py_datetime_fe7b308e function;
+    class llm_explain_persist_explanation_c4902bc5 function;
+    class unit_test_validate_testgroundclaimdrafts_bb47bc8c test;
+    class unit_test_validate_testgroundclaimdrafts_test_re_928eac65 test;
+    class llmclient_a3ff1c5e entry;
+    class llm_gemini_client_geminiclient_e79a2e5c entry;
+    class llm_gpt_client_gptclient_c0be0066 entry;
+    class llm_ollama_client_ollamaclient_86165428 entry;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/parser.py</small><br><code>GeminiClient</code><br><small style="color:var(--muted)">app/llm/gemini_client.py</small><br><code>GPTClient</code><br><small style="color:var(--muted)">app/llm/gpt_client.py</small><br>+2 more</td>
+  <td>datetime node in app/llm/explain.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>Anomaly</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/parser.py</small><br><code>GeminiClient</code><br><small style="color:var(--muted)">app/llm/gemini_client.py</small><br><code>GPTClient</code><br><small style="color:var(--muted)">app/llm/gpt_client.py</small><br>+2 more</td>
+  <td>Anomaly node in app/llm/explain.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>_claim_row()</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>_claim_row() node in app/llm/explain.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/parser.py</small><br><code>GeminiClient</code><br><small style="color:var(--muted)">app/llm/gemini_client.py</small><br><code>GPTClient</code><br><small style="color:var(--muted)">app/llm/gpt_client.py</small><br>+2 more</td>
+  <td>ClaimDraft node in app/llm/explain.py.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>GroundingResult</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/parser.py</small><br><code>GeminiClient</code><br><small style="color:var(--muted)">app/llm/gemini_client.py</small><br><code>GPTClient</code><br><small style="color:var(--muted)">app/llm/gpt_client.py</small><br>+2 more</td>
+  <td>GroundingResult node in app/llm/explain.py.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>Claim</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/parser.py</small><br><code>GeminiClient</code><br><small style="color:var(--muted)">app/llm/gemini_client.py</small><br><code>GPTClient</code><br><small style="color:var(--muted)">app/llm/gpt_client.py</small><br>+2 more</td>
+  <td>Claim node in app/llm/explain.py.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>AsyncSession</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-async">Async</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/parser.py</small><br><code>GeminiClient</code><br><small style="color:var(--muted)">app/llm/gemini_client.py</small><br><code>GPTClient</code><br><small style="color:var(--muted)">app/llm/gpt_client.py</small><br>+2 more</td>
+  <td>AsyncSession node in app/llm/explain.py.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>UUID</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/parser.py</small><br><code>GeminiClient</code><br><small style="color:var(--muted)">app/llm/gemini_client.py</small><br><code>GPTClient</code><br><small style="color:var(--muted)">app/llm/gpt_client.py</small><br>+2 more</td>
+  <td>UUID node in app/llm/explain.py.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>LLMClient</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-cmd">Entry</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/parser.py</small><br><code>GeminiClient</code><br><small style="color:var(--muted)">app/llm/gemini_client.py</small><br><code>GPTClient</code><br><small style="color:var(--muted)">app/llm/gpt_client.py</small><br>+2 more</td>
+  <td>LLMClient node in app/llm/explain.py.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>Explanation</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/parser.py</small><br><code>GeminiClient</code><br><small style="color:var(--muted)">app/llm/gemini_client.py</small><br><code>GPTClient</code><br><small style="color:var(--muted)">app/llm/gpt_client.py</small><br>+2 more</td>
+  <td>Explanation node in app/llm/explain.py.</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>persist_explanation()</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>persist_explanation() node in app/llm/explain.py.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>Namespace</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/parser.py</small><br><code>GeminiClient</code><br><small style="color:var(--muted)">app/llm/gemini_client.py</small><br><code>GPTClient</code><br><small style="color:var(--muted)">app/llm/gpt_client.py</small><br>+2 more</td>
+  <td>Namespace node in app/llm/explain.py.</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>One Claim row: Phase 1 verdict always, Phase 2 only for grounded claims.      Un</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for One Claim row: Phase 1 verdict always, Phase 2 only for grounded claims.      Un.</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>Insert an Explanation unless the (anomaly, model) pair already has one.      Ins</code><br><small style="color:var(--muted)">app/llm/explain.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Insert an Explanation unless the (anomaly, model) pair already has one.      Ins.</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>GeminiClient</code><br><small style="color:var(--muted)">app/llm/gemini_client.py</small></td>
+  <td><span class="tag tag-cmd">Entry</span></td>
+  <td><code>Anomaly</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br><code>AsyncSession</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br><code>Claim</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br>+7 more</td>
+  <td><code>BaseModel</code><br><small style="color:var(--muted)">tests/unit/test_explain.py</small><br><code>RawCompletion</code><br><small style="color:var(--muted)">tests/unit/test_explain.py</small></td>
+  <td>GeminiClient node in app/llm/gemini_client.py.</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>LLMClient</code><br><small style="color:var(--muted)"></small></td>
+  <td><span class="tag tag-cmd">Entry</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>LLMClient node in project.</td>
+</tr>
+<tr>
+  <td>17</td>
+  <td><code>LLMClient backed by the Gemini ``generateContent`` REST API.      Cloud comparis</code><br><small style="color:var(--muted)">app/llm/gemini_client.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for LLMClient backed by the Gemini ``generateContent`` REST API.      Cloud comparis.</td>
+</tr>
+<tr>
+  <td>18</td>
+  <td><code>GPTClient</code><br><small style="color:var(--muted)">app/llm/gpt_client.py</small></td>
+  <td><span class="tag tag-cmd">Entry</span></td>
+  <td><code>Anomaly</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br><code>AsyncSession</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br><code>Claim</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br>+7 more</td>
+  <td><code>BaseModel</code><br><small style="color:var(--muted)">tests/unit/test_explain.py</small><br><code>RawCompletion</code><br><small style="color:var(--muted)">tests/unit/test_explain.py</small></td>
+  <td>GPTClient node in app/llm/gpt_client.py.</td>
+</tr>
+<tr>
+  <td>19</td>
+  <td><code>LLMClient backed by the OpenAI chat completions API.      Cloud comparison basel</code><br><small style="color:var(--muted)">app/llm/gpt_client.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for LLMClient backed by the OpenAI chat completions API.      Cloud comparison basel.</td>
+</tr>
+<tr>
+  <td>20</td>
+  <td><code>ollama_client.py</code><br><small style="color:var(--muted)">app/llm/ollama_client.py</small></td>
+  <td><span class="tag tag-cmd">Entry</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in app/llm/ollama_client.py.</td>
+</tr>
+<tr>
+  <td>21</td>
+  <td><code>OllamaClient</code><br><small style="color:var(--muted)">app/llm/ollama_client.py</small></td>
+  <td><span class="tag tag-cmd">Entry</span></td>
+  <td><code>Anomaly</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br><code>AsyncSession</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br><code>Claim</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br>+7 more</td>
+  <td><code>BaseModel</code><br><small style="color:var(--muted)">tests/unit/test_explain.py</small><br><code>RawCompletion</code><br><small style="color:var(--muted)">tests/unit/test_explain.py</small></td>
+  <td>OllamaClient node in app/llm/ollama_client.py.</td>
+</tr>
+<tr>
+  <td>22</td>
+  <td><code>LLMClient backed by a local Ollama server&#x27;s HTTP API.      Uses Ollama&#x27;s JSON mo</code><br><small style="color:var(--muted)">app/llm/ollama_client.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for LLMClient backed by a local Ollama server&#x27;s HTTP API.      Uses Ollama&#x27;s JSON mo.</td>
+</tr>
+<tr>
+  <td>23</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/parser.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>Anomaly</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br><code>AsyncSession</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br><code>Claim</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br>+7 more</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/validate.py</small><br><code>GroundingResult</code><br><small style="color:var(--muted)">app/llm/validate.py</small><br><code>TestGroundClaimDrafts</code><br><small style="color:var(--muted)">tests/unit/test_validate.py</small></td>
+  <td>ClaimDraft node in app/llm/parser.py.</td>
+</tr>
+<tr>
+  <td>24</td>
+  <td><code>A single extracted claim awaiting Phase 1 grounding and Phase 2 scoring.</code><br><small style="color:var(--muted)">app/llm/parser.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for A single extracted claim awaiting Phase 1 grounding and Phase 2 scoring..</td>
+</tr>
+<tr>
+  <td>25</td>
+  <td><code>GroundingResult</code><br><small style="color:var(--muted)">app/llm/validate.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>Anomaly</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br><code>AsyncSession</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br><code>Claim</code><br><small style="color:var(--muted)">app/llm/explain.py</small><br>+8 more</td>
+  <td><code>TestGroundClaimDrafts</code><br><small style="color:var(--muted)">tests/unit/test_validate.py</small></td>
+  <td>GroundingResult node in app/llm/validate.py.</td>
+</tr>
+<tr>
+  <td>26</td>
+  <td><code>ground_claim_drafts()</code><br><small style="color:var(--muted)">app/llm/validate.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>test_returns_verdict_per_draft()</code><br><small style="color:var(--muted)">tests/unit/test_validate.py</small></td>
+  <td>ground_claim_drafts() node in app/llm/validate.py.</td>
+</tr>
+<tr>
+  <td>27</td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/validate.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>ClaimDraft</code><br><small style="color:var(--muted)">app/llm/parser.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>ClaimDraft node in app/llm/validate.py.</td>
+</tr>
+<tr>
+  <td>28</td>
+  <td><code>Run the Phase 1 grounding check over every extracted claim.</code><br><small style="color:var(--muted)">app/llm/validate.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Run the Phase 1 grounding check over every extracted claim..</td>
+</tr>
+<tr>
+  <td>29</td>
+  <td><code>._complete()</code><br><small style="color:var(--muted)">tests/unit/test_explain.py</small></td>
+  <td><span class="tag tag-func">Test</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>._complete() node in tests/unit/test_explain.py.</td>
+</tr>
+<tr>
+  <td>30</td>
+  <td><code>BaseModel</code><br><small style="color:var(--muted)">tests/unit/test_explain.py</small></td>
+  <td><span class="tag tag-func">Test</span></td>
+  <td><code>GeminiClient</code><br><small style="color:var(--muted)">app/llm/gemini_client.py</small><br><code>GPTClient</code><br><small style="color:var(--muted)">app/llm/gpt_client.py</small><br><code>OllamaClient</code><br><small style="color:var(--muted)">app/llm/ollama_client.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>BaseModel node in tests/unit/test_explain.py.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>app/llm/explain.py</code></td><td>14 nodes</td></tr>
+<tr><td><code>app/llm/validate.py</code></td><td>4 nodes</td></tr>
+<tr><td><code>app/llm/ollama_client.py</code></td><td>3 nodes</td></tr>
+<tr><td><code>tests/unit/test_explain.py</code></td><td>3 nodes</td></tr>
+<tr><td><code>app/llm/gemini_client.py</code></td><td>2 nodes</td></tr>
+<tr><td><code>app/llm/gpt_client.py</code></td><td>2 nodes</td></tr>
+<tr><td><code>app/llm/parser.py</code></td><td>2 nodes</td></tr>
+<tr><td><code>tests/unit/test_validate.py</code></td><td>2 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: references x9, explains x7, inherits x3, contains x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 4. Ingestion & Updates ====== -->
+<h2 id="ingest-cache-update">4. Ingestion &amp; Updates</h2>
+<p>Ingestion &amp; Updates groups implementation around server, backfillpy, app, collectors, mostly in app/collectors/backfill.py, tests/unit/test_backfill.py, app/collectors/base.py. This section covers 164 nodes and 566 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Ingestion &amp; Updates (164 nodes, 566 edges)
+    subgraph ingest_cache_update_app_collectors_backfill_py_3dae6a76["app/collectors/backfill.py"]
+        collectors_backfill_openaqbackfill_98fbd546("OpenAQBackfill<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_openaqarchivebackfill_df3b23d2("OpenAQArchiveBackfill<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_sentinel5pbackfill_bf54acb7("Sentinel5PBackfill<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_backfillstrategy_23ef525a("BackfillStrategy<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_backfillstrategy_backfill_58dc2680("backfill()<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_store_points_b363402f("_store_points()<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_noaagfsbackfill_backfill_d23e462f("backfill()<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_openaqarchivebackfill_backfi_dd5fcfa5("backfill()<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_openaqbackfill_backfill_e2b71899("backfill()<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_sentinel5pbackfill_backfill_5640dd32("backfill()<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_openaqbackfill_client_or_def_cd43f230("_client_or_default()<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_openaqbackfill_close_4ece05f6("close()<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_openaqbackfill_collect_senso_00104134("_collect_sensor()<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_openaqbackfill_init_c65c9081("__init__()<br/><small>app/collectors/backfill.py</small>")
+        collectors_backfill_openaqbackfill_list_location_41d6db65("_list_locations()<br/><small>app/collectors/backfill.py</small>")
+    end
+    subgraph ingest_cache_update_tests_unit_test_backfill_py_a002982f["tests/unit/test_backfill.py"]
+        unit_test_backfill_build_client_da5784d4("_build_client()<br/><small>tests/unit/test_backfill.py</small>")
+        unit_test_backfill_fast_limiter_7b644aed("_fast_limiter()<br/><small>tests/unit/test_backfill.py</small>")
+    end
+    collectors_base_basecollector_cab31223("BaseCollector<br/><small>app/collectors/base.py</small>")
+    collectors_backfill_backfillstrategy_23ef525a -->|method| collectors_backfill_backfillstrategy_backfill_58dc2680
+    collectors_backfill_store_points_b363402f -->|calls| collectors_backfill_noaagfsbackfill_backfill_d23e462f
+    collectors_backfill_store_points_b363402f -->|calls| collectors_backfill_openaqarchivebackfill_backfi_dd5fcfa5
+    collectors_backfill_store_points_b363402f -->|calls| collectors_backfill_openaqbackfill_backfill_e2b71899
+    collectors_backfill_store_points_b363402f -->|calls| collectors_backfill_sentinel5pbackfill_backfill_5640dd32
+    collectors_backfill_openaqbackfill_98fbd546 -->|method| collectors_backfill_openaqbackfill_backfill_e2b71899
+    collectors_backfill_openaqbackfill_98fbd546 -->|method| collectors_backfill_openaqbackfill_client_or_def_cd43f230
+    collectors_backfill_openaqbackfill_98fbd546 -->|method| collectors_backfill_openaqbackfill_close_4ece05f6
+    collectors_backfill_openaqbackfill_98fbd546 -->|method| collectors_backfill_openaqbackfill_collect_senso_00104134
+    collectors_backfill_openaqbackfill_98fbd546 -->|method| collectors_backfill_openaqbackfill_init_c65c9081
+    collectors_backfill_openaqbackfill_98fbd546 -->|method| collectors_backfill_openaqbackfill_list_location_41d6db65
+    collectors_backfill_openaqbackfill_backfill_e2b71899 -->|calls| collectors_backfill_openaqbackfill_collect_senso_00104134
+    collectors_backfill_openaqbackfill_backfill_e2b71899 -->|calls| collectors_backfill_openaqbackfill_list_location_41d6db65
+    collectors_backfill_openaqarchivebackfill_df3b23d2 -->|method| collectors_backfill_openaqarchivebackfill_backfi_dd5fcfa5
+    collectors_backfill_sentinel5pbackfill_bf54acb7 -->|method| collectors_backfill_sentinel5pbackfill_backfill_5640dd32
+    %% Omitted for readability: 146 nodes, 0 edges
+    class collectors_backfill_openaqbackfill_98fbd546 klass;
+    class collectors_backfill_openaqarchivebackfill_df3b23d2 klass;
+    class collectors_backfill_sentinel5pbackfill_bf54acb7 klass;
+    class collectors_backfill_backfillstrategy_23ef525a klass;
+    class collectors_backfill_backfillstrategy_backfill_58dc2680 function;
+    class collectors_backfill_store_points_b363402f ui;
+    class collectors_backfill_noaagfsbackfill_backfill_d23e462f function;
+    class collectors_backfill_openaqarchivebackfill_backfi_dd5fcfa5 function;
+    class collectors_backfill_openaqbackfill_backfill_e2b71899 function;
+    class collectors_backfill_sentinel5pbackfill_backfill_5640dd32 function;
+    class collectors_backfill_openaqbackfill_client_or_def_cd43f230 entry;
+    class collectors_backfill_openaqbackfill_close_4ece05f6 function;
+    class collectors_backfill_openaqbackfill_collect_senso_00104134 function;
+    class collectors_backfill_openaqbackfill_init_c65c9081 function;
+    class collectors_backfill_openaqbackfill_list_location_41d6db65 function;
+    class unit_test_backfill_build_client_da5784d4 test;
+    class unit_test_backfill_fast_limiter_7b644aed test;
+    class collectors_base_basecollector_cab31223 klass;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>backfill.py</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ABC</code><br><code>datetime</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td>Module file in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>BackfillResult</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>_MockTransport</code><br><small style="color:var(--muted)">tests/unit/test_backfill.py</small><br><code>Any</code><br><small style="color:var(--muted)">tests/unit/test_backfill.py</small><br><code>AsyncClient</code><br><small style="color:var(--muted)">tests/unit/test_backfill.py</small><br>+16 more</td>
+  <td>BackfillResult node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>BackfillStrategy</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>_MockTransport</code><br><small style="color:var(--muted)">tests/unit/test_backfill.py</small><br><code>Any</code><br><small style="color:var(--muted)">tests/unit/test_backfill.py</small><br><code>AsyncClient</code><br><small style="color:var(--muted)">tests/unit/test_backfill.py</small><br>+17 more</td>
+  <td>BackfillStrategy node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>.backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>BackfillStrategy</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>.backfill() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>AsyncSession</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-async">Async</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>AsyncRateLimiter</code><br><small style="color:var(--muted)">app/collectors/ratelimit.py</small><br><code>DataPoint</code><br><small style="color:var(--muted)">app/db/models.py</small><br><code>NOAAGFSCollector</code><br><small style="color:var(--muted)">app/collectors/noaa_gfs.py</small><br>+1 more</td>
+  <td>AsyncSession node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>backfill.py</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><code>AsyncRateLimiter</code><br><small style="color:var(--muted)">app/collectors/ratelimit.py</small><br><code>DataPoint</code><br><small style="color:var(--muted)">app/db/models.py</small><br><code>NOAAGFSCollector</code><br><small style="color:var(--muted)">app/collectors/noaa_gfs.py</small><br>+1 more</td>
+  <td>datetime node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>_store_points()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-hook">UI</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br>+1 more</td>
+  <td>_store_points() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>DataPointCreate</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>AsyncRateLimiter</code><br><small style="color:var(--muted)">app/collectors/ratelimit.py</small><br><code>DataPoint</code><br><small style="color:var(--muted)">app/db/models.py</small><br><code>NOAAGFSCollector</code><br><small style="color:var(--muted)">app/collectors/noaa_gfs.py</small><br>+1 more</td>
+  <td>DataPointCreate node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>OpenAQBackfill</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>__init__()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>_client_or_default()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>_collect_sensor()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br>+35 more</td>
+  <td>OpenAQBackfill node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>.__init__()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>OpenAQBackfill</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>.__init__() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>AsyncClient</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-cmd">Entry</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>AsyncRateLimiter</code><br><small style="color:var(--muted)">app/collectors/ratelimit.py</small><br><code>DataPoint</code><br><small style="color:var(--muted)">app/db/models.py</small><br><code>NOAAGFSCollector</code><br><small style="color:var(--muted)">app/collectors/noaa_gfs.py</small><br>+1 more</td>
+  <td>AsyncClient node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>AsyncRateLimiter</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-async">Async</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>AsyncRateLimiter</code><br><small style="color:var(--muted)">app/collectors/ratelimit.py</small><br><code>DataPoint</code><br><small style="color:var(--muted)">app/db/models.py</small><br><code>NOAAGFSCollector</code><br><small style="color:var(--muted)">app/collectors/noaa_gfs.py</small><br>+1 more</td>
+  <td>AsyncRateLimiter node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>._client_or_default()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-cmd">Entry</span></td>
+  <td><code>OpenAQBackfill</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>._client_or_default() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>.close()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>OpenAQBackfill</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>.close() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>.backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_store_points()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>OpenAQBackfill</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><code>_client_or_default()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>_collect_sensor()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>_list_locations()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br>+2 more</td>
+  <td>.backfill() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>._list_locations()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>OpenAQBackfill</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>._list_locations() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>17</td>
+  <td><code>Any</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>AsyncRateLimiter</code><br><small style="color:var(--muted)">app/collectors/ratelimit.py</small><br><code>DataPoint</code><br><small style="color:var(--muted)">app/db/models.py</small><br><code>NOAAGFSCollector</code><br><small style="color:var(--muted)">app/collectors/noaa_gfs.py</small><br>+1 more</td>
+  <td>Any node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>18</td>
+  <td><code>._list_sensors()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>OpenAQBackfill</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>._list_sensors() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>19</td>
+  <td><code>._collect_sensor()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>OpenAQBackfill</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><code>_iso_z()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>_measurement_timestamp()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td>._collect_sensor() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>20</td>
+  <td><code>archive_key()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>test_matches_bucket_layout()</code><br><small style="color:var(--muted)">tests/unit/test_openaq_archive.py</small></td>
+  <td>archive_key() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>21</td>
+  <td><code>date</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>AsyncRateLimiter</code><br><small style="color:var(--muted)">app/collectors/ratelimit.py</small><br><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>DataPoint</code><br><small style="color:var(--muted)">app/db/models.py</small><br>+3 more</td>
+  <td>date node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>22</td>
+  <td><code>parse_archive_csv()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>test_maps_rows_to_data_points()</code><br><small style="color:var(--muted)">tests/unit/test_openaq_archive.py</small><br><code>test_skips_unknown_parameter_and_out_of_radius_rows()</code><br><small style="color:var(--muted)">tests/unit/test_openaq_archive.py</small></td>
+  <td>parse_archive_csv() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>23</td>
+  <td><code>db_location_ids()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>test_distinct_ids_from_openaq_raw_json()</code><br><small style="color:var(--muted)">tests/unit/test_openaq_archive.py</small></td>
+  <td>db_location_ids() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>24</td>
+  <td><code>OpenAQArchiveBackfill</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>__init__()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>_client_or_default()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>AsyncRateLimiter</code><br><small style="color:var(--muted)">app/collectors/ratelimit.py</small><br>+14 more</td>
+  <td>OpenAQArchiveBackfill node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>25</td>
+  <td><code>.__init__()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>OpenAQArchiveBackfill</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>.__init__() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>26</td>
+  <td><code>._client_or_default()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-cmd">Entry</span></td>
+  <td><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>OpenAQArchiveBackfill</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td>._client_or_default() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>27</td>
+  <td><code>.close()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>OpenAQArchiveBackfill</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td>.close() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>28</td>
+  <td><code>.backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_client_or_default()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>_store_points()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>archive_key()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br>+4 more</td>
+  <td><code>_days_between()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td>.backfill() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>29</td>
+  <td><code>_days_between()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>backfill()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>_days_between() node in app/collectors/backfill.py.</td>
+</tr>
+<tr>
+  <td>30</td>
+  <td><code>Sentinel5PBackfill</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>__init__()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>_extract_window_columns()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br><code>_fetch_window()</code><br><small style="color:var(--muted)">app/collectors/backfill.py</small><br>+24 more</td>
+  <td>Sentinel5PBackfill node in app/collectors/backfill.py.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>app/collectors/backfill.py</code></td><td>72 nodes</td></tr>
+<tr><td><code>tests/unit/test_backfill.py</code></td><td>46 nodes</td></tr>
+<tr><td><code>app/collectors/base.py</code></td><td>19 nodes</td></tr>
+<tr><td><code>tests/unit/test_openaq_archive.py</code></td><td>17 nodes</td></tr>
+<tr><td><code>app/collectors/ratelimit.py</code></td><td>2 nodes</td></tr>
+<tr><td><code>app/collectors/sentinel5p.py</code></td><td>2 nodes</td></tr>
+<tr><td><code>app/db/models.py</code></td><td>2 nodes</td></tr>
+<tr><td><code>tests/unit/test_sentinel5p.py</code></td><td>2 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: references x79, calls x71, method x56, contains x49. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 5. Serving API ====== -->
+<h2 id="serve-api">5. Serving API</h2>
+<p>Serving API groups implementation around server, app, api, routes, mostly in app/api/__init__.py, api/routes/__init__.py. This section covers 2 nodes and 0 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Serving API (2 nodes, 0 edges)
+    routes_init_3ce369c3("__init__.py")
+    api_init_7d359f81("__init__.py")
+    class routes_init_3ce369c3 module;
+    class api_init_7d359f81 module;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>__init__.py</code><br><small style="color:var(--muted)">app/api/__init__.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in app/api/__init__.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>__init__.py</code><br><small style="color:var(--muted)">api/routes/__init__.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in api/routes/__init__.py.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>app/api/__init__.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>api/routes/__init__.py</code></td><td>1 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: No high-confidence call edges detected. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 6. Tests & Fixtures ====== -->
+<h2 id="tests-fixtures">6. Tests &amp; Fixtures</h2>
+<p>Tests &amp; Fixtures groups implementation around test, server, tests, unit, mostly in app/llm/corroboration.py, unit/detection/test_enrichment.py, tests/unit/test_corroboration.py. This section covers 1513 nodes and 3733 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Tests &amp; Fixtures (1513 nodes, 3733 edges)
+    subgraph tests_fixtures_app_collectors_geo_py_b3833797["app/collectors/geo.py"]
+        collectors_geo_boundingbox_fad74516("BoundingBox<br/><small>app/collectors/geo.py</small>")
+        collectors_geo_boundingbox_as_csv_f4916478("as_csv()<br/><small>app/collectors/geo.py</small>")
+        collectors_geo_boundingbox_nw_lat_0a61719d("nw_lat()<br/><small>app/collectors/geo.py</small>")
+        collectors_geo_boundingbox_nw_lon_77e7ccf2("nw_lon()<br/><small>app/collectors/geo.py</small>")
+        collectors_geo_boundingbox_se_lat_c656138e("se_lat()<br/><small>app/collectors/geo.py</small>")
+        collectors_geo_boundingbox_se_lon_65efe51a("se_lon()<br/><small>app/collectors/geo.py</small>")
+    end
+    subgraph tests_fixtures_unit_detection_test_enrichment_py_29a90e92["unit/detection/test_enrichment.py"]
+        detection_test_enrichment_dp_27bcea11("_dp()<br/><small>unit/detection/test_enrichment.py</small>")
+        detection_test_enrichment_anomaly_8c11facd("_anomaly()<br/><small>unit/detection/test_enrichment.py</small>")
+        detection_test_enrichment_testbuildcrosssourcesu_52fe2d3a("TestBuildCrossSourceSummary<br/><small>unit/detection/test_enrichment.py</small>")
+        detection_test_enrichment_summary_21ee1b5e("_summary()<br/><small>unit/detection/test_enrichment.py</small>")
+    end
+    subgraph tests_fixtures_api_routes_data_py_2c70698c["api/routes/data.py"]
+        routes_data_fetch_data_sources_662f995a("fetch_data_sources()<br/><small>api/routes/data.py</small>")
+        routes_data_list_data_sources_9d4dc692("list_data_sources()<br/><small>api/routes/data.py</small>")
+        routes_data_list_data_sources_legacy_d979b3c1("list_data_sources_legacy()<br/><small>api/routes/data.py</small>")
+    end
+    subgraph tests_fixtures_app_collectors_logsetup_py_88e690a6["app/collectors/logsetup.py"]
+        collectors_logsetup_extraformatter_28881a06("_ExtraFormatter<br/><small>app/collectors/logsetup.py</small>")
+        collectors_logsetup_configure_logging_a29d6db9("configure_logging()<br/><small>app/collectors/logsetup.py</small>")
+        collectors_logsetup_extraformatter_format_66df1264("format()<br/><small>app/collectors/logsetup.py</small>")
+    end
+    unit_test_corroboration_summary_with_df15b575("_summary_with()<br/><small>tests/unit/test_corroboration.py</small>")
+    detection_test_consensus_merge_kwargs_df9e0ef3("_merge_kwargs()<br/><small>unit/detection/test_consensus.py</small>")
+    routes_data_fetch_data_sources_662f995a -->|calls| routes_data_list_data_sources_9d4dc692
+    routes_data_fetch_data_sources_662f995a -->|calls| routes_data_list_data_sources_legacy_d979b3c1
+    collectors_geo_boundingbox_fad74516 -->|method| collectors_geo_boundingbox_as_csv_f4916478
+    collectors_geo_boundingbox_fad74516 -->|method| collectors_geo_boundingbox_nw_lat_0a61719d
+    collectors_geo_boundingbox_fad74516 -->|method| collectors_geo_boundingbox_nw_lon_77e7ccf2
+    collectors_geo_boundingbox_fad74516 -->|method| collectors_geo_boundingbox_se_lat_c656138e
+    collectors_geo_boundingbox_fad74516 -->|method| collectors_geo_boundingbox_se_lon_65efe51a
+    collectors_logsetup_extraformatter_28881a06 -->|calls| collectors_logsetup_configure_logging_a29d6db9
+    collectors_logsetup_extraformatter_28881a06 -->|method| collectors_logsetup_extraformatter_format_66df1264
+    %% Omitted for readability: 1495 nodes, 0 edges
+    class collectors_geo_boundingbox_fad74516 klass;
+    class collectors_geo_boundingbox_as_csv_f4916478 function;
+    class collectors_geo_boundingbox_nw_lat_0a61719d function;
+    class collectors_geo_boundingbox_nw_lon_77e7ccf2 function;
+    class collectors_geo_boundingbox_se_lat_c656138e function;
+    class collectors_geo_boundingbox_se_lon_65efe51a function;
+    class detection_test_enrichment_dp_27bcea11 test;
+    class detection_test_enrichment_anomaly_8c11facd test;
+    class detection_test_enrichment_testbuildcrosssourcesu_52fe2d3a test;
+    class detection_test_enrichment_summary_21ee1b5e test;
+    class routes_data_fetch_data_sources_662f995a function;
+    class routes_data_list_data_sources_9d4dc692 function;
+    class routes_data_list_data_sources_legacy_d979b3c1 function;
+    class collectors_logsetup_extraformatter_28881a06 function;
+    class collectors_logsetup_configure_logging_a29d6db9 function;
+    class collectors_logsetup_extraformatter_format_66df1264 function;
+    class unit_test_corroboration_summary_with_df15b575 test;
+    class detection_test_consensus_merge_kwargs_df9e0ef3 test;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>severity_for()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>_build_consensus_anomaly()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>test_more_than_three_methods_raises()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br><code>test_negative_methods_raises()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br>+4 more</td>
+  <td>severity_for() node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>Severity</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small><br><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br>+15 more</td>
+  <td>Severity node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>merge()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>_bucket_for()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>_build_consensus_anomaly()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>run()</code><br><small style="color:var(--muted)">app/detection/engine.py</small><br>+21 more</td>
+  <td>merge() node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>ZScoreAnomaly</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small><br><code>STLAnomaly</code><br><small style="color:var(--muted)">app/detection/stl.py</small><br><code>ZScoreAnomaly</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td>ZScoreAnomaly node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>STLAnomaly</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small><br><code>STLAnomaly</code><br><small style="color:var(--muted)">app/detection/stl.py</small><br><code>ZScoreAnomaly</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td>STLAnomaly node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small><br><code>STLAnomaly</code><br><small style="color:var(--muted)">app/detection/stl.py</small><br><code>ZScoreAnomaly</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td>IsolationForestAnomaly node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>_Bucket</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>__init__()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small><br><code>methods()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br>+2 more</td>
+  <td>_Bucket node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>.__init__()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_Bucket</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>.__init__() node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>.methods()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_Bucket</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><code>_build_consensus_anomaly()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td>.methods() node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>_bucket_for()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>merge()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>_bucket_for() node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small><br><code>STLAnomaly</code><br><small style="color:var(--muted)">app/detection/stl.py</small><br><code>ZScoreAnomaly</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td>datetime node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>_build_consensus_anomaly()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>merge()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>methods()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>severity_for()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><code>_resolve_expected_value()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>_resolve_value()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td>_build_consensus_anomaly() node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>_resolve_value()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_build_consensus_anomaly()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>_resolve_value() node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>_resolve_expected_value()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_build_consensus_anomaly()</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>_resolve_expected_value() node in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>Map the count of triggering methods to a severity tier.</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Map the count of triggering methods to a severity tier..</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>Group detector outputs by timestamp and emit unified anomaly records.      All t</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Group detector outputs by timestamp and emit unified anomaly records.      All t.</td>
+</tr>
+<tr>
+  <td>17</td>
+  <td><code>Internal mutable accumulator: detector outputs at a single timestamp.</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Internal mutable accumulator: detector outputs at a single timestamp..</td>
+</tr>
+<tr>
+  <td>18</td>
+  <td><code>Pick the observed value and verify detectors agree.      All detectors share the</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Pick the observed value and verify detectors agree.      All detectors share the.</td>
+</tr>
+<tr>
+  <td>19</td>
+  <td><code>Z-score&#x27;s expected_value wins over STL&#x27;s; IF doesn&#x27;t provide one.</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Z-score&#x27;s expected_value wins over STL&#x27;s; IF doesn&#x27;t provide one..</td>
+</tr>
+<tr>
+  <td>20</td>
+  <td><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>_Bucket</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>ConsensusAnomaly</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>datetime</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br>+4 more</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br><code>IsolationForestInput</code><br><small style="color:var(--muted)">unit/detection/test_isolation_forest.py</small><br>+18 more</td>
+  <td>IsolationForestAnomaly node in app/detection/isolation_forest.py.</td>
+</tr>
+<tr>
+  <td>21</td>
+  <td><code>STLAnomaly</code><br><small style="color:var(--muted)">app/detection/stl.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>_Bucket</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>ConsensusAnomaly</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>datetime</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br>+4 more</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">unit/detection/test_stl.py</small><br><code>datetime</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br>+17 more</td>
+  <td>STLAnomaly node in app/detection/stl.py.</td>
+</tr>
+<tr>
+  <td>22</td>
+  <td><code>ZScoreAnomaly</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>_Bucket</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>ConsensusAnomaly</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>datetime</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br>+4 more</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br><code>datetime</code><br><small style="color:var(--muted)">unit/detection/test_zscore.py</small><br><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br>+19 more</td>
+  <td>ZScoreAnomaly node in app/detection/zscore.py.</td>
+</tr>
+<tr>
+  <td>23</td>
+  <td><code>test_consensus.py</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small></td>
+  <td><span class="tag tag-func">Test</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small></td>
+  <td>Module file in unit/detection/test_consensus.py.</td>
+</tr>
+<tr>
+  <td>24</td>
+  <td><code>_z()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small></td>
+  <td><span class="tag tag-func">Test</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>test_all_three_at_same_ts_is_severe()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br><code>test_disjoint_timestamps_each_produce_separate_anomalies()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br><code>test_inconsistent_values_across_detectors_at_same_ts_raises()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br>+12 more</td>
+  <td>_z() node in unit/detection/test_consensus.py.</td>
+</tr>
+<tr>
+  <td>25</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small></td>
+  <td><span class="tag tag-func">Test</span></td>
+  <td><code>ConsensusAnomaly</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small><br><code>Severity</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br>+3 more</td>
+  <td>No direct outbound edge</td>
+  <td>datetime node in unit/detection/test_consensus.py.</td>
+</tr>
+<tr>
+  <td>26</td>
+  <td><code>ZScoreAnomaly</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small></td>
+  <td><span class="tag tag-func">Test</span></td>
+  <td><code>ConsensusAnomaly</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small><br><code>Severity</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br>+2 more</td>
+  <td>No direct outbound edge</td>
+  <td>ZScoreAnomaly node in unit/detection/test_consensus.py.</td>
+</tr>
+<tr>
+  <td>27</td>
+  <td><code>_stl()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small></td>
+  <td><span class="tag tag-func">Test</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>test_all_three_at_same_ts_is_severe()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br><code>test_disjoint_timestamps_each_produce_separate_anomalies()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br><code>test_inconsistent_values_across_detectors_at_same_ts_raises()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br>+9 more</td>
+  <td>_stl() node in unit/detection/test_consensus.py.</td>
+</tr>
+<tr>
+  <td>28</td>
+  <td><code>STLAnomaly</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small></td>
+  <td><span class="tag tag-func">Test</span></td>
+  <td><code>ConsensusAnomaly</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small><br><code>Severity</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br>+2 more</td>
+  <td>No direct outbound edge</td>
+  <td>STLAnomaly node in unit/detection/test_consensus.py.</td>
+</tr>
+<tr>
+  <td>29</td>
+  <td><code>_if()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small></td>
+  <td><span class="tag tag-func">Test</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>test_all_three_at_same_ts_is_severe()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br><code>test_disjoint_timestamps_each_produce_separate_anomalies()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br><code>test_methods_triggered_is_deterministic_order()</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small><br>+7 more</td>
+  <td>_if() node in unit/detection/test_consensus.py.</td>
+</tr>
+<tr>
+  <td>30</td>
+  <td><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">unit/detection/test_consensus.py</small></td>
+  <td><span class="tag tag-func">Test</span></td>
+  <td><code>ConsensusAnomaly</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>IsolationForestAnomaly</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small><br><code>Severity</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br>+2 more</td>
+  <td>No direct outbound edge</td>
+  <td>IsolationForestAnomaly node in unit/detection/test_consensus.py.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>app/llm/corroboration.py</code></td><td>101 nodes</td></tr>
+<tr><td><code>unit/detection/test_enrichment.py</code></td><td>73 nodes</td></tr>
+<tr><td><code>tests/unit/test_corroboration.py</code></td><td>68 nodes</td></tr>
+<tr><td><code>unit/detection/test_run.py</code></td><td>67 nodes</td></tr>
+<tr><td><code>tests/unit/test_noaa_gfs.py</code></td><td>57 nodes</td></tr>
+<tr><td><code>tests/unit/test_sentinel5p.py</code></td><td>55 nodes</td></tr>
+<tr><td><code>unit/detection/test_consensus.py</code></td><td>48 nodes</td></tr>
+<tr><td><code>app/collectors/sentinel5p.py</code></td><td>35 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: calls x933, contains x542, method x499, references x371. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 7. Server App Enrichmentpy ====== -->
+<h2 id="server-app-enrichmentpy">7. Server App Enrichmentpy</h2>
+<p>Server App Enrichmentpy groups implementation around server, app, enrichmentpy, detection, mostly in app/detection/enrichment.py, app/collectors/geo.py. This section covers 29 nodes and 54 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Server App Enrichmentpy (29 nodes, 54 edges)
+    subgraph server_app_enrichmentpy_app_detection_enrichment_4fade61c["app/detection/enrichment.py"]
+        detection_enrichment_ensure_utc_2333e313("_ensure_utc()<br/><small>app/detection/enrichment.py</small>")
+        detection_enrichment_iso_ba8e9456("_iso()<br/><small>app/detection/enrichment.py</small>")
+        detection_enrichment_0b5f1977("enrichment.py")
+        detection_enrichment_entry_5df5324e("_Entry<br/><small>app/detection/enrichment.py</small>")
+        detection_enrichment_format_summary_3242ea31("_format_summary()<br/><small>app/detection/enrichment.py</small>")
+        detection_enrichment_parse_args_8b00240e("_parse_args()<br/><small>app/detection/enrichment.py</small>")
+        detection_enrichment_build_cross_source_summary_e66a8697("build_cross_source_summary()<br/><small>app/detection/enrichment.py</small>")
+        detection_enrichment_line_for_5d7d74ed("_line_for()<br/><small>app/detection/enrichment.py</small>")
+        detection_enrichment_nearest_in_time_fa887dd7("_nearest_in_time()<br/><small>app/detection/enrichment.py</small>")
+        detection_enrichment_summarize_metric_440eeab6("_summarize_metric()<br/><small>app/detection/enrichment.py</small>")
+        detection_enrichment_summarize_source_d12b2dc2("_summarize_source()<br/><small>app/detection/enrichment.py</small>")
+        detection_enrichment_amain_ec0db234("_amain()<br/><small>app/detection/enrichment.py</small>")
+        detection_enrichment_main_36754938("main()<br/><small>app/detection/enrichment.py</small>")
+        server_app_detection_enrichment_py_datetime_251b1e70("datetime<br/><small>app/detection/enrichment.py</small>")
+        server_app_detection_enrichment_py_anomaly_cb91db80("Anomaly<br/><small>app/detection/enrichment.py</small>")
+        server_app_detection_enrichment_py_datapoint_273bb4ec("DataPoint<br/><small>app/detection/enrichment.py</small>")
+        server_app_detection_enrichment_py_enrichmentrec_86cd92d7("EnrichmentRecord<br/><small>app/detection/enrichment.py</small>")
+    end
+    collectors_geo_distance_km_d900ce79("distance_km()<br/><small>app/collectors/geo.py</small>")
+    detection_enrichment_ensure_utc_2333e313 -->|calls| detection_enrichment_build_cross_source_summary_e66a8697
+    detection_enrichment_ensure_utc_2333e313 -->|calls| detection_enrichment_iso_ba8e9456
+    detection_enrichment_ensure_utc_2333e313 -->|calls| detection_enrichment_line_for_5d7d74ed
+    detection_enrichment_iso_ba8e9456 -->|calls| detection_enrichment_build_cross_source_summary_e66a8697
+    detection_enrichment_iso_ba8e9456 -->|calls| detection_enrichment_nearest_in_time_fa887dd7
+    detection_enrichment_iso_ba8e9456 -->|calls| detection_enrichment_summarize_metric_440eeab6
+    detection_enrichment_entry_5df5324e -->|calls| detection_enrichment_build_cross_source_summary_e66a8697
+    detection_enrichment_build_cross_source_summary_e66a8697 -->|calls| detection_enrichment_summarize_source_d12b2dc2
+    detection_enrichment_summarize_source_d12b2dc2 -->|calls| detection_enrichment_summarize_metric_440eeab6
+    detection_enrichment_summarize_metric_440eeab6 -->|calls| detection_enrichment_nearest_in_time_fa887dd7
+    detection_enrichment_parse_args_8b00240e -->|calls| detection_enrichment_amain_ec0db234
+    detection_enrichment_format_summary_3242ea31 -->|calls| detection_enrichment_amain_ec0db234
+    detection_enrichment_amain_ec0db234 -->|calls| detection_enrichment_main_36754938
+    detection_enrichment_0b5f1977 -->|imports| server_app_detection_enrichment_py_datetime_251b1e70
+    %% Omitted for readability: 11 nodes, 0 edges
+    class detection_enrichment_ensure_utc_2333e313 function;
+    class detection_enrichment_iso_ba8e9456 function;
+    class detection_enrichment_0b5f1977 module;
+    class detection_enrichment_entry_5df5324e function;
+    class detection_enrichment_format_summary_3242ea31 function;
+    class detection_enrichment_parse_args_8b00240e function;
+    class detection_enrichment_build_cross_source_summary_e66a8697 function;
+    class detection_enrichment_line_for_5d7d74ed function;
+    class detection_enrichment_nearest_in_time_fa887dd7 function;
+    class detection_enrichment_summarize_metric_440eeab6 function;
+    class detection_enrichment_summarize_source_d12b2dc2 function;
+    class detection_enrichment_amain_ec0db234 function;
+    class detection_enrichment_main_36754938 function;
+    class server_app_detection_enrichment_py_datetime_251b1e70 function;
+    class server_app_detection_enrichment_py_anomaly_cb91db80 klass;
+    class server_app_detection_enrichment_py_datapoint_273bb4ec klass;
+    class server_app_detection_enrichment_py_enrichmentrec_86cd92d7 klass;
+    class collectors_geo_distance_km_d900ce79 function;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>distance_km()</code><br><small style="color:var(--muted)">app/collectors/geo.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>build_cross_source_summary()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small><br><code>load_context_points()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>distance_km() node in app/collectors/geo.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>Great-circle distance between two WGS84 coordinates.</code><br><small style="color:var(--muted)">app/collectors/geo.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Great-circle distance between two WGS84 coordinates..</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>enrichment.py</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>Module file in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>_ensure_utc()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>_iso()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small><br><code>_line_for()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small><br><code>build_cross_source_summary()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>_ensure_utc() node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>enrichment.py</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>datetime node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>_iso()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_ensure_utc()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><code>_nearest_in_time()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small><br><code>_summarize_metric()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small><br><code>build_cross_source_summary()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>_iso() node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>_Entry</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>build_cross_source_summary()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>_Entry node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>build_cross_source_summary()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_ensure_utc()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small><br><code>_Entry</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small><br><code>_iso()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small><br>+1 more</td>
+  <td><code>_summarize_source()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>build_cross_source_summary() node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>Anomaly</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Anomaly node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>DataPoint</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>DataPoint node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>_summarize_source()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>build_cross_source_summary()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><code>_summarize_metric()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>_summarize_source() node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>_summarize_metric()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_iso()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small><br><code>_summarize_source()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><code>_nearest_in_time()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>_summarize_metric() node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>_nearest_in_time()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_iso()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small><br><code>_summarize_metric()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>_nearest_in_time() node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>load_context_points()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>distance_km()</code><br><small style="color:var(--muted)">app/collectors/geo.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>load_context_points() node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>EnrichmentRecord</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>EnrichmentRecord node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>_line_for()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_ensure_utc()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>_line_for() node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>17</td>
+  <td><code>_parse_args()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>_amain()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>_parse_args() node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>18</td>
+  <td><code>_format_summary()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>_amain()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>_format_summary() node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>19</td>
+  <td><code>_amain()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_format_summary()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small><br><code>_parse_args()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><code>main()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>_amain() node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>20</td>
+  <td><code>main()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_amain()</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>main() node in app/detection/enrichment.py.</td>
+</tr>
+<tr>
+  <td>21</td>
+  <td><code>Cross-source enrichment.  Pulls a configurable window of context (72 h centred o</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Cross-source enrichment.  Pulls a configurable window of context (72 h centred o.</td>
+</tr>
+<tr>
+  <td>22</td>
+  <td><code>Treat naive datetimes as UTC.      SQLite (CI) drops tzinfo on round-trip while</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Treat naive datetimes as UTC.      SQLite (CI) drops tzinfo on round-trip while.</td>
+</tr>
+<tr>
+  <td>23</td>
+  <td><code>ISO-8601 string for a UTC-coerced datetime.</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for ISO-8601 string for a UTC-coerced datetime..</td>
+</tr>
+<tr>
+  <td>24</td>
+  <td><code>One in-window DataPoint paired with the facts derived for it.</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for One in-window DataPoint paired with the facts derived for it..</td>
+</tr>
+<tr>
+  <td>25</td>
+  <td><code>Pack in-window cross-source context into the EnrichmentRecord payload.      Pure</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Pack in-window cross-source context into the EnrichmentRecord payload.      Pure.</td>
+</tr>
+<tr>
+  <td>26</td>
+  <td><code>Group one source&#x27;s in-window entries by metric.</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Group one source&#x27;s in-window entries by metric..</td>
+</tr>
+<tr>
+  <td>27</td>
+  <td><code>Group one (source, metric)&#x27;s entries into per-entity time-series.</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Group one (source, metric)&#x27;s entries into per-entity time-series..</td>
+</tr>
+<tr>
+  <td>28</td>
+  <td><code>The single observation closest to the anomaly in time (ties: distance).</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for The single observation closest to the anomaly in time (ties: distance)..</td>
+</tr>
+<tr>
+  <td>29</td>
+  <td><code>Load every DataPoint inside the spatiotemporal context window.      A lat/lon bo</code><br><small style="color:var(--muted)">app/detection/enrichment.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Load every DataPoint inside the spatiotemporal context window.      A lat/lon bo.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>app/detection/enrichment.py</code></td><td>27 nodes</td></tr>
+<tr><td><code>app/collectors/geo.py</code></td><td>2 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: references x15, contains x13, calls x13, explains x10. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 8. Runpy Detection Server ====== -->
+<h2 id="runpy-detection-server">8. Runpy Detection Server</h2>
+<p>Runpy Detection Server groups implementation around runpy, detection, server, app, mostly in app/detection/run.py. This section covers 19 nodes and 34 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Runpy Detection Server (19 nodes, 34 edges)
+    detection_run_111a1520("run.py")
+    detection_run_format_summary_d36596d5("_format_summary()<br/><small>app/detection/run.py</small>")
+    detection_run_load_aux_cells_c18aebf9("_load_aux_cells()<br/><small>app/detection/run.py</small>")
+    detection_run_load_gfs_wind_cells_fad5e879("_load_gfs_wind_cells()<br/><small>app/detection/run.py</small>")
+    detection_run_parse_args_e3eef587("_parse_args()<br/><small>app/detection/run.py</small>")
+    detection_run_parse_since_2faa417a("_parse_since()<br/><small>app/detection/run.py</small>")
+    detection_run_ensure_utc_ab1dcc53("_ensure_utc()<br/><small>app/detection/run.py</small>")
+    detection_run_load_gfs_component_2ceb5a08("_load_gfs_component()<br/><small>app/detection/run.py</small>")
+    detection_run_amain_1c74d5a7("_amain()<br/><small>app/detection/run.py</small>")
+    detection_run_main_64612e20("main()<br/><small>app/detection/run.py</small>")
+    server_app_detection_run_py_datetime_01c312f7("datetime<br/><small>app/detection/run.py</small>")
+    server_app_detection_run_py_asyncsession_2ba6fa7f("AsyncSession<br/><small>app/detection/run.py</small>")
+    detection_run_load_points_e2f3072e("load_points()<br/><small>app/detection/run.py</small>")
+    detection_run_rationale_312_412dc092("(value, lat, lon) keyed by (timestamp,...<br/><small>app/detection/run.py</small>")
+    detection_run_rationale_1_b4a1ce37("CLI runner for the detection pipeline....<br/><small>app/detection/run.py</small>")
+    detection_run_rationale_277_2cebff77("Derive 10-m wind speed per grid cell, n...<br/><small>app/detection/run.py</small>")
+    detection_run_rationale_147_f66273e0("Load DataPoints matching the filters, o...<br/><small>app/detection/run.py</small>")
+    detection_run_rationale_247_0a36f678("One time-sorted series per grid cell, n...<br/><small>app/detection/run.py</small>")
+    detection_run_load_aux_cells_c18aebf9 -->|calls| detection_run_ensure_utc_ab1dcc53
+    detection_run_load_gfs_wind_cells_fad5e879 -->|calls| detection_run_load_gfs_component_2ceb5a08
+    detection_run_load_gfs_component_2ceb5a08 -->|calls| detection_run_ensure_utc_ab1dcc53
+    detection_run_parse_args_e3eef587 -->|calls| detection_run_amain_1c74d5a7
+    detection_run_parse_since_2faa417a -->|calls| detection_run_amain_1c74d5a7
+    detection_run_format_summary_d36596d5 -->|calls| detection_run_amain_1c74d5a7
+    detection_run_amain_1c74d5a7 -->|calls| detection_run_main_64612e20
+    detection_run_111a1520 -->|imports| server_app_detection_run_py_datetime_01c312f7
+    %% Omitted for readability: 1 nodes, 0 edges
+    class detection_run_111a1520 module;
+    class detection_run_format_summary_d36596d5 function;
+    class detection_run_load_aux_cells_c18aebf9 function;
+    class detection_run_load_gfs_wind_cells_fad5e879 function;
+    class detection_run_parse_args_e3eef587 function;
+    class detection_run_parse_since_2faa417a function;
+    class detection_run_ensure_utc_ab1dcc53 function;
+    class detection_run_load_gfs_component_2ceb5a08 ui;
+    class detection_run_amain_1c74d5a7 function;
+    class detection_run_main_64612e20 function;
+    class server_app_detection_run_py_datetime_01c312f7 function;
+    class server_app_detection_run_py_asyncsession_2ba6fa7f async;
+    class detection_run_load_points_e2f3072e function;
+    class detection_run_rationale_312_412dc092 concept;
+    class detection_run_rationale_1_b4a1ce37 concept;
+    class detection_run_rationale_277_2cebff77 concept;
+    class detection_run_rationale_147_f66273e0 concept;
+    class detection_run_rationale_247_0a36f678 concept;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>run.py</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td>Module file in app/detection/run.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>run.py</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>datetime node in app/detection/run.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>load_points()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>load_points() node in app/detection/run.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>AsyncSession</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-async">Async</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>AsyncSession node in app/detection/run.py.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>_load_aux_cells()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>_ensure_utc()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td>_load_aux_cells() node in app/detection/run.py.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>_load_gfs_wind_cells()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>_load_gfs_component()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td>_load_gfs_wind_cells() node in app/detection/run.py.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>_load_gfs_component()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-hook">UI</span></td>
+  <td><code>_load_gfs_wind_cells()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><code>_ensure_utc()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td>_load_gfs_component() node in app/detection/run.py.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>_ensure_utc()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_load_aux_cells()</code><br><small style="color:var(--muted)">app/detection/run.py</small><br><code>_load_gfs_component()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>_ensure_utc() node in app/detection/run.py.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>_parse_args()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>_amain()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td>_parse_args() node in app/detection/run.py.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>_parse_since()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>_amain()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td>_parse_since() node in app/detection/run.py.</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>_format_summary()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>_amain()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td>_format_summary() node in app/detection/run.py.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>_amain()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_format_summary()</code><br><small style="color:var(--muted)">app/detection/run.py</small><br><code>_parse_args()</code><br><small style="color:var(--muted)">app/detection/run.py</small><br><code>_parse_since()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><code>main()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td>_amain() node in app/detection/run.py.</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>main()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_amain()</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>main() node in app/detection/run.py.</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>CLI runner for the detection pipeline.  Loads ``DataPoint`` rows from the databa</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for CLI runner for the detection pipeline.  Loads ``DataPoint`` rows from the databa.</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>Load DataPoints matching the filters, ordered by timestamp.</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Load DataPoints matching the filters, ordered by timestamp..</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>One time-sorted series per grid cell, nearest cell to the station first.</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for One time-sorted series per grid cell, nearest cell to the station first..</td>
+</tr>
+<tr>
+  <td>17</td>
+  <td><code>Derive 10-m wind speed per grid cell, nearest cell to the station first.      GF</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Derive 10-m wind speed per grid cell, nearest cell to the station first.      GF.</td>
+</tr>
+<tr>
+  <td>18</td>
+  <td><code>(value, lat, lon) keyed by (timestamp, grid-cell entity) for one component.</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for (value, lat, lon) keyed by (timestamp, grid-cell entity) for one component..</td>
+</tr>
+<tr>
+  <td>19</td>
+  <td><code>Treat naive datetimes from the DB as UTC.      Postgres ``DateTime(timezone=True</code><br><small style="color:var(--muted)">app/detection/run.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Treat naive datetimes from the DB as UTC.      Postgres ``DateTime(timezone=True.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>app/detection/run.py</code></td><td>19 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x10, references x10, calls x7, explains x6. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 9. Detection Server App ====== -->
+<h2 id="detection-server-app">9. Detection Server App</h2>
+<p>Detection Server App groups implementation around detection, server, app, stlpy, mostly in app/detection/stl.py, app/detection/zscore.py, app/detection/consensus.py. This section covers 14 nodes and 16 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Detection Server App (14 nodes, 16 edges)
+    subgraph detection_server_app_app_detection_stl_py_9595e1ec["app/detection/stl.py"]
+        detection_stl_ba3469f6("stl.py")
+        server_app_detection_stl_py_datetime_c151e1bd("datetime<br/><small>app/detection/stl.py</small>")
+        detection_stl_stldetector_detect_f1d11fab("detect()<br/><small>app/detection/stl.py</small>")
+        detection_stl_rationale_1_bc02361d("STL decomposition detector (statsmodels...<br/><small>app/detection/stl.py</small>")
+    end
+    subgraph detection_server_app_app_detection_zscore_py_c9eb36e1["app/detection/zscore.py"]
+        detection_zscore_08cba9d2("zscore.py")
+        server_app_detection_zscore_py_datetime_59a961fd("datetime<br/><small>app/detection/zscore.py</small>")
+        detection_zscore_zscoredetector_detect_70bf15a0("detect()<br/><small>app/detection/zscore.py</small>")
+        detection_zscore_rationale_1_f6acfe19("Rolling 7-day Z-score detector with con...<br/><small>app/detection/zscore.py</small>")
+    end
+    subgraph detection_server_app_app_detection_consensus_py_3b0d6063["app/detection/consensus.py"]
+        detection_consensus_6919e05c("consensus.py")
+        detection_consensus_rationale_1_2043dbfe("Consensus across the three detectors. E...<br/><small>app/detection/consensus.py</small>")
+    end
+    subgraph detection_server_app_app_detection_engine_py_d5a4a653["app/detection/engine.py"]
+        detection_engine_143677cf("engine.py")
+        detection_engine_rationale_1_84636b2f("Detection orchestrator. Runs the config...<br/><small>app/detection/engine.py</small>")
+    end
+    subgraph detection_server_app_app_detection_isolation_for_c1fda0c9["app/detection/isolation_forest.py"]
+        detection_isolation_forest_bff33e43("isolation_forest.py")
+        detection_isolation_forest_rationale_1_049cd145("Multivariate IsolationForest detector o...<br/><small>app/detection/isolation_forest.py</small>")
+    end
+    detection_consensus_6919e05c -->|imports| detection_isolation_forest_bff33e43
+    detection_consensus_6919e05c -->|imports| detection_stl_ba3469f6
+    detection_consensus_6919e05c -->|imports| detection_zscore_08cba9d2
+    detection_consensus_6919e05c -->|imports| detection_engine_143677cf
+    detection_engine_143677cf -->|imports| detection_isolation_forest_bff33e43
+    detection_engine_143677cf -->|imports| detection_stl_ba3469f6
+    detection_engine_143677cf -->|imports| detection_zscore_08cba9d2
+    detection_stl_ba3469f6 -->|imports| server_app_detection_stl_py_datetime_c151e1bd
+    detection_zscore_08cba9d2 -->|imports| server_app_detection_zscore_py_datetime_59a961fd
+    class detection_stl_ba3469f6 module;
+    class server_app_detection_stl_py_datetime_c151e1bd function;
+    class detection_stl_stldetector_detect_f1d11fab function;
+    class detection_stl_rationale_1_bc02361d concept;
+    class detection_zscore_08cba9d2 module;
+    class server_app_detection_zscore_py_datetime_59a961fd function;
+    class detection_zscore_zscoredetector_detect_70bf15a0 function;
+    class detection_zscore_rationale_1_f6acfe19 concept;
+    class detection_consensus_6919e05c module;
+    class detection_consensus_rationale_1_2043dbfe concept;
+    class detection_engine_143677cf module;
+    class detection_engine_rationale_1_84636b2f concept;
+    class detection_isolation_forest_bff33e43 module;
+    class detection_isolation_forest_rationale_1_049cd145 concept;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>consensus.py</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>engine.py</code><br><small style="color:var(--muted)">app/detection/engine.py</small><br><code>isolation_forest.py</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small><br><code>stl.py</code><br><small style="color:var(--muted)">app/detection/stl.py</small><br>+1 more</td>
+  <td>Module file in app/detection/consensus.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>Consensus across the three detectors.  Each detector (Z-score, STL, IsolationFor</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Consensus across the three detectors.  Each detector (Z-score, STL, IsolationFor.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>engine.py</code><br><small style="color:var(--muted)">app/detection/engine.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>consensus.py</code><br><small style="color:var(--muted)">app/detection/consensus.py</small></td>
+  <td><code>isolation_forest.py</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small><br><code>stl.py</code><br><small style="color:var(--muted)">app/detection/stl.py</small><br><code>zscore.py</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td>Module file in app/detection/engine.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>Detection orchestrator.  Runs the configured detectors (Z-score, STL, IsolationF</code><br><small style="color:var(--muted)">app/detection/engine.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Detection orchestrator.  Runs the configured detectors (Z-score, STL, IsolationF.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>isolation_forest.py</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>consensus.py</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>engine.py</code><br><small style="color:var(--muted)">app/detection/engine.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>Module file in app/detection/isolation_forest.py.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>Multivariate IsolationForest detector over (value, hour_of_day, day_of_week, aux</code><br><small style="color:var(--muted)">app/detection/isolation_forest.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Multivariate IsolationForest detector over (value, hour_of_day, day_of_week, aux.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>stl.py</code><br><small style="color:var(--muted)">app/detection/stl.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>consensus.py</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>engine.py</code><br><small style="color:var(--muted)">app/detection/engine.py</small></td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">app/detection/stl.py</small></td>
+  <td>Module file in app/detection/stl.py.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>.detect()</code><br><small style="color:var(--muted)">app/detection/stl.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>.detect() node in app/detection/stl.py.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">app/detection/stl.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>stl.py</code><br><small style="color:var(--muted)">app/detection/stl.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>datetime node in app/detection/stl.py.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>STL decomposition detector (statsmodels); flags residuals beyond +/- 2.5 sigma.</code><br><small style="color:var(--muted)">app/detection/stl.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for STL decomposition detector (statsmodels); flags residuals beyond +/- 2.5 sigma..</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>zscore.py</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>consensus.py</code><br><small style="color:var(--muted)">app/detection/consensus.py</small><br><code>engine.py</code><br><small style="color:var(--muted)">app/detection/engine.py</small></td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td>Module file in app/detection/zscore.py.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>.detect()</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>.detect() node in app/detection/zscore.py.</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>datetime</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>zscore.py</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>datetime node in app/detection/zscore.py.</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>Rolling 7-day Z-score detector with configurable per-metric threshold (default +</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Rolling 7-day Z-score detector with configurable per-metric threshold (default +.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>app/detection/stl.py</code></td><td>4 nodes</td></tr>
+<tr><td><code>app/detection/zscore.py</code></td><td>4 nodes</td></tr>
+<tr><td><code>app/detection/consensus.py</code></td><td>2 nodes</td></tr>
+<tr><td><code>app/detection/engine.py</code></td><td>2 nodes</td></tr>
+<tr><td><code>app/detection/isolation_forest.py</code></td><td>2 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: imports x9, explains x5, references x2. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 10. Server App Collector ====== -->
+<h2 id="server-app-collector">10. Server App Collector</h2>
+<p>Server App Collector groups implementation around server, app, collector, collectors, mostly in app/db/models.py, app/collectors/base.py, app/collectors/openaq.py. This section covers 6 nodes and 5 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Server App Collector (6 nodes, 5 edges)
+    server_collectors_base_05fbec5e("Base Collector Class<br/><small>app/collectors/base.py</small>")
+    server_collectors_noaa_gfs_6fbf8b68("NOAA GFS Collector<br/><small>app/collectors/noaa_gfs.py</small>")
+    server_collectors_openaq_cd4963e9("OpenAQ Collector<br/><small>app/collectors/openaq.py</small>")
+    server_collectors_openweather_476603f6("OpenWeather Collector<br/><small>app/collectors/openweather.py</small>")
+    server_collectors_sentinel5p_e955c0e3("Sentinel-5P Collector<br/><small>app/collectors/sentinel5p.py</small>")
+    server_db_models_ec85c458("SQLAlchemy Models<br/><small>app/db/models.py</small>")
+    server_db_models_ec85c458 -->|references| server_collectors_base_05fbec5e
+    server_collectors_base_05fbec5e -->|inherits| server_collectors_noaa_gfs_6fbf8b68
+    server_collectors_base_05fbec5e -->|inherits| server_collectors_openaq_cd4963e9
+    server_collectors_base_05fbec5e -->|inherits| server_collectors_openweather_476603f6
+    server_collectors_base_05fbec5e -->|inherits| server_collectors_sentinel5p_e955c0e3
+    class server_collectors_base_05fbec5e klass;
+    class server_collectors_noaa_gfs_6fbf8b68 klass;
+    class server_collectors_openaq_cd4963e9 klass;
+    class server_collectors_openweather_476603f6 klass;
+    class server_collectors_sentinel5p_e955c0e3 klass;
+    class server_db_models_ec85c458 klass;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>SQLAlchemy Models</code><br><small style="color:var(--muted)">app/db/models.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>SQLAlchemy Models node in app/db/models.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>Base Collector Class</code><br><small style="color:var(--muted)">app/collectors/base.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Base Collector Class node in app/collectors/base.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>OpenAQ Collector</code><br><small style="color:var(--muted)">app/collectors/openaq.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>OpenAQ Collector node in app/collectors/openaq.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>OpenWeather Collector</code><br><small style="color:var(--muted)">app/collectors/openweather.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>OpenWeather Collector node in app/collectors/openweather.py.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>NOAA GFS Collector</code><br><small style="color:var(--muted)">app/collectors/noaa_gfs.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>NOAA GFS Collector node in app/collectors/noaa_gfs.py.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>Sentinel-5P Collector</code><br><small style="color:var(--muted)">app/collectors/sentinel5p.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Sentinel-5P Collector node in app/collectors/sentinel5p.py.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>app/collectors/base.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/collectors/noaa_gfs.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/collectors/openaq.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/collectors/openweather.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/collectors/sentinel5p.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/db/models.py</code></td><td>1 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: inherits x4, references x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 11. Llm Server App ====== -->
+<h2 id="llm-server-app">11. Llm Server App</h2>
+<p>Llm Server App groups implementation around llm, server, app, phase, mostly in app/llm/reasoning_chain.py, app/llm/validate.py, app/llm/corroboration.py. This section covers 5 nodes and 4 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Llm Server App (5 nodes, 4 edges)
+    server_eval_harness_2afe63b1("Evaluation Harness<br/><small>app/eval/harness.py</small>")
+    server_llm_corroboration_6d73ca01("Phase 2 Corroboration Scorer<br/><small>app/llm/corroboration.py</small>")
+    server_llm_reasoning_chain_fb1b4c7b("LLM Reasoning Chain<br/><small>app/llm/reasoning_chain.py</small>")
+    server_llm_validate_ae11dc2d("Phase 1 Factuality Validator<br/><small>app/llm/validate.py</small>")
+    concept_corroboration_thesis_cab2d0ab("Inter-source Physical Corroboration Thesis<br/><small>docs/specs/2026-05-16-month2-phase-plan.md</small>")
+    server_llm_reasoning_chain_fb1b4c7b -->|calls| server_eval_harness_2afe63b1
+    server_llm_reasoning_chain_fb1b4c7b -->|calls| server_llm_validate_ae11dc2d
+    server_llm_validate_ae11dc2d -->|calls| server_llm_corroboration_6d73ca01
+    class server_eval_harness_2afe63b1 klass;
+    class server_llm_corroboration_6d73ca01 klass;
+    class server_llm_reasoning_chain_fb1b4c7b klass;
+    class server_llm_validate_ae11dc2d klass;
+    class concept_corroboration_thesis_cab2d0ab test;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>LLM Reasoning Chain</code><br><small style="color:var(--muted)">app/llm/reasoning_chain.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>Evaluation Harness</code><br><small style="color:var(--muted)">app/eval/harness.py</small><br><code>Phase 1 Factuality Validator</code><br><small style="color:var(--muted)">app/llm/validate.py</small></td>
+  <td>LLM Reasoning Chain node in app/llm/reasoning_chain.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>Phase 1 Factuality Validator</code><br><small style="color:var(--muted)">app/llm/validate.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>LLM Reasoning Chain</code><br><small style="color:var(--muted)">app/llm/reasoning_chain.py</small></td>
+  <td><code>Phase 2 Corroboration Scorer</code><br><small style="color:var(--muted)">app/llm/corroboration.py</small></td>
+  <td>Phase 1 Factuality Validator node in app/llm/validate.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>Phase 2 Corroboration Scorer</code><br><small style="color:var(--muted)">app/llm/corroboration.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>Phase 1 Factuality Validator</code><br><small style="color:var(--muted)">app/llm/validate.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>Phase 2 Corroboration Scorer node in app/llm/corroboration.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>Evaluation Harness</code><br><small style="color:var(--muted)">app/eval/harness.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>LLM Reasoning Chain</code><br><small style="color:var(--muted)">app/llm/reasoning_chain.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>Evaluation Harness node in app/eval/harness.py.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>Inter-source Physical Corroboration Thesis</code><br><small style="color:var(--muted)">docs/specs/2026-05-16-month2-phase-plan.md</small></td>
+  <td><span class="tag tag-func">Test</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Inter-source Physical Corroboration Thesis node in docs/specs/2026-05-16-month2-phase-plan.md.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>docs/specs/2026-05-16-month2-phase-plan.md</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/eval/harness.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/llm/corroboration.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/llm/reasoning_chain.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/llm/validate.py</code></td><td>1 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: calls x3, relates x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 12. Envpy Server Alembic ====== -->
+<h2 id="envpy-server-alembic">12. Envpy Server Alembic</h2>
+<p>Envpy Server Alembic groups implementation around envpy, server, alembic, run, mostly in server/alembic/env.py. This section covers 4 nodes and 5 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Envpy Server Alembic (4 nodes, 5 edges)
+    alembic_env_is_sqlite_d7d7182a("_is_sqlite()<br/><small>server/alembic/env.py</small>")
+    alembic_env_run_migrations_offline_6318f2c5("run_migrations_offline()<br/><small>server/alembic/env.py</small>")
+    alembic_env_run_migrations_online_b83c0818("run_migrations_online()<br/><small>server/alembic/env.py</small>")
+    alembic_env_49fef59d("env.py")
+    alembic_env_is_sqlite_d7d7182a -->|calls| alembic_env_run_migrations_offline_6318f2c5
+    alembic_env_is_sqlite_d7d7182a -->|calls| alembic_env_run_migrations_online_b83c0818
+    class alembic_env_is_sqlite_d7d7182a function;
+    class alembic_env_run_migrations_offline_6318f2c5 function;
+    class alembic_env_run_migrations_online_b83c0818 function;
+    class alembic_env_49fef59d module;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>env.py</code><br><small style="color:var(--muted)">server/alembic/env.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in server/alembic/env.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>_is_sqlite()</code><br><small style="color:var(--muted)">server/alembic/env.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>run_migrations_offline()</code><br><small style="color:var(--muted)">server/alembic/env.py</small><br><code>run_migrations_online()</code><br><small style="color:var(--muted)">server/alembic/env.py</small></td>
+  <td>_is_sqlite() node in server/alembic/env.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>run_migrations_offline()</code><br><small style="color:var(--muted)">server/alembic/env.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_is_sqlite()</code><br><small style="color:var(--muted)">server/alembic/env.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>run_migrations_offline() node in server/alembic/env.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>run_migrations_online()</code><br><small style="color:var(--muted)">server/alembic/env.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_is_sqlite()</code><br><small style="color:var(--muted)">server/alembic/env.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>run_migrations_online() node in server/alembic/env.py.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>server/alembic/env.py</code></td><td>4 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x3, calls x2. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 13. D2B9F4A7C1E8 Add Llm ====== -->
+<h2 id="d2b9f4a7c1e8-add-llm">13. D2B9F4A7C1E8 Add Llm</h2>
+<p>D2B9F4A7C1E8 Add Llm groups implementation around d2b9f4a7c1e8, add, llm, explanation, mostly in alembic/versions/d2b9f4a7c1e8_add_llm_explanation_claim_expert_label.py. This section covers 3 nodes and 2 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: D2B9F4A7C1E8 Add Llm (3 nodes, 2 edges)
+    versions_d2b9f4a7c1e8_add_llm_explanation_claim_87d13c9e("d2b9f4a7c1e8_add_llm_explanation_claim_expert_label.py")
+    versions_d2b9f4a7c1e8_add_llm_explanation_claim_589e3153("downgrade()<br/><small>alembic/versions/d2b9f4a7c1e8_add_llm_explanation_claim_expert_label.py</small>")
+    versions_d2b9f4a7c1e8_add_llm_explanation_claim_5d7f1694("upgrade()<br/><small>alembic/versions/d2b9f4a7c1e8_add_llm_explanation_claim_expert_label.py</small>")
+    versions_d2b9f4a7c1e8_add_llm_explanation_claim_87d13c9e -->|contains| versions_d2b9f4a7c1e8_add_llm_explanation_claim_589e3153
+    versions_d2b9f4a7c1e8_add_llm_explanation_claim_87d13c9e -->|contains| versions_d2b9f4a7c1e8_add_llm_explanation_claim_5d7f1694
+    class versions_d2b9f4a7c1e8_add_llm_explanation_claim_87d13c9e module;
+    class versions_d2b9f4a7c1e8_add_llm_explanation_claim_589e3153 function;
+    class versions_d2b9f4a7c1e8_add_llm_explanation_claim_5d7f1694 function;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>d2b9f4a7c1e8_add_llm_explanation_claim_expert_label.py</code><br><small style="color:var(--muted)">alembic/versions/d2b9f4a7c1e8_add_llm_explanation_claim_expert_label.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in alembic/versions/d2b9f4a7c1e8_add_llm_explanation_claim_expert_label.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>upgrade()</code><br><small style="color:var(--muted)">alembic/versions/d2b9f4a7c1e8_add_llm_explanation_claim_expert_label.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>upgrade() node in alembic/versions/d2b9f4a7c1e8_add_llm_explanation_claim_expert_label.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>downgrade()</code><br><small style="color:var(--muted)">alembic/versions/d2b9f4a7c1e8_add_llm_explanation_claim_expert_label.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>downgrade() node in alembic/versions/d2b9f4a7c1e8_add_llm_explanation_claim_expert_label.py.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>alembic/versions/d2b9f4a7c1e8_add_llm_explanation_claim_expert_label.py</code></td><td>3 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x2. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 14. Server App Detection ====== -->
+<h2 id="server-app-detection">14. Server App Detection</h2>
+<p>Server App Detection groups implementation around server, app, detection, zscorepy, mostly in app/detection/zscore.py. This section covers 2 nodes and 1 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Server App Detection (2 nodes, 1 edges)
+    detection_zscore_zscoredetector_init_f1435cec("__init__()<br/><small>app/detection/zscore.py</small>")
+    server_app_detection_zscore_py_timedelta_e5f5d523("timedelta<br/><small>app/detection/zscore.py</small>")
+    detection_zscore_zscoredetector_init_f1435cec -->|references| server_app_detection_zscore_py_timedelta_e5f5d523
+    class detection_zscore_zscoredetector_init_f1435cec function;
+    class server_app_detection_zscore_py_timedelta_e5f5d523 function;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>.__init__()</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>.__init__() node in app/detection/zscore.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>timedelta</code><br><small style="color:var(--muted)">app/detection/zscore.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>timedelta node in app/detection/zscore.py.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>app/detection/zscore.py</code></td><td>2 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: references x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 15. Server App Fastapi ====== -->
+<h2 id="server-app-fastapi">15. Server App Fastapi</h2>
+<p>Server App Fastapi groups implementation around server, app, fastapi, entry, mostly in server/app/main.py, server/app/config.py. This section covers 2 nodes and 1 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Server App Fastapi (2 nodes, 1 edges)
+    server_config_0fa9f349("Configuration Settings<br/><small>server/app/config.py</small>")
+    server_main_a6c2e85e("FastAPI Entry Point<br/><small>server/app/main.py</small>")
+    server_main_a6c2e85e -->|references| server_config_0fa9f349
+    class server_config_0fa9f349 klass;
+    class server_main_a6c2e85e api;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>FastAPI Entry Point</code><br><small style="color:var(--muted)">server/app/main.py</small></td>
+  <td><span class="tag tag-endpoint">API</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>FastAPI Entry Point node in server/app/main.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>Configuration Settings</code><br><small style="color:var(--muted)">server/app/config.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Reads, resolves, or persists project configuration.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>server/app/config.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>server/app/main.py</code></td><td>1 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: references x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 16. Other ====== -->
+<h2 id="other">16. Other</h2>
+<p>Other groups implementation around server, app, detection, collectors, mostly in server/app/__init__.py, app/collectors/__init__.py, app/db/__init__.py. This section covers 8 nodes and 0 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Other (8 nodes, 0 edges)
+    collectors_init_0a868b89("__init__.py")
+    db_init_ec7754fc("__init__.py")
+    server_app_detection_init_py_detection_init_fd18a795("__init__.py")
+    server_detection_engine_31cea9b3("Anomaly Detection Engine<br/><small>app/detection/engine.py</small>")
+    eval_init_273f2148("__init__.py")
+    llm_init_215287f1("__init__.py")
+    ws_init_0ad3932d("__init__.py")
+    app_init_831506f4("__init__.py")
+    class collectors_init_0a868b89 module;
+    class db_init_ec7754fc module;
+    class server_app_detection_init_py_detection_init_fd18a795 module;
+    class server_detection_engine_31cea9b3 klass;
+    class eval_init_273f2148 module;
+    class llm_init_215287f1 module;
+    class ws_init_0ad3932d module;
+    class app_init_831506f4 module;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>__init__.py</code><br><small style="color:var(--muted)">server/app/__init__.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in server/app/__init__.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>__init__.py</code><br><small style="color:var(--muted)">app/collectors/__init__.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in app/collectors/__init__.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>__init__.py</code><br><small style="color:var(--muted)">app/db/__init__.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in app/db/__init__.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>__init__.py</code><br><small style="color:var(--muted)">app/eval/__init__.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in app/eval/__init__.py.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>__init__.py</code><br><small style="color:var(--muted)">app/llm/__init__.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in app/llm/__init__.py.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>__init__.py</code><br><small style="color:var(--muted)">app/detection/__init__.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in app/detection/__init__.py.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>Anomaly Detection Engine</code><br><small style="color:var(--muted)">app/detection/engine.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Anomaly Detection Engine node in app/detection/engine.py.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>__init__.py</code><br><small style="color:var(--muted)">app/ws/__init__.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in app/ws/__init__.py.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>server/app/__init__.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/collectors/__init__.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/db/__init__.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/detection/__init__.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/detection/engine.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/eval/__init__.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/llm/__init__.py</code></td><td>1 nodes</td></tr>
+<tr><td><code>app/ws/__init__.py</code></td><td>1 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: No high-confidence call edges detected. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<h2 id="stats">Project Statistics</h2>
+
+<div class="grid">
+  <div class="card">
+    <h4>Graph</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><td>Nodes</td><td>1807</td></tr>
+      <tr><td>Edges</td><td>5036</td></tr>
+      <tr><td>Hyperedges</td><td>0</td></tr>
+      <tr><td>Communities</td><td>90</td></tr>
+      <tr><td>Documented Sections</td><td>15</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Edge Confidence</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><td>EXTRACTED</td><td>3216</td></tr>
+      <tr><td>INFERRED</td><td>1820</td></tr>
+      <tr><td>AMBIGUOUS</td><td>0</td></tr>
+    </table>
+  </div>
+</div>
+
+<div style="text-align:center; padding:40px 0; color: var(--muted); font-size:0.9rem;">
+  <p>aeris — Architecture Documentation</p>
+  <p>Generated: 2026-06-12 19:35 UTC · graphify callflow-html</p>
+</div>
+
+</div><!-- .container -->
+
+<script>
+(function () {
+  const mermaidConfig = {
+    startOnLoad: false,
+    theme: 'dark',
+    securityLevel: 'loose',
+    flowchart: { htmlLabels: true, useMaxWidth: true },
+    themeVariables: {
+      primaryColor: '#1e293b',
+      primaryTextColor: '#e2e8f0',
+      primaryBorderColor: '#38bdf8',
+      secondaryColor: '#0f172a',
+      tertiaryColor: '#334155',
+      lineColor: '#64748b',
+      textColor: '#e2e8f0',
+    }
+  };
+
+  mermaid.initialize(mermaidConfig);
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function enhanceMermaidDiagrams() {
+    document.querySelectorAll('.mermaid').forEach((container) => {
+      if (container.dataset.zoomReady === 'true') return;
+      const svg = container.querySelector('svg');
+      if (!svg) return;
+
+      container.dataset.zoomReady = 'true';
+      container.classList.add('is-enhanced');
+
+      const viewport = document.createElement('div');
+      viewport.className = 'mermaid-viewport';
+      svg.parentNode.insertBefore(viewport, svg);
+      viewport.appendChild(svg);
+
+      const toolbar = document.createElement('div');
+      toolbar.className = 'mermaid-toolbar';
+      toolbar.innerHTML = [
+        '<button type="button" data-action="zoom-out" title="Zoom out">-</button>',
+        '<span class="zoom-level" data-role="level">100%</span>',
+        '<button type="button" data-action="zoom-in" title="Zoom in">+</button>',
+        '<button type="button" data-action="fit" title="Fit width">Fit</button>',
+        '<button type="button" data-action="reset" title="Reset view">Reset</button>'
+      ].join('');
+      container.insertBefore(toolbar, viewport);
+
+      const state = { scale: 1, x: 0, y: 0, dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 };
+      const level = toolbar.querySelector('[data-role="level"]');
+
+      function applyTransform() {
+        svg.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
+        level.textContent = `${Math.round(state.scale * 100)}%`;
+      }
+
+      function zoomBy(delta) {
+        state.scale = clamp(state.scale + delta, 0.25, 3);
+        applyTransform();
+      }
+
+      function reset() {
+        state.scale = 1;
+        state.x = 0;
+        state.y = 0;
+        applyTransform();
+      }
+
+      function fitWidth() {
+        const rawWidth = svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width
+          ? svg.viewBox.baseVal.width
+          : svg.getBoundingClientRect().width / state.scale;
+        if (!rawWidth) {
+          reset();
+          return;
+        }
+        state.scale = clamp((viewport.clientWidth - 48) / rawWidth, 0.25, 1.4);
+        state.x = 0;
+        state.y = 0;
+        applyTransform();
+      }
+
+      toolbar.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const action = button.dataset.action;
+        if (action === 'zoom-in') zoomBy(0.15);
+        if (action === 'zoom-out') zoomBy(-0.15);
+        if (action === 'fit') fitWidth();
+        if (action === 'reset') reset();
+      });
+
+      viewport.addEventListener('wheel', (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        zoomBy(event.deltaY < 0 ? 0.1 : -0.1);
+      }, { passive: false });
+
+      viewport.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        state.dragging = true;
+        state.startX = event.clientX;
+        state.startY = event.clientY;
+        state.originX = state.x;
+        state.originY = state.y;
+        viewport.classList.add('is-dragging');
+        viewport.setPointerCapture(event.pointerId);
+      });
+
+      viewport.addEventListener('pointermove', (event) => {
+        if (!state.dragging) return;
+        state.x = state.originX + event.clientX - state.startX;
+        state.y = state.originY + event.clientY - state.startY;
+        applyTransform();
+      });
+
+      function endDrag(event) {
+        if (!state.dragging) return;
+        state.dragging = false;
+        viewport.classList.remove('is-dragging');
+        if (viewport.hasPointerCapture(event.pointerId)) {
+          viewport.releasePointerCapture(event.pointerId);
+        }
+      }
+
+      viewport.addEventListener('pointerup', endDrag);
+      viewport.addEventListener('pointercancel', endDrag);
+      applyTransform();
+    });
+  }
+
+  function renderMermaid() {
+    const result = mermaid.run
+      ? mermaid.run({ querySelector: '.mermaid' })
+      : Promise.resolve();
+    Promise.resolve(result)
+      .then(enhanceMermaidDiagrams)
+      .catch((error) => {
+        console.error('Mermaid render failed:', error);
+        enhanceMermaidDiagrams();
+      });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderMermaid);
+  } else {
+    renderMermaid();
+  }
+})();
+</script>
+
+</body>
+</html>

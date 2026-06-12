@@ -47,6 +47,8 @@ class TestOllamaClient:
         assert captured["body"]["model"] == "llama3:8b"
         assert captured["body"]["format"] == "json"
         assert captured["body"]["stream"] is False
+        # Pinned decoding: Ollama's 0.8 default would make sweeps unreproducible.
+        assert captured["body"]["options"] == {"temperature": 0.0}
         assert raw.text == '{"cause": "photochemical", "confidence": 0.8}'
         assert raw.prompt_tokens == 42
         assert raw.completion_tokens == 17

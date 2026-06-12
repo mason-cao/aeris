@@ -14,6 +14,8 @@ import argparse
 import asyncio
 import uuid
 from collections.abc import Mapping
+from datetime import datetime, timedelta, timezone
+from statistics import fmean
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +38,81 @@ from app.llm.validate import GROUNDED, GroundingResult, ground_claim_drafts
 
 def _with_unit(value: object, unit: str | None) -> str:
     return f"{value} {unit}" if unit else f"{value}"
+
+
+# Time-bucketed pooled means rendered per metric so the model can reason
+# about temporal patterns, and per-station means so it can reason about
+# spatial uniformity. Without these lines the prompt carried only
+# range/mean/nearest aggregates while the Phase 2 scorers judged trend and
+# spatial-CV claim types against the full series — claims the model had no
+# data to make.
+_SERIES_BUCKET_H = 3
+_MAX_STATION_MEANS = 8
+
+
+def _metric_points(data: Mapping) -> list[tuple[datetime, float]]:
+    """All entities' (timestamp, value) pairs, UTC-coerced and time-sorted."""
+    points: list[tuple[datetime, float]] = []
+    for entity in data.get("entities", []):
+        for iso, value in entity.get("series", []):
+            try:
+                ts = datetime.fromisoformat(iso)
+                v = float(value)
+            except (TypeError, ValueError):
+                continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            points.append((ts, v))
+    return sorted(points)
+
+
+def _render_bucket_means(data: Mapping) -> str | None:
+    """'3h means: 06-04 00Z 12.3, 03Z 14.1, ...' or None when too sparse."""
+    points = _metric_points(data)
+    if not points:
+        return None
+    buckets: dict[datetime, list[float]] = {}
+    for ts, v in points:
+        floored = ts.replace(
+            hour=ts.hour - ts.hour % _SERIES_BUCKET_H,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        buckets.setdefault(floored, []).append(v)
+    if len(buckets) < 2:
+        return None
+    parts: list[str] = []
+    day: object = None
+    for start in sorted(buckets):
+        label = f"{start:%H}Z"
+        if start.date() != day:
+            day = start.date()
+            label = f"{start:%m-%d} {label}"
+        parts.append(f"{label} {fmean(buckets[start]):.4g}")
+    return f"{_SERIES_BUCKET_H}h means: " + ", ".join(parts)
+
+
+def _render_station_means(data: Mapping) -> str | None:
+    """'station means: AAA (2.1 km) 18.2, ...' or None for single entities."""
+    entities = data.get("entities", [])
+    if len(entities) < 2:
+        return None
+    rendered: list[str] = []
+    for entity in entities[:_MAX_STATION_MEANS]:
+        values = [float(v) for _, v in entity.get("series", [])]
+        if not values:
+            continue
+        rendered.append(
+            f"{entity.get('entity_id')} ({entity.get('distance_km')} km) "
+            f"{fmean(values):.4g}"
+        )
+    if len(rendered) < 2:
+        return None
+    overflow = len(entities) - _MAX_STATION_MEANS
+    if overflow > 0:
+        rendered.append(f"+{overflow} more")
+    return "station means: " + ", ".join(rendered)
 
 
 def render_anomaly_text(anomaly: Anomaly) -> str:
@@ -61,7 +138,9 @@ def render_enrichment_text(summary: Mapping) -> str:
 
     Also the Phase 1 grounding context: ``check_grounding`` verifies claims
     against exactly this text, so every number a model may legitimately cite
-    (range, mean, nearest-in-time) has to be spelled out here.
+    (range, mean, nearest-in-time, bucketed series means, per-station means)
+    has to be spelled out here. The labeling CLI shows this same text, so
+    whatever the model can see, the labeler can audit.
     """
     window = summary.get("window", {})
     lines = [
@@ -85,6 +164,9 @@ def render_enrichment_text(summary: Mapping) -> str:
                 f"at {nearest.get('t')} ({nearest.get('dt_minutes')} min away, "
                 f"{nearest.get('distance_km')} km from anomaly)"
             )
+            for extra in (_render_bucket_means(data), _render_station_means(data)):
+                if extra:
+                    lines.append(f"  {extra}")
     missing = sorted(
         src for src, present in summary.get("coverage", {}).items() if not present
     )

@@ -79,6 +79,8 @@ class TestGeminiClient:
         config = body["generationConfig"]
         assert config["responseMimeType"] == "application/json"
         assert config["responseJsonSchema"] == _Attribution.model_json_schema()
+        # Pinned decoding, matching the Ollama client.
+        assert config["temperature"] == 0.0
         assert raw.text == '{"cause": "transport", "confidence": 0.4}'
         assert raw.prompt_tokens == 42
         assert raw.completion_tokens == 17

@@ -10,6 +10,24 @@ DEFAULT_MODEL = "gpt-5.4"
 DEFAULT_REQUEST_TIMEOUT = 120.0
 
 
+def _strict_json_schema(node: object) -> object:
+    """Rewrite a pydantic JSON schema for OpenAI strict mode.
+
+    Strict decoding requires every object to be closed
+    (``additionalProperties: false``) and every property required; pydantic
+    leaves defaulted fields optional, which strict mode rejects outright.
+    """
+    if isinstance(node, dict):
+        out = {key: _strict_json_schema(value) for key, value in node.items()}
+        if out.get("type") == "object" and "properties" in out:
+            out["additionalProperties"] = False
+            out["required"] = list(out["properties"])
+        return out
+    if isinstance(node, list):
+        return [_strict_json_schema(value) for value in node]
+    return node
+
+
 class GPTClient(LLMClient):
     """LLMClient backed by the OpenAI chat completions API.
 
@@ -48,11 +66,16 @@ class GPTClient(LLMClient):
             json={
                 "model": self.model_name,
                 "messages": [{"role": "user", "content": prompt}],
+                # No temperature/top_p here: the thinking tier rejects
+                # sampling overrides, so GPT runs at the API default — record
+                # that asymmetry in the methodology note alongside the pinned
+                # temperature=0 on the Ollama and Gemini clients.
                 "response_format": {
                     "type": "json_schema",
                     "json_schema": {
                         "name": schema.__name__,
-                        "schema": schema.model_json_schema(),
+                        "schema": _strict_json_schema(schema.model_json_schema()),
+                        "strict": True,
                     },
                 },
             },

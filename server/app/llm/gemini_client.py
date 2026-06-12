@@ -74,6 +74,8 @@ class GeminiClient(LLMClient):
             "generationConfig": {
                 "responseMimeType": "application/json",
                 "responseJsonSchema": schema.model_json_schema(),
+                # Pinned for eval reproducibility, matching the Ollama client.
+                "temperature": 0.0,
             },
         }
         for attempt in range(MAX_429_RETRIES + 1):

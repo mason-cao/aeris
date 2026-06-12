@@ -68,7 +68,12 @@ class TestGPTClient:
         assert body["response_format"]["type"] == "json_schema"
         json_schema = body["response_format"]["json_schema"]
         assert json_schema["name"] == "_Attribution"
-        assert json_schema["schema"] == _Attribution.model_json_schema()
+        # Strict mode: schema closed, every property required, properties kept.
+        assert json_schema["strict"] is True
+        sent = json_schema["schema"]
+        assert sent["additionalProperties"] is False
+        assert set(sent["required"]) == set(sent["properties"])
+        assert sent["properties"] == _Attribution.model_json_schema()["properties"]
         assert raw.text == '{"cause": "transport", "confidence": 0.4}'
         assert raw.prompt_tokens == 42
         assert raw.completion_tokens == 17

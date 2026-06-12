@@ -169,6 +169,39 @@ def test_render_enrichment_text_names_silent_sources():
     assert "no data" in text.lower()
 
 
+def test_render_enrichment_text_includes_series_and_station_means():
+    # Temporal and spatial claim types are scored against the series; the
+    # model (and the labeler) must see the same shape, not just aggregates.
+    summary = _summary()
+    summary["sources"]["openaq"]["metrics"]["no2"]["entities"] = [
+        {
+            "entity_id": "st-1",
+            "distance_km": 2.1,
+            "series": [
+                [f"2026-06-05T{h:02d}:00:00+00:00", v]
+                for h, v in [(8, 60.0), (11, 64.0), (14, 70.0), (17, 82.0)]
+            ],
+        },
+        {
+            "entity_id": "st-2",
+            "distance_km": 6.4,
+            "series": [["2026-06-05T12:00:00+00:00", 66.0]],
+        },
+    ]
+    text = render_enrichment_text(summary)
+    assert "3h means:" in text
+    assert "06-05 06Z 60" in text
+    assert "station means:" in text
+    assert "st-2 (6.4 km) 66" in text
+
+
+def test_render_enrichment_text_omits_series_lines_when_sparse():
+    # Aggregate-only summaries (one point, one station) stay as they were.
+    text = render_enrichment_text(_summary())
+    assert "3h means:" not in text
+    assert "station means:" not in text
+
+
 # --- orchestration ---
 
 
@@ -205,8 +238,10 @@ async def test_generate_explanation_builds_explanation_and_claims(db_session):
     assert fabricated.corroboration_score is None
     assert fabricated.evidence_n == 0
     # Typed even though never scored: which types get fabricated is a result.
-    assert fabricated.claim_type == "point_source_attribution"
-    assert fabricated.partial_verifiability is True
+    # "ship channel" is a geographic reference, not an attribution cue, so
+    # this reads as a concentration claim about SO2.
+    assert fabricated.claim_type == "concentration_elevation"
+    assert fabricated.partial_verifiability is False
 
 
 @pytest.mark.asyncio

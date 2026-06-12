@@ -9,9 +9,11 @@ from app.db.models import Anomaly, DataPoint, EnrichmentRecord
 from app.detection.consensus import ConsensusAnomaly
 from app.detection.run import (
     GroupKey,
-    _load_gfs_wind_rows,
+    _load_gfs_wind_cells,
+    _nearest_cell_value,
     _nearest_value,
     _parse_args,
+    _stl_period_for,
     build_aux_inputs,
     group_points_by_series,
     persist_anomalies,
@@ -71,11 +73,13 @@ def _gfs_wind(
     u: float,
     v: float,
     entity: str = "gfs:29.76,-95.37",
+    lat: float = HOUSTON_LAT,
+    lon: float = HOUSTON_LON,
 ) -> list[DataPoint]:
     """A GFS u_10m + v_10m DataPoint pair for one grid cell-cycle."""
     return [
-        _dp(ts=ts, value=u, metric="u_10m", source="noaa_gfs", entity=entity),
-        _dp(ts=ts, value=v, metric="v_10m", source="noaa_gfs", entity=entity),
+        _dp(ts=ts, value=u, metric="u_10m", source="noaa_gfs", entity=entity, lat=lat, lon=lon),
+        _dp(ts=ts, value=v, metric="v_10m", source="noaa_gfs", entity=entity, lat=lat, lon=lon),
     ]
 
 
@@ -213,27 +217,36 @@ class TestNearestValue:
         assert _nearest_value(T0, [], timedelta(hours=3)) is None
 
 
-class TestLoadGfsWindRows:
+class TestLoadGfsWindCells:
     @pytest.mark.asyncio
     async def test_derives_wind_speed_as_hypot_of_u_and_v(self, db_session) -> None:
         await _seed(db_session, _gfs_wind(T0, u=3.0, v=4.0))
-        rows = await _load_gfs_wind_rows(
-            db_session, T0 - timedelta(hours=1), T0 + timedelta(hours=1)
+        cells = await _load_gfs_wind_cells(
+            db_session,
+            T0 - timedelta(hours=1),
+            T0 + timedelta(hours=1),
+            HOUSTON_LAT,
+            HOUSTON_LON,
         )
-        assert len(rows) == 1
-        assert rows[0][1] == pytest.approx(5.0)  # hypot(3, 4)
+        assert len(cells) == 1
+        assert cells[0][0][1] == pytest.approx(5.0)  # hypot(3, 4)
 
     @pytest.mark.asyncio
-    async def test_pairs_u_and_v_per_grid_cell(self, db_session) -> None:
+    async def test_orders_cells_nearest_to_station_first(self, db_session) -> None:
+        # Cell B sits ~25 km north of the station; its wind must rank second.
         await _seed(
             db_session,
             _gfs_wind(T0, u=3.0, v=4.0, entity="gfs:A")
-            + _gfs_wind(T0, u=6.0, v=8.0, entity="gfs:B"),
+            + _gfs_wind(T0, u=6.0, v=8.0, entity="gfs:B", lat=HOUSTON_LAT + 0.25),
         )
-        rows = await _load_gfs_wind_rows(
-            db_session, T0 - timedelta(hours=1), T0 + timedelta(hours=1)
+        cells = await _load_gfs_wind_cells(
+            db_session,
+            T0 - timedelta(hours=1),
+            T0 + timedelta(hours=1),
+            HOUSTON_LAT,
+            HOUSTON_LON,
         )
-        assert sorted(round(v, 4) for _, v in rows) == [5.0, 10.0]
+        assert [round(series[0][1], 4) for series in cells] == [5.0, 10.0]
 
     @pytest.mark.asyncio
     async def test_skips_u_component_with_no_matching_v(self, db_session) -> None:
@@ -242,17 +255,61 @@ class TestLoadGfsWindRows:
             db_session,
             [_dp(ts=T0, value=3.0, metric="u_10m", source="noaa_gfs", entity="gfs:A")],
         )
-        rows = await _load_gfs_wind_rows(
-            db_session, T0 - timedelta(hours=1), T0 + timedelta(hours=1)
+        cells = await _load_gfs_wind_cells(
+            db_session,
+            T0 - timedelta(hours=1),
+            T0 + timedelta(hours=1),
+            HOUSTON_LAT,
+            HOUSTON_LON,
         )
-        assert rows == []
+        assert cells == []
 
     @pytest.mark.asyncio
     async def test_returns_empty_when_no_gfs_wind_data(self, db_session) -> None:
-        rows = await _load_gfs_wind_rows(
-            db_session, T0 - timedelta(hours=1), T0 + timedelta(hours=1)
+        cells = await _load_gfs_wind_cells(
+            db_session,
+            T0 - timedelta(hours=1),
+            T0 + timedelta(hours=1),
+            HOUSTON_LAT,
+            HOUSTON_LON,
         )
-        assert rows == []
+        assert cells == []
+
+
+class TestNearestCellValue:
+    def test_prefers_nearest_cell_with_in_tolerance_row(self) -> None:
+        near = [(T0, 5.0)]
+        far = [(T0, 10.0)]
+        assert _nearest_cell_value(T0, [near, far], timedelta(hours=3)) == 5.0
+
+    def test_falls_back_outward_when_near_cell_has_no_row_in_range(self) -> None:
+        near = [(T0 - timedelta(hours=12), 5.0)]
+        far = [(T0, 10.0)]
+        assert _nearest_cell_value(T0, [near, far], timedelta(hours=3)) == 10.0
+
+    def test_returns_none_when_no_cell_has_a_row_in_range(self) -> None:
+        stale = [(T0 - timedelta(hours=12), 5.0)]
+        assert _nearest_cell_value(T0, [stale], timedelta(hours=3)) is None
+
+
+class TestStlPeriodFor:
+    def _series(self, step: timedelta, n: int) -> list[tuple[datetime, float]]:
+        return [(T0 + i * step, float(i)) for i in range(n)]
+
+    def test_hourly_cadence_keeps_period_24(self) -> None:
+        assert _stl_period_for(self._series(timedelta(hours=1), 60)) == 24
+
+    def test_sub_hourly_cadence_scales_period_up(self) -> None:
+        assert _stl_period_for(self._series(timedelta(minutes=30), 60)) == 48
+
+    def test_six_hourly_cadence_keeps_minimum_period(self) -> None:
+        assert _stl_period_for(self._series(timedelta(hours=6), 60)) == 4
+
+    def test_daily_cadence_disables_stl(self) -> None:
+        assert _stl_period_for(self._series(timedelta(days=1), 60)) is None
+
+    def test_too_short_series_disables_stl(self) -> None:
+        assert _stl_period_for([(T0, 1.0)]) is None
 
 
 class TestBuildAuxInputs:

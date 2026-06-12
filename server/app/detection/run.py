@@ -28,11 +28,14 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.collectors.geo import distance_km
 from app.db.models import Anomaly, DataPoint
 
 from .consensus import ConsensusAnomaly
 from .engine import DetectionEngine
-from .isolation_forest import IsolationForestInput
+from .isolation_forest import IsolationForestDetector, IsolationForestInput
+from .stl import STLDetector
+from .zscore import ZScoreDetector
 
 
 # Metrics the engine runs on directly. Auxiliary atmospheric / met fields
@@ -69,6 +72,39 @@ AUX_TIME_TOLERANCE: timedelta = timedelta(hours=3)
 # min_points=50 and STL needs 2*period+1=49 for hourly data with daily
 # seasonality, so 50 is the binding floor.
 MIN_GROUP_POINTS: int = 50
+
+# STL models the diurnal cycle, so its period must be samples-per-day for the
+# series' actual cadence — period=24 is only right for hourly data, and the
+# collected series range from sub-hourly OpenAQ to ~daily Sentinel-5P
+# granules. Below this many samples per day there is no diurnal structure to
+# decompose; STL is skipped and Z-score (and IF) carry detection.
+MIN_STL_SAMPLES_PER_DAY: int = 4
+
+
+def _stl_period_for(series: list[tuple[datetime, float]]) -> int | None:
+    """Samples per diurnal cycle from the observed cadence, or None to skip STL."""
+    if len(series) < 2:
+        return None
+    deltas = sorted(
+        (later - earlier).total_seconds()
+        for (earlier, _), (later, _) in zip(series, series[1:], strict=False)
+        if later > earlier
+    )
+    if not deltas:
+        return None
+    median = deltas[len(deltas) // 2]
+    period = round(86400.0 / median)
+    return period if period >= MIN_STL_SAMPLES_PER_DAY else None
+
+
+def _engine_for(series: list[tuple[datetime, float]]) -> DetectionEngine:
+    """The 3-detector engine, with STL tuned to (or dropped for) the cadence."""
+    period = _stl_period_for(series)
+    return DetectionEngine(
+        zscore=ZScoreDetector(),
+        stl=STLDetector(period=period) if period is not None else None,
+        isolation_forest=IsolationForestDetector(),
+    )
 
 
 @dataclass(frozen=True)
@@ -151,12 +187,15 @@ async def build_aux_inputs(
     """Assemble IsolationForest inputs by joining wind speed + pbl_height aux.
 
     Wind speed is derived from the GFS ``u_10m``/``v_10m`` components;
-    ``pbl_height`` comes straight from GFS. Returns ``None`` when either aux
-    is entirely missing — IF wants a consistent multivariate feature set per
-    row, and partial aux degrades to a univariate IF that the Z-score
-    detector already covers better.
+    ``pbl_height`` comes straight from GFS. Each aux value comes from the
+    grid cell nearest the primary series' station, falling back outward only
+    when a nearer cell has no row within ``time_tolerance`` — pooling cells
+    and matching on time alone would join wind from an arbitrary cell up to
+    ~50 km away. Returns ``None`` when either aux is entirely missing — IF
+    wants a consistent multivariate feature set per row, and partial aux
+    degrades to a univariate IF that the Z-score detector already covers
+    better.
 
-    Per-timestamp matching is nearest-neighbor within ``time_tolerance``.
     Timestamps with no aux row in range are dropped from the IF input but
     still flow through Z-score and STL via the primary series.
     """
@@ -167,19 +206,24 @@ async def build_aux_inputs(
     last_ts = max(p.timestamp for p in primary_points)
     window_start = first_ts - time_tolerance
     window_end = last_ts + time_tolerance
+    station_lat = primary_points[0].lat
+    station_lon = primary_points[0].lon
 
-    wind_rows = await _load_gfs_wind_rows(session, window_start, window_end)
-    pbl_rows = await _load_aux_rows(
-        session, AUX_METRIC_PBL, window_start, window_end
+    wind_cells = await _load_gfs_wind_cells(
+        session, window_start, window_end, station_lat, station_lon
+    )
+    pbl_cells = await _load_aux_cells(
+        session, AUX_METRIC_PBL, window_start, window_end, station_lat, station_lon
     )
 
-    if not wind_rows or not pbl_rows:
+    if not wind_cells or not pbl_cells:
         return None
 
     iso_inputs: list[IsolationForestInput] = []
     for p in primary_points:
-        wind = _nearest_value(p.timestamp, wind_rows, time_tolerance)
-        pbl = _nearest_value(p.timestamp, pbl_rows, time_tolerance)
+        target = _ensure_utc(p.timestamp)
+        wind = _nearest_cell_value(target, wind_cells, time_tolerance)
+        pbl = _nearest_cell_value(target, pbl_cells, time_tolerance)
         if wind is None or pbl is None:
             continue
         iso_inputs.append(
@@ -192,31 +236,45 @@ async def build_aux_inputs(
     return iso_inputs or None
 
 
-async def _load_aux_rows(
+async def _load_aux_cells(
     session: AsyncSession,
     metric: str,
     window_start: datetime,
     window_end: datetime,
-) -> list[tuple[datetime, float]]:
+    station_lat: float,
+    station_lon: float,
+) -> list[list[tuple[datetime, float]]]:
+    """One time-sorted series per grid cell, nearest cell to the station first."""
     stmt = (
-        select(DataPoint.timestamp, DataPoint.value)
+        select(
+            DataPoint.timestamp,
+            DataPoint.value,
+            DataPoint.lat,
+            DataPoint.lon,
+            DataPoint.source_entity_id,
+        )
         .where(DataPoint.metric == metric)
         .where(DataPoint.timestamp >= window_start)
         .where(DataPoint.timestamp <= window_end)
         .order_by(DataPoint.timestamp)
     )
-    return [
-        (_ensure_utc(ts), float(v))
-        for ts, v in (await session.execute(stmt)).all()
-    ]
+    by_cell: dict[str, tuple[float, list[tuple[datetime, float]]]] = {}
+    for ts, value, lat, lon, entity in (await session.execute(stmt)).all():
+        if entity not in by_cell:
+            by_cell[entity] = (distance_km(station_lat, station_lon, lat, lon), [])
+        by_cell[entity][1].append((_ensure_utc(ts), float(value)))
+    ranked = sorted(by_cell.values(), key=lambda cell: cell[0])
+    return [series for _distance, series in ranked]
 
 
-async def _load_gfs_wind_rows(
+async def _load_gfs_wind_cells(
     session: AsyncSession,
     window_start: datetime,
     window_end: datetime,
-) -> list[tuple[datetime, float]]:
-    """Derive 10-m wind speed from the GFS u/v components.
+    station_lat: float,
+    station_lon: float,
+) -> list[list[tuple[datetime, float]]]:
+    """Derive 10-m wind speed per grid cell, nearest cell to the station first.
 
     GFS stores ``u_10m`` and ``v_10m`` as separate DataPoint metrics; each
     grid cell and cycle carries one of each at a shared
@@ -230,15 +288,19 @@ async def _load_gfs_wind_rows(
         session, AUX_METRIC_V, window_start, window_end
     )
 
-    wind: list[tuple[datetime, float]] = []
-    for cell, u in u_by_cell.items():
-        v = v_by_cell.get(cell)
-        if v is None:
+    by_cell: dict[str, tuple[float, list[tuple[datetime, float]]]] = {}
+    for key, (u, lat, lon) in u_by_cell.items():
+        v_entry = v_by_cell.get(key)
+        if v_entry is None:
             continue
-        timestamp, _entity = cell
-        wind.append((timestamp, math.hypot(u, v)))
-    wind.sort(key=lambda row: row[0])
-    return wind
+        timestamp, entity = key
+        if entity not in by_cell:
+            by_cell[entity] = (distance_km(station_lat, station_lon, lat, lon), [])
+        by_cell[entity][1].append((timestamp, math.hypot(u, v_entry[0])))
+    for _distance, series in by_cell.values():
+        series.sort(key=lambda row: row[0])
+    ranked = sorted(by_cell.values(), key=lambda cell: cell[0])
+    return [series for _distance, series in ranked]
 
 
 async def _load_gfs_component(
@@ -246,18 +308,37 @@ async def _load_gfs_component(
     metric: str,
     window_start: datetime,
     window_end: datetime,
-) -> dict[tuple[datetime, str], float]:
-    """Load one GFS wind component keyed by (timestamp, grid-cell entity)."""
+) -> dict[tuple[datetime, str], tuple[float, float, float]]:
+    """(value, lat, lon) keyed by (timestamp, grid-cell entity) for one component."""
     stmt = (
-        select(DataPoint.timestamp, DataPoint.source_entity_id, DataPoint.value)
+        select(
+            DataPoint.timestamp,
+            DataPoint.source_entity_id,
+            DataPoint.value,
+            DataPoint.lat,
+            DataPoint.lon,
+        )
         .where(DataPoint.metric == metric)
         .where(DataPoint.timestamp >= window_start)
         .where(DataPoint.timestamp <= window_end)
     )
     return {
-        (_ensure_utc(ts), entity): float(value)
-        for ts, entity, value in (await session.execute(stmt)).all()
+        (_ensure_utc(ts), entity): (float(value), lat, lon)
+        for ts, entity, value, lat, lon in (await session.execute(stmt)).all()
     }
+
+
+def _nearest_cell_value(
+    target: datetime,
+    cells: list[list[tuple[datetime, float]]],
+    tolerance: timedelta,
+) -> float | None:
+    """The time-nearest value from the spatially nearest cell that has one."""
+    for series in cells:
+        value = _nearest_value(target, series, tolerance)
+        if value is not None:
+            return value
+    return None
 
 
 def _ensure_utc(dt: datetime) -> datetime:
@@ -376,7 +457,7 @@ async def run_detection(
 
         series = [(p.timestamp, p.value) for p in group_points]
         iso_inputs = await build_aux_inputs(session, group_points)
-        engine = DetectionEngine.with_defaults()
+        engine = _engine_for(series)
         anomalies = engine.run(
             series,
             metric=key.metric,

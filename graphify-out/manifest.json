@@ -498,5 +498,110 @@
     "mtime": 1781221334.037328,
     "ast_hash": "94b181a59987c77139c7b48b835fac1b",
     "semantic_hash": "94b181a59987c77139c7b48b835fac1b"
+  },
+  "CLAUDE.md": {
+    "mtime": 1781293534.6698456,
+    "ast_hash": "c19550ce58fbd7c00ca851956158877b",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1781150787.5287702,
+    "ast_hash": "0bfa0a6f70720d9a3f5f8e13c533993a",
+    "semantic_hash": ""
+  },
+  "deploy/windows-collector/SETUP.md": {
+    "mtime": 1779484620.0072672,
+    "ast_hash": "c07f8f27c29f7a423ce112ebe8398008",
+    "semantic_hash": ""
+  },
+  "deploy/windows-collector/environment.yml": {
+    "mtime": 1779477652.582027,
+    "ast_hash": "3817e06949b5ebc4f89369451391fc08",
+    "semantic_hash": ""
+  },
+  "deploy/windows-collector/requirements-collector.txt": {
+    "mtime": 1779477654.2007954,
+    "ast_hash": "5e8300412cbca4c49ebafac8c058210f",
+    "semantic_hash": ""
+  },
+  "docs/bracco/2026-06-03-claim-taxonomy-email.md": {
+    "mtime": 1781108211.0109656,
+    "ast_hash": "092d9cd340a030c29374caac3709430c",
+    "semantic_hash": ""
+  },
+  "docs/bracco/2026-06-10-reanchor-email.md": {
+    "mtime": 1781125263.2051387,
+    "ast_hash": "d218adde8d3d998e636459a4e3cc2b96",
+    "semantic_hash": ""
+  },
+  "docs/specs/2026-04-05-aeris-design.md": {
+    "mtime": 1781150805.5525649,
+    "ast_hash": "9c11bc00f9d8dfcc3e1b12a9bd7f11fa",
+    "semantic_hash": ""
+  },
+  "docs/specs/2026-04-08-month1-phase-plan.md": {
+    "mtime": 1777606078.2313895,
+    "ast_hash": "2f9995fbb55d494a4634f753c7965135",
+    "semantic_hash": ""
+  },
+  "docs/specs/2026-04-13-openaq-collector-design.md": {
+    "mtime": 1777606078.2318697,
+    "ast_hash": "4545fde80d7f256cba12e78fe9d34f56",
+    "semantic_hash": ""
+  },
+  "docs/specs/2026-04-21-openweather-collector-design.md": {
+    "mtime": 1777605929.6085753,
+    "ast_hash": "01ab9310ab066403ccd1549a761d0a51",
+    "semantic_hash": ""
+  },
+  "docs/specs/2026-04-27-week2-api-hardening.md": {
+    "mtime": 1777605926.4836893,
+    "ast_hash": "1fdc5b364fb03bd5188036753cb08b30",
+    "semantic_hash": ""
+  },
+  "docs/specs/2026-04-29-collector-registry-runner.md": {
+    "mtime": 1777605923.850687,
+    "ast_hash": "fab66068d389a56564626e0dfe431342",
+    "semantic_hash": ""
+  },
+  "docs/specs/2026-05-08-noaa-gfs-collector-design.md": {
+    "mtime": 1779380929.9158618,
+    "ast_hash": "fa7e77ba998e742a54324151e4d67b79",
+    "semantic_hash": ""
+  },
+  "docs/specs/2026-05-13-sentinel5p-column-density-design.md": {
+    "mtime": 1778708878.9617512,
+    "ast_hash": "12b10cffa7191a6668e1f0017af06f62",
+    "semantic_hash": ""
+  },
+  "docs/specs/2026-05-16-month2-phase-plan.md": {
+    "mtime": 1781150808.4871874,
+    "ast_hash": "7108028c29aa42d78d0f914b9490c97b",
+    "semantic_hash": ""
+  },
+  "docs/specs/2026-05-21-corroboration-scorer-design.md": {
+    "mtime": 1781237598.5315506,
+    "ast_hash": "859093833bc230100403533b7af20204",
+    "semantic_hash": ""
+  },
+  "docs/specs/2026-06-10-month2-rebaseline.md": {
+    "mtime": 1781237614.4914691,
+    "ast_hash": "4145a2e52d6fb29c32932fc61f834e60",
+    "semantic_hash": ""
+  },
+  "docs/specs/2026-06-12-data-pipeline-repair.md": {
+    "mtime": 1781287075.8036458,
+    "ast_hash": "3fac810534151a549a7ac5f698cc5d6c",
+    "semantic_hash": ""
+  },
+  "server/docker-compose.yml": {
+    "mtime": 1777780000.790762,
+    "ast_hash": "f57614deb48c04c6f64cd750692e5465",
+    "semantic_hash": ""
+  },
+  "server/requirements.txt": {
+    "mtime": 1781030641.6861055,
+    "ast_hash": "8ebcf00d2ed0c069aa3e6be19b8ca30b",
+    "semantic_hash": ""
   }
 }

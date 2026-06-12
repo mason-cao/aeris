@@ -1,6 +1,6 @@
 # AERIS Corroboration Scorer — Design Memo
 
-> **Date:** 2026-05-21 (initial design); committed 2026-05-24 from in-trip notes; revised 2026-05-26 to add Phase 1 / Phase 2 split per Dr. Bracco's 2026-05-25 email feedback; revised 2026-06-10 per her post-meeting email on claim types 6, 7, and 10 (see addendum at end)
+> **Date:** 2026-05-21 (initial design); committed 2026-05-24 from in-trip notes; revised 2026-05-26 to add Phase 1 / Phase 2 split per Dr. Bracco's 2026-05-25 email feedback; revised 2026-06-10 per her post-meeting email on claim types 6, 7, and 10 (see addendum); revised 2026-06-12 with implementation fixes from a code review of the v1 scorers (see second addendum)
 > **Status:** Draft for Dr. Bracco review at the June 2 meeting
 > **Related:** [Month 2 phase plan](2026-05-16-month2-phase-plan.md); Section 4 of the June 2 Bracco meeting notes (Google Doc, where this same content lives in Mason's conversational voice)
 
@@ -115,3 +115,23 @@ Her post-meeting email flagged types 6 and 7 as "difficult to handle" if they re
    - each counted station has **≥ 6 in-window observations** (enough to call it coverage rather than a stray reading).
 
    Both thresholds are draft values to confirm with Bracco, like every other tolerance in this memo. The station count and coverage actually available in the Houston network will be measured from collected data and reported alongside any type-10 result, so "data quality" is an explicit, inspectable precondition rather than an assumption.
+
+---
+
+## Addendum — implementation fixes, 2026-06-12
+
+A code review of the v1 scorers against this memo found places where the implementation contradicted the memo or undermined the Phase 1 → Phase 2 delta. All are fixed in code; the memo rules they implement are listed here so the memo stays the durable record.
+
+1. **Phase 1 threshold semantics now match Phase 2.** The v2 numeric-consistency check treated every claim number as a point value, so a *true* "NO₂ exceeded 80 ppb" against a context reporting 120 ppb was rejected at Phase 1 while Phase 2's concentration scorer would have supported it — a phase disagreement that skews the delta in both directions. Phase 1 numeric matching is now threshold-aware: a quantity preceded by an over-cue ("exceeded", "above", …) is supported by any compatible context value at/above it, an under-cue ("below", …) by any at/below it, and bare quantities keep the ±25% point rule. The cue detection lives in `validate.py` and is shared with the Phase 2 concentration scorer so the phases cannot drift apart again.
+
+2. **Classifier routing protects the headline types.** "Ship channel" was an attribution cue, which routed this memo's own `transport_direction` example ("Southerly winds advected pollutants from the Ship Channel northward") into `point_source_attribution` — a qualitative-only type — and would have drained headline-type N in a city where "Ship Channel" appears constantly. Geographic references are no longer attribution cues; explicit coordinates rank early (the one shape the type-7 scorer can check); the looser attribution vocabulary ("plume") now ranks after `transport_direction`. The memo's ten example claims are a regression test (`test_memo_examples_route_to_their_taxonomy_rows`).
+
+3. **`concentration_elevation` implements all three claim shapes.** The memo's "±25% of measured value" rule for numeric point claims existed only in Phase 1, not in this scorer; point claims fell through to the qualitative branch. Now: threshold claims use ≥, point claims use ±25% (`value_pct`), and qualitative "elevated" is scored against a **pre-anomaly baseline** (mean of in-window points ending ≥ `baseline_gap_h`=3 h before the anomaly, ≥ `min_baseline_points`=3 points, else silent). The previous in-window mean contained the spike itself, so any restatement of the detection event was near-automatically corroborated by the same source that triggered detection.
+
+4. **Temporal windows are claim-relative.** `secondary_formation` compared O₃/NO₂ peaks across the whole 72 h window, where day-2 vs day-3 peaks say nothing about the claimed photochemistry; both legs now restrict to the anomaly's local calendar day. `temporal_pattern` similarly tested the whole window; rising claims now read the 12 h (`window_h`, draft) into the anomaly, falling claims the 12 h after it.
+
+5. **Threshold parsing hygiene.** Clock times and dates are blanked before threshold extraction (mirroring Phase 1's locator rule), the threshold number must sit at/after the cue word, and cue words are word-bounded — "exceeded typical values at 14:00" no longer yields threshold 14, and "stopped" no longer reads as "topped".
+
+6. **`emissions_source_type` defaults to pm25.** The May–June coverage audit found zero active NO₂/SO₂/CO ground sensors in OpenAQ's Houston 50 km radius, so the previous no2 default left every unnamed-pollutant claim silent.
+
+New draft tolerances introduced (for Bracco to challenge, like every other value in this memo): `value_pct` 0.25, `baseline_gap_h` 3 h, `min_baseline_points` 3, temporal `window_h` 12 h.

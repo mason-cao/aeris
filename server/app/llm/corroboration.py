@@ -19,9 +19,11 @@ import math
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from statistics import fmean, pstdev
+
+from app.llm.validate import strip_locators, threshold_cues
 
 # Per-source verdict on a single claim. A source either supports the claim,
 # contradicts it, or is silent (no data bearing on it within the window).
@@ -127,31 +129,63 @@ _SENTINEL_COLUMN: dict[str, str] = {
     "co": "s5p_co_column",
 }
 
-# Words that make a numeric claim a threshold ("exceeded 80") rather than a
-# point value ("was 80"). Threshold claims are met by measured >= claimed.
-_THRESHOLD_WORDS: tuple[str, ...] = (
-    "exceed",
-    "above",
-    "over ",
-    "surpass",
-    "topped",
-    "reached",
-    "greater than",
-    "more than",
-    ">",
-)
+# Threshold cue detection ("exceeded 80" vs "was 80") is shared with the
+# Phase 1 grounding check (validate.threshold_cues) so both phases read
+# threshold claims with the same >= semantics.
+
+
+def _blank_match(match: re.Match) -> str:
+    return " " * len(match.group())
 
 
 @dataclass(frozen=True)
 class ConcentrationTolerance:
     """Draft tolerances for concentration_elevation (pending Dr. Bracco)."""
 
+    # Numeric point claim ("was 80 ppb"): within this fraction of the
+    # measured nearest-in-time value (memo: ±25% of measured value).
+    value_pct: float = 0.25
     # Qualitative "elevated": the value nearest the anomaly must exceed the
-    # in-window baseline (mean) by at least this ratio.
+    # pre-anomaly baseline by at least this ratio.
     elevated_ratio: float = 1.0
+    # The baseline needs this many points, all ending this many hours before
+    # the anomaly. The spike must not sit inside its own baseline — against
+    # the in-window mean, any restatement of the detection event would be
+    # near-automatically corroborated by the source that triggered it.
+    min_baseline_points: int = 3
+    baseline_gap_h: float = 3.0
 
 
 DEFAULT_CONCENTRATION_TOLERANCE = ConcentrationTolerance()
+
+
+def _anomaly_ts(summary: Mapping) -> datetime | None:
+    """The anomaly timestamp from the enrichment summary, UTC-coerced."""
+    raw = (summary.get("anomaly") or {}).get("timestamp")
+    if not raw:
+        return None
+    try:
+        ts = datetime.fromisoformat(raw)
+    except (TypeError, ValueError):
+        return None
+    return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+
+
+def _pre_anomaly_baseline(
+    block: Mapping | None,
+    anomaly_ts: datetime | None,
+    *,
+    gap_h: float,
+    min_points: int,
+) -> float | None:
+    """Mean of in-window values ending ``gap_h`` before the anomaly, or None."""
+    if anomaly_ts is None:
+        return None
+    cutoff = anomaly_ts - timedelta(hours=gap_h)
+    values = [v for ts, v in _pooled_series(block) if ts <= cutoff]
+    if len(values) < min_points:
+        return None
+    return fmean(values)
 
 
 def _resolve_pollutant(claim_text: str) -> tuple[str | None, str | None]:
@@ -164,15 +198,37 @@ def _resolve_pollutant(claim_text: str) -> tuple[str | None, str | None]:
 
 
 def _threshold_value(claim_text: str) -> float | None:
-    """The numeric threshold in an 'exceeded N' style claim, else None."""
-    lowered = claim_text.lower()
-    if not any(word in lowered for word in _THRESHOLD_WORDS):
+    """The numeric threshold in an 'exceeded N' style claim, else None.
+
+    Clock times and dates are blanked first (the Phase 1 locator rule), and
+    pollutant tokens are blanked position-preserving, so "exceeded typical
+    values at 14:00" yields no threshold while "NO2 exceeded 80 ppb between
+    14:00-18:00" yields 80. The number must sit at/after the cue word —
+    numbers before it describe something else.
+    """
+    lowered = strip_locators(claim_text.lower())
+    over_cues = [offset for offset, kind in threshold_cues(lowered) if kind == "over"]
+    if not over_cues:
         return None
-    # Strip pollutant tokens first so digits inside names (NO2, PM2.5, O3) are
-    # not mistaken for the threshold value.
     cleaned = lowered
     for pattern, _metric in _POLLUTANT_PATTERNS:
-        cleaned = re.sub(pattern, " ", cleaned)
+        cleaned = re.sub(pattern, _blank_match, cleaned)
+    match = re.search(r"\d+(?:\.\d+)?", cleaned[over_cues[0]:])
+    return float(match.group()) if match else None
+
+
+def _point_value(claim_text: str) -> float | None:
+    """The numeric value in a 'was N' style point claim, else None.
+
+    Threshold-worded claims are handled by ``_threshold_value``; this covers
+    the memo's "within 25% of the measured value" shape.
+    """
+    lowered = strip_locators(claim_text.lower())
+    if threshold_cues(lowered):
+        return None
+    cleaned = lowered
+    for pattern, _metric in _POLLUTANT_PATTERNS:
+        cleaned = re.sub(pattern, _blank_match, cleaned)
     match = re.search(r"\d+(?:\.\d+)?", cleaned)
     return float(match.group()) if match else None
 
@@ -185,14 +241,20 @@ def score_concentration_elevation(
 ) -> tuple[dict[str, int], str]:
     """Score a 'pollutant was elevated' claim against OpenAQ + Sentinel-5P.
 
+    Three claim shapes (memo type 1):
+    - threshold ("exceeded 80"): the value nearest the anomaly meets the
+      threshold;
+    - point value ("was 80 ppb"): nearest value within ``value_pct``;
+    - qualitative ("elevated"): nearest value above the pre-anomaly baseline,
+      silent when too few pre-anomaly points exist to call one.
+
     v1 assumes the claim's unit matches the stored metric's unit (no
-    ppb<->ug/m^3 conversion). On that assumption a threshold claim is supported
-    when the value nearest the anomaly meets the threshold, and a qualitative
-    "elevated" is supported when the nearest value exceeds the in-window mean.
-    Returns ``(per_source_verdicts, evidence_summary)``.
+    ppb<->ug/m^3 conversion). Returns ``(per_source_verdicts, evidence_summary)``.
     """
     openaq_metric, sentinel_metric = _resolve_pollutant(claim_text)
     threshold = _threshold_value(claim_text)
+    point = _point_value(claim_text)
+    anomaly_ts = _anomaly_ts(summary)
     relevant = {"openaq": openaq_metric, "sentinel5p": sentinel_metric}
 
     sources = summary.get("sources", {})
@@ -214,11 +276,32 @@ def score_concentration_elevation(
             notes.append(
                 f"{source}: {metric} nearest={nearest} vs threshold={threshold}"
             )
+        elif point is not None:
+            within = abs(nearest - point) <= tolerance.value_pct * abs(nearest)
+            verdict = SUPPORTING if within else CONTRADICTING
+            notes.append(
+                f"{source}: {metric} nearest={nearest} vs claimed={point}"
+            )
         else:
-            mean = data.get("value_range", {}).get("mean", nearest)
-            baseline = mean * tolerance.elevated_ratio
-            verdict = SUPPORTING if nearest > baseline else CONTRADICTING
-            notes.append(f"{source}: {metric} nearest={nearest} vs baseline={mean}")
+            baseline = _pre_anomaly_baseline(
+                data,
+                anomaly_ts,
+                gap_h=tolerance.baseline_gap_h,
+                min_points=tolerance.min_baseline_points,
+            )
+            if baseline is None:
+                verdicts[source] = SILENT
+                notes.append(f"{source}: {metric} no pre-anomaly baseline")
+                continue
+            verdict = (
+                SUPPORTING
+                if nearest > baseline * tolerance.elevated_ratio
+                else CONTRADICTING
+            )
+            notes.append(
+                f"{source}: {metric} nearest={nearest} "
+                f"vs pre-anomaly baseline={round(baseline, 4)}"
+            )
         verdicts[source] = verdict
 
     if openaq_metric is None and sentinel_metric is None:
@@ -450,16 +533,20 @@ def _window_mean(block: Mapping | None) -> float | None:
 
 
 def _pooled_series(block: Mapping | None) -> list[tuple[datetime, float]]:
-    """All entities' (timestamp, value) pairs merged and time-sorted."""
+    """All entities' (timestamp, value) pairs merged, UTC-coerced, time-sorted."""
     if not block:
         return []
     pairs: list[tuple[datetime, float]] = []
     for entity in block.get("entities", []):
         for iso, value in entity.get("series", []):
             try:
-                pairs.append((datetime.fromisoformat(iso), float(value)))
+                ts = datetime.fromisoformat(iso)
+                v = float(value)
             except (TypeError, ValueError):
                 continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            pairs.append((ts, v))
     return sorted(pairs)
 
 
@@ -594,14 +681,54 @@ def _trend_intent(text: str) -> str | None:
     return None
 
 
+@dataclass(frozen=True)
+class TemporalTolerance:
+    """Draft windowing for temporal_pattern (pending Dr. Bracco).
+
+    Trend claims describe the hours around the event, not the full 72 h
+    context window — peaks on other days would otherwise vote on a claim
+    about this one. Rising claims are tested on the lookback ending at the
+    anomaly; falling claims on the hours after it.
+    """
+
+    window_h: float = 12.0
+
+
+DEFAULT_TEMPORAL_TOLERANCE = TemporalTolerance()
+
+
+def _claim_trend_window(
+    series: list[tuple[datetime, float]],
+    intent: str,
+    anomaly_ts: datetime | None,
+    window_h: float,
+) -> list[tuple[datetime, float]]:
+    """The slice of the series a trend claim is actually about.
+
+    Without an anomaly timestamp (synthetic summaries) the whole series is
+    used, matching the enrichment window.
+    """
+    if anomaly_ts is None:
+        return series
+    if intent == "up":
+        start, end = anomaly_ts - timedelta(hours=window_h), anomaly_ts
+    else:
+        start, end = anomaly_ts, anomaly_ts + timedelta(hours=window_h)
+    return [(ts, v) for ts, v in series if start <= ts <= end]
+
+
 def score_temporal_pattern(
     claim_text: str,
     summary: Mapping,
+    *,
+    tolerance: TemporalTolerance = DEFAULT_TEMPORAL_TOLERANCE,
 ) -> tuple[dict[str, int], str]:
     """Score a 'levels rose / fell' claim by trend direction, no fixed tolerance.
 
-    Trend = second-half mean vs first-half mean of the pooled in-window series
-    (memo: "just whether the trend actually moved that way").
+    Trend = second-half mean vs first-half mean of the pooled series inside
+    the claim's window (memo: "just whether the trend actually moved that
+    way") — rising claims read the hours leading into the anomaly, falling
+    claims the hours after it.
     """
     text = claim_text.lower()
     openaq_metric, sentinel_metric = _resolve_pollutant(text)
@@ -609,12 +736,18 @@ def score_temporal_pattern(
     if openaq_metric is None or intent is None:
         return {}, "no recognized pollutant + trend direction in claim"
 
+    anomaly_ts = _anomaly_ts(summary)
     verdicts: dict[str, int] = {}
     notes: list[str] = []
     for source, metric in (("openaq", openaq_metric), ("sentinel5p", sentinel_metric)):
         if metric is None:
             continue
-        series = _pooled_series(_metric_block(summary, source, metric))
+        series = _claim_trend_window(
+            _pooled_series(_metric_block(summary, source, metric)),
+            intent,
+            anomaly_ts,
+            tolerance.window_h,
+        )
         if len(series) < _MIN_TREND_POINTS:
             verdicts[source] = SILENT
             notes.append(f"{source}: {len(series)} points < {_MIN_TREND_POINTS}")
@@ -853,8 +986,11 @@ def score_emissions_source_type(
     if intent is None:
         return {}, "no source-type intent recognized in claim"
 
+    # Default to pm25, not no2: the May–June 2026 coverage audit found zero
+    # active NO2/SO2/CO ground sensors in OpenAQ's Houston 50 km radius, so a
+    # no2 default would leave every unnamed-pollutant claim silent.
     metric, _sentinel = _resolve_pollutant(text)
-    metric = metric or "no2"
+    metric = metric or "pm25"
     block = _metric_block(summary, "openaq", metric)
 
     if intent == "mobile":
@@ -913,6 +1049,22 @@ class SecondaryTolerance:
 DEFAULT_SECONDARY_TOLERANCE = SecondaryTolerance()
 
 
+def _local_day_slice(
+    series: list[tuple[datetime, float]],
+    anomaly_ts: datetime | None,
+) -> list[tuple[datetime, float]]:
+    """Points falling on the anomaly's local (CDT) calendar day.
+
+    Without an anomaly timestamp (synthetic summaries) the whole series is
+    returned. Fixed offset matches the summer-only eval window (v1).
+    """
+    if anomaly_ts is None:
+        return series
+    offset = timedelta(hours=_LOCAL_UTC_OFFSET_H)
+    day = (anomaly_ts + offset).date()
+    return [(ts, v) for ts, v in series if (ts + offset).date() == day]
+
+
 def score_secondary_formation(
     claim_text: str,
     summary: Mapping,
@@ -920,9 +1072,19 @@ def score_secondary_formation(
     tolerance: SecondaryTolerance = DEFAULT_SECONDARY_TOLERANCE,
 ) -> tuple[dict[str, int], str]:
     """Score a photochemical-formation claim: O3 peak lags NO2 peak by >= 2 h
-    (OpenAQ) on a day with sufficient insolation (OpenWeather cloud cover)."""
-    ozone = _pooled_series(_metric_block(summary, "openaq", "ozone"))
-    no2 = _pooled_series(_metric_block(summary, "openaq", "no2"))
+    (OpenAQ) on a day with sufficient insolation (OpenWeather cloud cover).
+
+    Both legs are restricted to the anomaly's local calendar day — the 72 h
+    window spans three days, and an O3 peak on day 2 vs an NO2 peak on day 3
+    says nothing about this day's photochemistry.
+    """
+    anomaly_ts = _anomaly_ts(summary)
+    ozone = _local_day_slice(
+        _pooled_series(_metric_block(summary, "openaq", "ozone")), anomaly_ts
+    )
+    no2 = _local_day_slice(
+        _pooled_series(_metric_block(summary, "openaq", "no2")), anomaly_ts
+    )
 
     verdicts: dict[str, int] = {}
     notes: list[str] = []
@@ -934,12 +1096,19 @@ def score_secondary_formation(
         verdicts["openaq"] = (
             SUPPORTING if lag_h >= tolerance.min_lag_h else CONTRADICTING
         )
-        notes.append(f"openaq: o3 peak lags no2 by {lag_h:.1f} h")
+        notes.append(f"openaq: o3 peak lags no2 by {lag_h:.1f} h (anomaly day)")
     else:
         verdicts["openaq"] = SILENT
-        notes.append("openaq: insufficient o3/no2 series")
+        notes.append("openaq: insufficient o3/no2 series on anomaly day")
 
-    cloud_mean = _window_mean(_metric_block(summary, "openweather", "cloud_cover"))
+    cloud_block = _metric_block(summary, "openweather", "cloud_cover")
+    cloud_day = _local_day_slice(_pooled_series(cloud_block), anomaly_ts)
+    if cloud_day:
+        cloud_mean = fmean([v for _, v in cloud_day])
+    else:
+        # Summaries without per-entity series fall back to the window mean —
+        # a coarser insolation proxy, but better than refusing a verdict.
+        cloud_mean = _window_mean(cloud_block)
     if cloud_mean is None:
         verdicts["openweather"] = SILENT
         notes.append("openweather: no cloud cover in window")
@@ -1083,8 +1252,12 @@ PARTIALLY_VERIFIABLE_TYPES = frozenset(
 
 # Classifier-only keyword groups. Routing cues, not verdict logic — the
 # scorers re-derive what they need from the claim text themselves.
+# "Ship Channel" is deliberately not an attribution cue: it is a geographic
+# reference that appears in transport and source-type claims constantly in
+# Houston, and routing on it drained the headline transport_direction type
+# into a qualitative-only one.
 _TRAP_WORDS = _PBL_WORDS + ("inversion", "trapped", "trapping", "capping", "mixing height")
-_ATTRIBUTION_WORDS = ("plume", "ship channel", "smokestack", "stack emissions")
+_ATTRIBUTION_WORDS = ("plume", "smokestack", "stack emissions")
 _SECONDARY_WORDS = ("secondary", "photochem", "precursor", "ozone formation", "ozone production")
 # Word-boundary matched so "ratio" doesn't fire inside "concentrations".
 _CHEM_RE = re.compile(
@@ -1095,11 +1268,17 @@ _HEAT_RE = re.compile(r"\bhot\b|\bheat\b|\bhumid")
 
 
 def classify_claim(claim_text: str) -> list[ClaimType]:
-    """Rule-based routing of a claim into taxonomy types, most specific first.
+    """Rule-based routing of a claim into taxonomy types, most verifiable first.
 
     A claim can match several types ("PM2.5 was elevated across all stations"
     is both background_vs_event and concentration_elevation); the first entry
     is the primary type the dispatcher scores. No match -> [UNCLASSIFIED].
+
+    Ordering: explicit coordinates are the strongest point-source signal and
+    the one shape that scorer can actually check, so they rank early; the
+    looser attribution vocabulary ("plume") ranks after transport, because
+    "southerly winds advected the plume northward" is a transport claim
+    (headline type) that merely mentions a plume.
     """
     text = claim_text.lower()
     openaq_metric, sentinel_metric = _resolve_pollutant(text)
@@ -1107,11 +1286,7 @@ def classify_claim(claim_text: str) -> list[ClaimType]:
 
     checks: tuple[tuple[ClaimType, bool], ...] = (
         (ClaimType.ATMOSPHERIC_TRAP, any(w in text for w in _TRAP_WORDS)),
-        (
-            ClaimType.POINT_SOURCE_ATTRIBUTION,
-            _claimed_coordinates(text) is not None
-            or any(w in text for w in _ATTRIBUTION_WORDS),
-        ),
+        (ClaimType.POINT_SOURCE_ATTRIBUTION, _claimed_coordinates(text) is not None),
         (
             ClaimType.EMISSIONS_SOURCE_TYPE,
             _earliest_keyword(text, _SOURCE_TYPE_KEYWORDS) is not None,
@@ -1127,6 +1302,10 @@ def classify_claim(claim_text: str) -> list[ClaimType]:
             _earliest_keyword(text, _BACKGROUND_KEYWORDS) is not None,
         ),
         (ClaimType.TRANSPORT_DIRECTION, _claimed_from_bearing(text) is not None),
+        (
+            ClaimType.POINT_SOURCE_ATTRIBUTION,
+            any(w in text for w in _ATTRIBUTION_WORDS),
+        ),
         (ClaimType.TEMPORAL_PATTERN, _trend_intent(text) is not None),
         (
             ClaimType.METEOROLOGICAL_STATE,
@@ -1143,7 +1322,10 @@ def classify_claim(claim_text: str) -> list[ClaimType]:
             ),
         ),
     )
-    matches = [claim_type for claim_type, hit in checks if hit]
+    matches: list[ClaimType] = []
+    for claim_type, hit in checks:
+        if hit and claim_type not in matches:
+            matches.append(claim_type)
     return matches or [ClaimType.UNCLASSIFIED]
 
 

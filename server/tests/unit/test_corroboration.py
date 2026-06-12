@@ -160,35 +160,158 @@ def test_concentration_unmatched_pollutant_is_silent():
     assert verdicts.get("openaq", SILENT) == SILENT
 
 
-def test_concentration_qualitative_elevated_uses_window_baseline():
+def _with_anomaly(summary: dict, timestamp: str) -> dict:
+    return {**summary, "anomaly": {"timestamp": timestamp}}
+
+
+def _hourly_series(start_hour: int, values: list[float]) -> list[list]:
+    return [
+        [f"2026-06-05T{start_hour + i:02d}:00:00+00:00", v]
+        for i, v in enumerate(values)
+    ]
+
+
+def test_concentration_qualitative_elevated_uses_pre_anomaly_baseline():
+    # Steady ~12 before the event, 52 at the anomaly. The baseline must come
+    # from points ending before the anomaly — the in-window mean would carry
+    # the spike itself and corroborate any restatement of the detection.
+    summary = _with_anomaly(
+        _summary_with(
+            {
+                "openaq": {
+                    "pm25": {
+                        "unit": "ug/m3",
+                        "value_range": {"min": 10.0, "max": 55.0, "mean": 20.0},
+                        "nearest_in_time": {"v": 52.0},
+                        "entities": [
+                            {
+                                "entity_id": "s1",
+                                "series": _hourly_series(
+                                    0, [12.0, 11.0, 13.0, 12.0, 12.0, 52.0]
+                                ),
+                            }
+                        ],
+                    }
+                }
+            }
+        ),
+        "2026-06-05T05:00:00+00:00",
+    )
+    verdicts, note = score_concentration_elevation(
+        "PM2.5 was elevated across the area.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+    assert "pre-anomaly baseline" in note
+
+
+def test_concentration_qualitative_without_baseline_is_silent():
+    # Two pre-anomaly points are not a baseline; no verdict either way.
+    summary = _with_anomaly(
+        _summary_with(
+            {
+                "openaq": {
+                    "pm25": {
+                        "unit": "ug/m3",
+                        "value_range": {"min": 10.0, "max": 55.0, "mean": 20.0},
+                        "nearest_in_time": {"v": 52.0},
+                        "entities": [
+                            {
+                                "entity_id": "s1",
+                                "series": _hourly_series(3, [12.0, 13.0, 52.0]),
+                            }
+                        ],
+                    }
+                }
+            }
+        ),
+        "2026-06-05T05:00:00+00:00",
+    )
+    verdicts, _ = score_concentration_elevation(
+        "PM2.5 was elevated across the area.", summary
+    )
+    assert verdicts["openaq"] == SILENT
+
+
+def test_concentration_point_value_within_tolerance_supports():
     summary = _summary_with(
         {
             "openaq": {
-                "pm25": {
-                    "unit": "ug/m3",
-                    "value_range": {"min": 10.0, "max": 55.0, "mean": 20.0},
-                    "nearest_in_time": {"v": 52.0},
+                "no2": {
+                    "unit": "ppb",
+                    "value_range": {"min": 60.0, "max": 90.0, "mean": 72.0},
+                    "nearest_in_time": {"v": 82.0},
                 }
             }
         }
     )
     verdicts, _ = score_concentration_elevation(
-        "PM2.5 was elevated across the area.", summary
+        "NO2 was around 75 ppb at the nearest monitor.", summary
     )
     assert verdicts["openaq"] == SUPPORTING
 
 
-def test_concentration_sentinel_column_supports_no2_claim():
+def test_concentration_point_value_far_off_contradicts():
     summary = _summary_with(
         {
-            "sentinel5p": {
-                "s5p_no2_column": {
-                    "unit": "mol/m^2",
-                    "value_range": {"min": 4.0e-5, "max": 9.0e-5, "mean": 6.0e-5},
-                    "nearest_in_time": {"v": 8.5e-5},
+            "openaq": {
+                "no2": {
+                    "unit": "ppb",
+                    "value_range": {"min": 25.0, "max": 35.0, "mean": 30.0},
+                    "nearest_in_time": {"v": 30.0},
                 }
             }
         }
+    )
+    verdicts, _ = score_concentration_elevation(
+        "NO2 was around 80 ppb at the nearest monitor.", summary
+    )
+    assert verdicts["openaq"] == CONTRADICTING
+
+
+def test_concentration_threshold_ignores_clock_times():
+    # "exceeded typical levels at 14:00" carries no threshold number; 14 from
+    # the clock time must not become one. With no quantity and no baseline
+    # series the verdict stays silent.
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": {
+                    "unit": "ppb",
+                    "value_range": {"min": 8.0, "max": 15.0, "mean": 11.0},
+                    "nearest_in_time": {"v": 12.0},
+                }
+            }
+        }
+    )
+    verdicts, note = score_concentration_elevation(
+        "NO2 exceeded typical levels at 14:00.", summary
+    )
+    assert verdicts["openaq"] == SILENT
+    assert "no pre-anomaly baseline" in note
+
+
+def test_concentration_sentinel_column_supports_no2_claim():
+    summary = _with_anomaly(
+        _summary_with(
+            {
+                "sentinel5p": {
+                    "s5p_no2_column": {
+                        "unit": "mol/m^2",
+                        "value_range": {"min": 4.0e-5, "max": 9.0e-5, "mean": 6.0e-5},
+                        "nearest_in_time": {"v": 8.5e-5},
+                        "entities": [
+                            {
+                                "entity_id": "granules",
+                                "series": _hourly_series(
+                                    0, [4.0e-5, 4.5e-5, 5.0e-5, 4.2e-5, 8.5e-5]
+                                ),
+                            }
+                        ],
+                    }
+                }
+            }
+        ),
+        "2026-06-05T06:00:00+00:00",
     )
     verdicts, _ = score_concentration_elevation(
         "Tropospheric NO2 was elevated.", summary
@@ -453,6 +576,24 @@ def test_temporal_too_few_points_is_silent():
     assert verdicts["openaq"] == SILENT
 
 
+def test_temporal_rising_claim_reads_the_hours_into_the_anomaly():
+    # Rising into a 12:00 anomaly, falling after. Pooled over the whole
+    # window the trend reads "down"; the claim is about the build-up.
+    rise_then_fall = _entity(
+        "s1", _series(6, [5, 10, 15, 20, 25, 30, 28, 24, 20, 16, 12, 8, 4, 2])
+    )
+    summary = {
+        **_summary_with(
+            {"openaq": {"pm25": _metric_from_entities([rise_then_fall])}}
+        ),
+        "anomaly": {"timestamp": "2026-06-05T12:00:00+00:00"},
+    }
+    verdicts, _ = score_temporal_pattern(
+        "PM2.5 climbed steadily through the morning.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+
+
 def test_temporal_without_direction_or_pollutant_returns_no_verdicts():
     verdicts, note = score_temporal_pattern(
         "The situation evolved overnight.", _summary_with({})
@@ -688,6 +829,34 @@ def test_secondary_formation_overcast_contradicts_insolation():
     )
     assert verdicts["openweather"] == CONTRADICTING
     assert verdicts["openaq"] == SILENT
+
+
+def test_secondary_formation_only_reads_the_anomaly_day():
+    # Day-2 (June 4) series would invert the lag if pooled into the test; the
+    # anomaly is on June 5, so only that day's peaks count. With June 4's o3
+    # peak included, the global o3 peak would precede the no2 peak.
+    day2_o3 = [
+        [f"2026-06-04T{h:02d}:00:00+00:00", v]
+        for h, v in [(14, 90.0), (15, 95.0), (16, 88.0)]
+    ]
+    no2 = _entity("n", _series(10, [40, 55, 30, 20, 15, 12]))  # peak 11:00 Jun 5
+    o3 = _entity("o", day2_o3 + _series(10, [20, 25, 30, 45, 60, 72]))
+    summary = {
+        **_summary_with(
+            {
+                "openaq": {
+                    "no2": _metric_from_entities([no2]),
+                    "ozone": _metric_from_entities([o3]),
+                }
+            }
+        ),
+        "anomaly": {"timestamp": "2026-06-05T15:00:00+00:00"},
+    }
+    verdicts, note = score_secondary_formation(
+        "The afternoon ozone formed from the morning NO2 emissions.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+    assert "anomaly day" in note
 
 
 # --- background_vs_event (type 10) ---

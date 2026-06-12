@@ -4,7 +4,7 @@ import pytest
 from pydantic import BaseModel
 
 from app.llm.client_base import LLMClient, RawCompletion
-from app.llm.prompt import STEP_SEQUENCE, ReasoningStep
+from app.llm.prompt import STEP_SEQUENCE
 from app.llm.reasoning_chain import ReasoningChainResult, run_reasoning_chain
 
 

@@ -3,7 +3,14 @@ from typing import Any
 import pytest
 
 from app.collectors.base import BaseCollector, CollectionResult, DataPointCreate
-from app.collectors.run_all import exit_code, format_result, run_collectors
+from app.collectors.run_all import (
+    exit_code,
+    format_result,
+    missing_credentials,
+    run_collectors,
+    warn_missing_credentials,
+)
+from app.config import settings
 
 
 class RunnerCollector(BaseCollector):
@@ -130,3 +137,46 @@ class TestRunAllFormatting:
                 CollectionResult(source="two", success=False),
             ]
         ) == 1
+
+
+class TestMissingCredentials:
+    def test_reports_unset_fields_per_source(self, monkeypatch) -> None:
+        monkeypatch.setattr(settings, "openaq_api_key", "")
+        monkeypatch.setattr(settings, "openweather_api_key", "k")
+        monkeypatch.setattr(settings, "cdse_username", "alice")
+        monkeypatch.setattr(settings, "cdse_password", "")
+
+        missing = missing_credentials(
+            ["noaa_gfs", "openaq", "openweather", "sentinel5p"]
+        )
+
+        assert missing == {
+            "openaq": ["openaq_api_key"],
+            "sentinel5p": ["cdse_password"],
+        }
+
+    def test_empty_when_everything_is_set(self, monkeypatch) -> None:
+        monkeypatch.setattr(settings, "openaq_api_key", "k")
+        monkeypatch.setattr(settings, "openweather_api_key", "k")
+        monkeypatch.setattr(settings, "cdse_username", "alice")
+        monkeypatch.setattr(settings, "cdse_password", "secret")
+
+        assert missing_credentials(
+            ["noaa_gfs", "openaq", "openweather", "sentinel5p"]
+        ) == {}
+
+    def test_warn_prints_loudly_for_degraded_sources(
+        self, monkeypatch, capsys
+    ) -> None:
+        monkeypatch.setattr(settings, "cdse_username", "")
+        monkeypatch.setattr(settings, "cdse_password", "")
+
+        class _S5P(RunnerCollector):
+            source_name = "sentinel5p"
+
+        warn_missing_credentials([_S5P()])
+
+        out = capsys.readouterr().out
+        assert "WARNING" in out
+        assert "sentinel5p" in out
+        assert "cdse_username" in out and "cdse_password" in out

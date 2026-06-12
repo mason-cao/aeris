@@ -14,7 +14,7 @@ import argparse
 import asyncio
 import uuid
 from collections.abc import Mapping
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from statistics import fmean
 
 from sqlalchemy import select

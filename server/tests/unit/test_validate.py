@@ -71,7 +71,7 @@ class TestNumericGrounding:
         assert result.verdict == GROUNDED
         assert result.evidence_ref is not None
         assert result.evidence_ref["matched_numbers"] == [
-            {"claim": 78.0, "context": 80.0, "unit": "ppb"}
+            {"claim": 78.0, "context": 80.0, "unit": "ppb", "relation": "over"}
         ]
 
     def test_unit_mismatch_is_unverified(self) -> None:
@@ -93,6 +93,62 @@ class TestNumericGrounding:
         )
 
         assert result.verdict == GROUNDED
+
+
+class TestThresholdGrounding:
+    """Threshold-worded quantities match directionally, not by point tolerance.
+
+    "exceeded 80" is a true statement about a context reporting 120; treating
+    it as a point value would reject the claim Phase 2's concentration scorer
+    accepts, skewing the Phase 1 -> Phase 2 delta.
+    """
+
+    def test_true_over_threshold_claim_is_grounded(self) -> None:
+        result = check_grounding(
+            "no2 exceeded 80 ppb at the downtown monitor",
+            "openaq no2 downtown monitor: nearest to anomaly 120 ppb",
+        )
+
+        assert result.verdict == GROUNDED
+        assert result.evidence_ref is not None
+        assert result.evidence_ref["matched_numbers"] == [
+            {"claim": 80.0, "context": 120.0, "unit": "ppb", "relation": "over"}
+        ]
+
+    def test_false_over_threshold_claim_is_unverified(self) -> None:
+        # Measured 30 neither reaches 80 nor sits within point tolerance.
+        result = check_grounding(
+            "no2 exceeded 80 ppb at the downtown monitor",
+            "openaq no2 downtown monitor: nearest to anomaly 30 ppb",
+        )
+
+        assert result.verdict == UNVERIFIED
+
+    def test_true_under_threshold_claim_is_grounded(self) -> None:
+        result = check_grounding(
+            "wind speeds stayed below 5 m/s at the downtown monitor",
+            "openweather wind downtown monitor: nearest to anomaly 1.5 m/s",
+        )
+
+        assert result.verdict == GROUNDED
+
+    def test_false_under_threshold_claim_is_unverified(self) -> None:
+        result = check_grounding(
+            "wind speeds stayed below 5 m/s at the downtown monitor",
+            "openweather wind downtown monitor: nearest to anomaly 9 m/s",
+        )
+
+        assert result.verdict == UNVERIFIED
+
+    def test_quantity_before_threshold_word_keeps_point_semantics(self) -> None:
+        # The 3 m/s wind value precedes "exceeded", so it must still match a
+        # context measurement; the 80 after it gets threshold semantics.
+        result = check_grounding(
+            "winds of 3 m/s while no2 exceeded 80 ppb downtown",
+            "openweather downtown winds 12 m/s; openaq no2 downtown 120 ppb",
+        )
+
+        assert result.verdict == UNVERIFIED
 
 
 class TestGroundClaimDrafts:

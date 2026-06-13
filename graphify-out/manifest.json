@@ -60,9 +60,9 @@
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
   "server/app/collectors/backfill.py": {
-    "mtime": 1781284607.804623,
-    "ast_hash": "3a69c0c3cd23e6b567e40bbec9c5c5b8",
-    "semantic_hash": "3a69c0c3cd23e6b567e40bbec9c5c5b8"
+    "mtime": 1781388065.6042845,
+    "ast_hash": "5639f47c3b8084fdf7a653f6260dee35",
+    "semantic_hash": ""
   },
   "server/app/collectors/base.py": {
     "mtime": 1777606120.715517,
@@ -80,9 +80,9 @@
     "semantic_hash": "366e9eee152c2f0a105222c414fc2543"
   },
   "server/app/collectors/noaa_gfs.py": {
-    "mtime": 1779485504.58435,
-    "ast_hash": "8dbf0b383099babf61b1d2ff3e244dcb",
-    "semantic_hash": "8dbf0b383099babf61b1d2ff3e244dcb"
+    "mtime": 1781388061.3391552,
+    "ast_hash": "b95cd48397f94e587fe75ecd22cf6353",
+    "semantic_hash": ""
   },
   "server/app/collectors/openaq.py": {
     "mtime": 1781102887.9785776,
@@ -110,9 +110,9 @@
     "semantic_hash": "757528baecfe4efb44464feb99d2ef6d"
   },
   "server/app/collectors/sentinel5p.py": {
-    "mtime": 1781284598.511378,
-    "ast_hash": "cfb87486263310d365fe1335a6efde07",
-    "semantic_hash": "cfb87486263310d365fe1335a6efde07"
+    "mtime": 1781388057.3244243,
+    "ast_hash": "757be082b823c88004168c16fe67b2fd",
+    "semantic_hash": ""
   },
   "server/app/config.py": {
     "mtime": 1778708878.9629025,
@@ -345,9 +345,9 @@
     "semantic_hash": "5283e8e252aa645cf96ec51c37eb7f35"
   },
   "server/tests/unit/test_backfill.py": {
-    "mtime": 1781240102.4997575,
-    "ast_hash": "d90acd012dd622213beccabc77c9fa30",
-    "semantic_hash": "d90acd012dd622213beccabc77c9fa30"
+    "mtime": 1781388020.8337405,
+    "ast_hash": "c92270421b84258bcb3e6797118a4e64",
+    "semantic_hash": ""
   },
   "server/tests/unit/test_base_collector.py": {
     "mtime": 1778706221.0730898,
@@ -430,9 +430,9 @@
     "semantic_hash": "20cd41c8c1c9a32129c51e8f1b6fda04"
   },
   "server/tests/unit/test_noaa_gfs.py": {
-    "mtime": 1779379983.5791855,
-    "ast_hash": "16bfc2f402923a84a540c4c0cd3b7c6e",
-    "semantic_hash": "16bfc2f402923a84a540c4c0cd3b7c6e"
+    "mtime": 1781387953.9023826,
+    "ast_hash": "0346492129216fc1c5de0adf0a9795a6",
+    "semantic_hash": ""
   },
   "server/tests/unit/test_ollama_client.py": {
     "mtime": 1781237013.4124596,
@@ -490,9 +490,9 @@
     "semantic_hash": "aa2be1811dd1a164f736042d0fa8b8aa"
   },
   "server/tests/unit/test_sentinel5p.py": {
-    "mtime": 1781284657.9671018,
-    "ast_hash": "6d0a235b9ede3c9d9393b21754458263",
-    "semantic_hash": "6d0a235b9ede3c9d9393b21754458263"
+    "mtime": 1781387942.5495694,
+    "ast_hash": "9f3807819ce7ef42dcc0bd6be53a76ee",
+    "semantic_hash": ""
   },
   "server/tests/unit/test_validate.py": {
     "mtime": 1781221334.037328,
@@ -605,8 +605,8 @@
     "semantic_hash": "8ebcf00d2ed0c069aa3e6be19b8ca30b"
   },
   "docs/specs/2026-06-13-hollistic-repair.md": {
-    "mtime": 1781383588.17941,
-    "ast_hash": "4760f12ef867e6b7191fae6bde1e01b4",
-    "semantic_hash": "4760f12ef867e6b7191fae6bde1e01b4"
+    "mtime": 1781386370.9189184,
+    "ast_hash": "d62d6d480b73c63ded12d82d50d7faa4",
+    "semantic_hash": ""
   }
 }

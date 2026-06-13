@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from app.collectors.noaa_gfs import (
@@ -239,6 +240,26 @@ class TestFetchCycleGrib:
 
         called_url = client.get.await_args.args[0]
         assert "filter_gfs_0p25.pl" in called_url
+
+    async def test_follows_redirect_to_grib(self) -> None:
+        # NOMADS can 30x the filter endpoint; without per-request redirect
+        # following the cycle is silently dropped as a non-200 response.
+        def handler(request: httpx.Request) -> httpx.Response:
+            url = str(request.url)
+            if "moved=1" not in url:
+                return httpx.Response(307, headers={"location": url + "&moved=1"})
+            return httpx.Response(200, content=b"GRIB\x00\x01payload")
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = NOAAGFSCollector(http_client=client)
+        try:
+            data = await collector._fetch_cycle_grib(
+                datetime(2026, 5, 17, 12, 0, tzinfo=timezone.utc)
+            )
+        finally:
+            await client.aclose()
+
+        assert data == b"GRIB\x00\x01payload"
 
 
 class TestLoadCycle:

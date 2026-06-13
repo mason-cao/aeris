@@ -643,12 +643,14 @@ class Sentinel5PBackfill(BackfillStrategy):
 
         client = await self.collector._get_client()
         params = {
-            "$filter": odata_filter(window_end),
+            "$filter": odata_filter(window_end, self.window_hours),
             "$top": str(RESULT_LIMIT),
             "$orderby": "ContentDate/Start desc",
             "$expand": "Attributes",
         }
-        response = await client.get(API_BASE, params=params, timeout=60.0)
+        response = await client.get(
+            API_BASE, params=params, timeout=60.0, follow_redirects=True
+        )
         response.raise_for_status()
         return {"value": response.json().get("value", []) or []}
 

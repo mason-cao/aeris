@@ -114,14 +114,22 @@ def area_polygon() -> str:
     )
 
 
-def odata_filter(now: datetime | None = None) -> str:
-    end = now or datetime.now(tz=timezone.utc)
-    start = end - timedelta(hours=LOOKBACK_HOURS)
+def odata_filter(
+    window_end: datetime | None = None,
+    window_hours: int = LOOKBACK_HOURS,
+) -> str:
+    end = window_end or datetime.now(tz=timezone.utc)
+    start = end - timedelta(hours=window_hours)
     iso_start = start.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    iso_end = end.strftime("%Y-%m-%dT%H:%M:%S.000Z")
     polygon = area_polygon()
+    # Bound on BOTH ends: with $orderby ContentDate/Start desc + $top, an
+    # open-ended window always returns the newest granules, so a backward
+    # backfill would never reach history older than the result limit.
     return (
         f"Collection/Name eq '{COLLECTION_NAME}' "
         f"and ContentDate/Start gt {iso_start} "
+        f"and ContentDate/Start le {iso_end} "
         f"and OData.CSC.Intersects(area=geography'SRID=4326;{polygon}')"
     )
 
@@ -170,6 +178,7 @@ async def fetch_access_token(
             "password": password,
         },
         timeout=TOKEN_REQUEST_TIMEOUT_S,
+        follow_redirects=True,
     )
     response.raise_for_status()
     payload = response.json()
@@ -328,7 +337,9 @@ class Sentinel5PCollector(BaseCollector):
             "$orderby": "ContentDate/Start desc",
             "$expand": "Attributes",
         }
-        response = await client.get(API_BASE, params=params)
+        response = await client.get(
+            API_BASE, params=params, follow_redirects=True
+        )
         response.raise_for_status()
         return response.json()
 
@@ -427,9 +438,21 @@ class Sentinel5PCollector(BaseCollector):
                         )
                         continue
                     response.raise_for_status()
+                    written = 0
                     async for chunk in response.aiter_bytes():
                         if chunk:
                             out.write(chunk)
+                            written += len(chunk)
+                    expected = response.headers.get("content-length")
+                    if (
+                        expected is not None
+                        and "content-encoding" not in response.headers
+                        and written != int(expected)
+                    ):
+                        raise RuntimeError(
+                            f"S5P granule download truncated: wrote {written} "
+                            f"of {expected} bytes for {product_id}"
+                        )
                     return
         raise RuntimeError(
             f"S5P granule download exceeded {DOWNLOAD_MAX_REDIRECTS} redirects"

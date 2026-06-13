@@ -201,6 +201,7 @@ class NOAAGFSCollector(BaseCollector):
             FILTER_BASE,
             params=filter_params(cycle),
             timeout=FETCH_TIMEOUT_S,
+            follow_redirects=True,
         )
         if response.status_code != 200:
             logger.warning(

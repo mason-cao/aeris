@@ -427,6 +427,22 @@ def _s5p_collector() -> Sentinel5PCollector:
     return Sentinel5PCollector(http_client=client)
 
 
+def _recording_s5p_collector() -> tuple[Sentinel5PCollector, list[str]]:
+    """Catalog-only collector that records each window's ``$filter`` string."""
+    captured: list[str] = []
+    response = MagicMock()
+    response.raise_for_status = MagicMock(return_value=None)
+    response.json = MagicMock(return_value={"value": []})
+
+    async def fake_get(url, params=None, **kwargs):
+        captured.append(params["$filter"])
+        return response
+
+    client = MagicMock()
+    client.get = fake_get
+    return Sentinel5PCollector(http_client=client), captured
+
+
 class TestSentinel5PBackfill:
     @pytest.mark.asyncio
     async def test_catalog_only_without_credentials(
@@ -538,6 +554,65 @@ class TestSentinel5PBackfill:
         so2_columns = [row for row in rows if row.metric == "s5p_so2_column"]
         assert len(so2_columns) == 1
         assert so2_columns[0].value == pytest.approx(0.0005)
+
+    @pytest.mark.asyncio
+    async def test_backfill_windows_are_distinct_and_bounded(
+        self, db_session, monkeypatch
+    ) -> None:
+        # The backward walk must query a distinct, both-sides-bounded window
+        # per step. window_hours=24 (non-default) also pins that _fetch_window
+        # threads self.window_hours rather than hardcoding the 48h lookback.
+        monkeypatch.setattr(settings, "cdse_username", "")
+        monkeypatch.setattr(settings, "cdse_password", "")
+        until = datetime(2026, 5, 10, 12, tzinfo=timezone.utc)
+        since = until - timedelta(hours=72)  # three contiguous 24h windows
+        collector, captured = _recording_s5p_collector()
+
+        result = await Sentinel5PBackfill(
+            collector=collector, window_hours=24
+        ).backfill(db_session, since=since, until=until)
+
+        assert result.error is None
+        assert len(captured) == 3
+        # Upper bounds step strictly backward; each lower bound tiles to the
+        # previous upper bound — no gaps, no re-fetching the newest granules.
+        assert "ContentDate/Start gt 2026-05-09T12:00:00.000Z" in captured[0]
+        assert "ContentDate/Start le 2026-05-10T12:00:00.000Z" in captured[0]
+        assert "ContentDate/Start gt 2026-05-08T12:00:00.000Z" in captured[1]
+        assert "ContentDate/Start le 2026-05-09T12:00:00.000Z" in captured[1]
+        assert "ContentDate/Start gt 2026-05-07T12:00:00.000Z" in captured[2]
+        assert "ContentDate/Start le 2026-05-08T12:00:00.000Z" in captured[2]
+
+    @pytest.mark.asyncio
+    async def test_backfill_catalog_window_follows_redirect(
+        self, db_session, monkeypatch
+    ) -> None:
+        # The backfill catalog GET hits the same CDSE endpoint as the live
+        # collector and must follow a 30x or the whole window is lost.
+        monkeypatch.setattr(settings, "cdse_username", "")
+        monkeypatch.setattr(settings, "cdse_password", "")
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            url = str(request.url)
+            if "moved=1" not in url:
+                return httpx.Response(
+                    301, json={"value": []}, headers={"location": url + "&moved=1"}
+                )
+            return httpx.Response(200, json={"value": _s5p_catalog_records()})
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = Sentinel5PCollector(http_client=client)
+        until = datetime(2026, 5, 10, 12, tzinfo=timezone.utc)
+        since = until - timedelta(hours=1)
+        try:
+            result = await Sentinel5PBackfill(collector=collector).backfill(
+                db_session, since=since, until=until
+            )
+        finally:
+            await client.aclose()
+
+        assert result.error is None
+        assert result.records == 4
 
 
 class TestRunBackfillDispatcher:

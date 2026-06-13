@@ -248,3 +248,56 @@ The configured eval store (`postgresql://…@localhost:5432/aeris`) holds **only
 **Verification per tier:** the P0/P0-tests cases; `pytest server/tests/unit/llm server/tests/unit/detection server/tests/unit/test_eval_*` after P0 (with the isolation fix in place); an `alembic upgrade head` + hex-`e` UUID round-trip test for P1.5/P1.6; a SQLite `--since` boundary test for the tz fix; for P1 data fixes a live `python -m app.collectors.backfill --source=sentinel5p --since <date>` asserting distinct bounded windows and non-zero column inserts. Re-run `graphify update .` after edits.
 
 **Confirm `[unconfirmed]` P1 items against current source before implementing** (their pass-1 verifiers were the ones that hit the spend limit; pass-2 re-verified all _except_ these data-pipeline ones were already re-run — backfill/collectors-climate verifiers ran in pass 2, so P1.1–P1.4 now carry pass-2 verdicts; re-read the cited spans if acting on them).
+
+---
+
+## Execution plan (2026-06-13) — phased, surgical
+
+Operationalizes the sequencing above into atomic steps: one coherent change per step, each independently verifiable, with pauses on phase boundaries. Tags: **[code]** = source/test change; **[Acer]** = production run on the Windows Acer; **[decide]** = a decision required before dependent steps.
+
+**Out of scope for this track** (owned separately, still open risks): the README "Live"-status reconciliation, and the consolidated Bracco correction + labeling-commitment email.
+
+Two long-lead items run in parallel with the code work without serializing it: the **Acer re-runs** (A5) and the **two decisions** (B1, F3).
+
+### Phase A — S5P/GFS data-flow (unblock real data; gates the Acer re-run)
+
+- **A1** [code] Confirm P1.1 / P1.2 / P1.3 against current source (read-only). Independent verdict each: confirmed-open / refuted / already-covered by the 2026-06-12 granule-download fixes.
+- **A2** [code] Fix P1.1 (backfill upper time bound) + distinct-bounded-window test — only if A1 confirms open.
+- **A3** [code] Fix P1.2 (short/aborted-stream guard, bytes vs `Content-Length`) + test — only if confirmed.
+- **A4** [code] Fix P1.3 (follow redirects on catalog/token/GFS paths) + test — only if confirmed.
+- **A5** [Acer] Pull code, re-run `backfill --source sentinel5p --since 2026-06-01` + OpenAQ top-up; verify non-zero `s5p_*_column` and chemistry counts. Long lead; runs while C/D proceed.
+
+### Phase B — Eval-store data path (longest data-clock lead)
+
+- **B1** [decide] Choose provenance: (a) Acer→Mac migration loader, (b) Mac backfills + collects directly into Postgres, (c) eval on Acer SQLite + drop the TimescaleDB claim. Scoped with a recommendation before deciding.
+- **B2** [code] Implement the chosen path. If (a): dialect-safe loader with UUID + tz-aware timestamp round-trip test (P1.5's `GUID`/`sa.UUID` divergence is load-bearing here).
+
+### Phase C — Test isolation (gates every regression test in D)
+
+- **C1** [code] P1.6 — transactional `db_session` (`connection.begin()` + `begin_nested()`, outer rollback at teardown); remove the per-module `_clean_tables` / UUID-scoping workarounds; confirm the full suite stays green.
+
+### Phase D — P0 eval-integrity bugs (one bug + its regression test per step)
+
+- **D1** [code] P0.1 — unitless-claim grounding leak (`validate._match_numbers`).
+- **D2** [code] P0.2 — under-threshold corroboration inversion (`corroboration` `_threshold_value` / `_point_value` / `score_concentration_elevation`). Also resolves cross-cutting theme 2.
+- **D3** [code] P0.3 — eval-freeze under-merge (`freeze.group_events`); flag re-freeze for E.
+- **D4** [code] P0.4 — STL silently disabled for sub-hourly series (`run._engine_for` ↔ `stl`).
+
+### Phase E — Re-baseline (needs D complete + data in store from A5/B)
+
+- **E1** [code][Acer] Re-freeze the eval set, re-run the harness.
+
+### Phase F — Source-independence framing (decide before the freeze; needs eval-window data)
+
+- **F1** [code] Source-independence audit: report per-source-pair contribution to each verdict.
+- **F2** [code] Measure GFS↔OpenWeather agreement empirically (wind-direction concordance, temp-delta distribution); report as a named number.
+- **F3** [decide] Types 2/3: redesign type-2 to corroborate against observed aerosol transport, or relabel "model-consistency." F1/F2 feed this.
+
+### Phase G — Remaining P1
+
+- **G1** [code] P1.4 — drop stale `/latest` readings past `OPENAQ_MAX_READING_AGE_S` (`openaq._normalize_sensor`).
+- **G2** [code] P1.5 — alembic migrations use `GUID` for every id/FK column (the 2026-06-12 fix only touched `models.py`).
+
+### Phase H — P2 / P3 / P4 cleanup (coarse by design)
+
+Re-expanded into atomic one-theme-per-step units when reached, not before — D and E collapse overlaps (theme 2 ≈ D2, theme 3 ≈ D4) and the exact decomposition depends on what re-baseline reveals. Covers the remaining cross-cutting themes (single-transaction `collect`, `engine.dispose` lifecycle helper, shared `within_tolerance`, dialect/timezone normalization, exception taxonomy) and the grouped P3/P4 one-liners.

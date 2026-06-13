@@ -360,6 +360,50 @@ class TestSentinel5PFetch:
         assert raw["value"][0]["Id"] == "abc-123"
 
     @pytest.mark.asyncio
+    async def test_fetch_catalog_follows_redirect(self) -> None:
+        # CDSE can 30x the catalogue endpoint; the shared client defaults to
+        # follow_redirects=False, so the catalog GET must opt in per-request
+        # or every request silently fails on the redirect.
+        def handler(request: httpx.Request) -> httpx.Response:
+            url = str(request.url)
+            if "moved=1" not in url:
+                return httpx.Response(
+                    301,
+                    json={"value": [{"Id": "REDIRECT-NOT-FOLLOWED"}]},
+                    headers={"location": url + "&moved=1"},
+                )
+            return httpx.Response(200, json=make_payload(make_record()))
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = Sentinel5PCollector(http_client=client)
+        try:
+            catalog = await collector._fetch_catalog(client)
+        finally:
+            await client.aclose()
+
+        assert catalog["value"][0]["Id"] == "abc-123"
+
+    @pytest.mark.asyncio
+    async def test_fetch_access_token_follows_redirect(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            url = str(request.url)
+            if "moved=1" not in url:
+                return httpx.Response(
+                    307,
+                    json={"access_token": "STALE"},
+                    headers={"location": url + "?moved=1"},
+                )
+            return httpx.Response(200, json={"access_token": "tok-xyz"})
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        try:
+            token = await fetch_access_token(client, "alice", "secret")
+        finally:
+            await client.aclose()
+
+        assert token == "tok-xyz"
+
+    @pytest.mark.asyncio
     async def test_catalog_only_mode_when_cdse_creds_missing(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -538,15 +582,65 @@ class TestSentinel5PHelpers:
     def test_odata_filter_includes_polygon_and_lookback(self) -> None:
         now = datetime(2026, 4, 30, 12, tzinfo=timezone.utc)
 
-        text = odata_filter(now=now)
+        text = odata_filter(window_end=now)
 
         assert "POLYGON" in text
         assert "2026-04-28T12:00:00.000Z" in text
+
+    def test_odata_filter_bounds_window_on_both_sides(self) -> None:
+        # Without an upper bound, $orderby desc + $top re-returns the newest
+        # granules every window, so a backward backfill never reaches deep
+        # history. The window must be closed on both ends.
+        end = datetime(2026, 4, 30, 12, tzinfo=timezone.utc)
+
+        text = odata_filter(end)
+
+        assert "ContentDate/Start gt 2026-04-28T12:00:00.000Z" in text
+        assert "ContentDate/Start le 2026-04-30T12:00:00.000Z" in text
 
     def test_granule_download_url_targets_value_endpoint(self) -> None:
         url = granule_download_url("abc-123")
 
         assert url.endswith("Products(abc-123)/$value")
+
+
+class _StubStreamResponse:
+    """Minimal stand-in for an httpx streaming response.
+
+    httpx rewrites Content-Length to match a provided body, so a real
+    MockTransport can't simulate a stream that under-delivers its declared
+    length — this stub lets the body and Content-Length diverge.
+    """
+
+    def __init__(self, body: bytes, content_length: int | None) -> None:
+        self.is_redirect = False
+        self.headers: dict[str, str] = {}
+        if content_length is not None:
+            self.headers["content-length"] = str(content_length)
+        self._body = body
+
+    def raise_for_status(self) -> None:
+        return None
+
+    async def aiter_bytes(self):
+        yield self._body
+
+
+class _StubStreamClient:
+    def __init__(self, response: _StubStreamResponse) -> None:
+        self._response = response
+
+    def stream(self, *args, **kwargs):
+        response = self._response
+
+        class _Ctx:
+            async def __aenter__(self) -> _StubStreamResponse:
+                return response
+
+            async def __aexit__(self, *exc) -> bool:
+                return False
+
+        return _Ctx()
 
 
 class TestDownloadGranule:
@@ -597,6 +691,36 @@ class TestDownloadGranule:
                 await collector._download_granule(client, "abc-123", "tok", fd)
         finally:
             await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_raises_on_truncated_stream(self, tmp_path) -> None:
+        # Server declares 100 bytes but delivers fewer; the partial .nc must
+        # be rejected so the granule is re-fetched on the next run instead of
+        # yielding a column mean from an incomplete swath.
+        client = _StubStreamClient(
+            _StubStreamResponse(b"short", content_length=100)
+        )
+        collector = Sentinel5PCollector(http_client=client)
+        fd = os.open(tmp_path / "granule.nc", os.O_WRONLY | os.O_CREAT)
+
+        with pytest.raises(RuntimeError, match="truncated"):
+            await collector._download_granule(client, "abc-123", "tok", fd)
+
+    @pytest.mark.asyncio
+    async def test_accepts_stream_matching_content_length(
+        self, tmp_path
+    ) -> None:
+        body = b"granule-bytes"
+        client = _StubStreamClient(
+            _StubStreamResponse(body, content_length=len(body))
+        )
+        collector = Sentinel5PCollector(http_client=client)
+        path = tmp_path / "granule.nc"
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT)
+
+        await collector._download_granule(client, "abc-123", "tok", fd)
+
+        assert path.read_bytes() == body
 
 
 class TestExtractColumnsTokenRefresh:

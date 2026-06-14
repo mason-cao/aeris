@@ -10,6 +10,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
+from app.db.models import GUID
+
 # revision identifiers, used by Alembic.
 revision: str = 'd2b9f4a7c1e8'
 down_revision: Union[str, None] = 'b7c11efca53b'
@@ -19,8 +21,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.create_table('explanations',
-    sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('anomaly_id', sa.UUID(), nullable=False),
+    sa.Column('id', GUID(), nullable=False),
+    sa.Column('anomaly_id', GUID(), nullable=False),
     sa.Column('model_name', sa.String(length=64), nullable=False),
     sa.Column('model_version', sa.String(length=64), nullable=True),
     sa.Column('reasoning_steps_json', sa.JSON(), nullable=False),
@@ -38,8 +40,8 @@ def upgrade() -> None:
         batch_op.create_index('ix_explanations_model_name', ['model_name'], unique=False)
 
     op.create_table('claims',
-    sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('explanation_id', sa.UUID(), nullable=False),
+    sa.Column('id', GUID(), nullable=False),
+    sa.Column('explanation_id', GUID(), nullable=False),
     sa.Column('step_index', sa.Integer(), nullable=False),
     sa.Column('claim_type', sa.String(length=48), nullable=False),
     sa.Column('claim_text', sa.Text(), nullable=False),
@@ -61,8 +63,8 @@ def upgrade() -> None:
         batch_op.create_index('ix_claims_grounding_verdict', ['grounding_verdict'], unique=False)
 
     op.create_table('expert_labels',
-    sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('anomaly_id', sa.UUID(), nullable=False),
+    sa.Column('id', GUID(), nullable=False),
+    sa.Column('anomaly_id', GUID(), nullable=False),
     sa.Column('labeler', sa.String(length=64), nullable=False),
     sa.Column('true_cause', sa.Text(), nullable=True),
     sa.Column('claim_validations_json', sa.JSON(), nullable=True),

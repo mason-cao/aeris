@@ -481,6 +481,38 @@ class TestEnrichPendingAnomalies:
         assert len(rows) == 2
 
     @pytest.mark.asyncio
+    async def test_records_persist_failure_and_continues(
+        self, db_session, monkeypatch
+    ) -> None:
+        # One anomaly's persist failure must be recorded on its line and let
+        # the pass finish the rest, not abort and discard the whole summary.
+        await _persist_anomaly(db_session, timestamp=T0)
+        await _persist_anomaly(db_session, timestamp=T0 + timedelta(days=1))
+        await _seed(db_session, [_dp(ts=T0, value=120.0)])
+
+        import app.detection.enrichment as enr
+
+        real = enr.persist_enrichment
+        calls = {"n": 0}
+
+        async def flaky(session, record):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("commit failed")
+            return await real(session, record)
+
+        monkeypatch.setattr(enr, "persist_enrichment", flaky)
+
+        summary = await enrich_pending_anomalies(db_session)
+
+        assert summary.n_pending == 2
+        assert summary.n_persisted == 1
+        assert len(summary.lines) == 2
+        errored = [ln for ln in summary.lines if ln.error is not None]
+        assert len(errored) == 1
+        assert "RuntimeError" in errored[0].error
+
+    @pytest.mark.asyncio
     async def test_skips_already_enriched(self, db_session) -> None:
         anomaly = await _persist_anomaly(db_session)
         await persist_enrichment(

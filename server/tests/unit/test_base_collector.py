@@ -149,3 +149,49 @@ class TestMockCollectorCollect:
         source = source_result.scalar_one()
         assert source.status == "active"
         assert source.error_count == 0
+
+    @pytest.mark.asyncio
+    async def test_collect_rolls_back_points_when_status_update_fails(
+        self, db_session
+    ) -> None:
+        # Atomicity: the data insert and the source-status update must commit
+        # together. A failing status write must not leave the attempt's points
+        # orphaned in the store.
+        class StatusFailCollector(MockCollector):
+            async def _update_source_status(self, session, *, success) -> None:
+                if success:
+                    raise RuntimeError("status write failed")
+                await super()._update_source_status(session, success=success)
+
+        collector = StatusFailCollector(raw_data={"items": [{"value": 1}, {"value": 2}]})
+
+        result = await collector.collect(db_session, max_retries=1)
+
+        assert result.success is False
+        data_result = await db_session.execute(
+            select(DataPoint).where(DataPoint.source == "test_source")
+        )
+        assert data_result.scalars().all() == []
+
+    @pytest.mark.asyncio
+    async def test_collect_failure_sets_error_status(self, db_session) -> None:
+        # Refactor guard for the retries-exhausted path: a failing fetch marks
+        # the source 'error' and stores nothing.
+        collector = MockCollector(should_fail=True)
+
+        result = await collector.collect(db_session, max_retries=1)
+
+        assert result.success is False
+        assert result.errors
+
+        source_result = await db_session.execute(
+            select(DataSource).where(DataSource.name == "test_source")
+        )
+        source = source_result.scalar_one()
+        assert source.status == "error"
+        assert source.error_count == 1
+
+        data_result = await db_session.execute(
+            select(DataPoint).where(DataPoint.source == "test_source")
+        )
+        assert data_result.scalars().all() == []

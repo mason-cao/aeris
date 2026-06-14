@@ -152,6 +152,7 @@ class GroupSummary:
     n_minor: int = 0
     iso_forest_used: bool = False
     skipped_reason: str | None = None
+    persist_error: str | None = None
 
 
 @dataclass
@@ -507,7 +508,15 @@ async def run_detection(
         summary.n_groups_run += 1
         summary.n_anomalies_emitted += len(anomalies)
         if not dry_run:
-            summary.n_persisted += await persist_anomalies(session, anomalies)
+            # Record a per-group persist failure and continue: one group's DB
+            # error must not abort the run and discard every other group's
+            # summary. rollback() clears the failed transaction so the next
+            # group can still commit.
+            try:
+                summary.n_persisted += await persist_anomalies(session, anomalies)
+            except Exception as exc:
+                await session.rollback()
+                group_summary.persist_error = f"{type(exc).__name__}: {exc}"
 
     return summary
 
@@ -572,7 +581,12 @@ def _format_summary(summary: RunSummary) -> str:
         f"{'sev':>4} {'mod':>4} {'min':>4} {'IF':>3}  status",
     ]
     for g in summary.groups:
-        status = g.skipped_reason if g.skipped_reason else "ok"
+        if g.persist_error:
+            status = f"persist failed: {g.persist_error}"
+        elif g.skipped_reason:
+            status = g.skipped_reason
+        else:
+            status = "ok"
         if_used = "yes" if g.iso_forest_used else "no"
         lines.append(
             f"{g.key.source:<14} {g.key.metric:<14} "

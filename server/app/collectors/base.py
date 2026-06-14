@@ -86,8 +86,18 @@ class BaseCollector(ABC):
                 raw_data = await self.fetch()
                 points = self.normalize(raw_data)
 
+                # Store and status update share one transaction (a single
+                # commit) so data never lands without its source status. A
+                # failed status write rolls this attempt back instead of
+                # orphaning the points. session.commit()/rollback() are used
+                # rather than `async with session.begin()` because a subclass
+                # fetch() may read through the same session (e.g. sentinel5p
+                # skipping stored granules), autobeginning the transaction —
+                # begin() would then raise "a transaction is already begun".
                 if points:
                     await self._store(session, points)
+                await self._update_source_status(session, success=True)
+                await session.commit()
 
                 duration_ms = (time.monotonic() - start) * 1000
                 result = CollectionResult(
@@ -96,8 +106,6 @@ class BaseCollector(ABC):
                     record_count=len(points),
                     duration_ms=round(duration_ms, 1),
                 )
-
-                await self._update_source_status(session, success=True)
 
                 logger.info(
                     "Collection complete",
@@ -111,6 +119,7 @@ class BaseCollector(ABC):
                 return result
 
             except Exception as e:
+                await session.rollback()
                 errors.append(f"Attempt {attempt}: {type(e).__name__}: {e}")
                 logger.warning(
                     "Collection attempt failed",
@@ -130,6 +139,7 @@ class BaseCollector(ABC):
         # All retries exhausted
         duration_ms = (time.monotonic() - start) * 1000
         await self._update_source_status(session, success=False)
+        await session.commit()
 
         logger.error(
             "Collection failed after all retries",
@@ -144,7 +154,11 @@ class BaseCollector(ABC):
         )
 
     async def _store(self, session: AsyncSession, points: list[DataPointCreate]) -> None:
-        """Bulk insert normalized data points, ignoring duplicate observations."""
+        """Bulk insert normalized data points, ignoring duplicate observations.
+
+        Execute-only: ``collect`` owns the transaction so the insert commits
+        atomically with the source-status update.
+        """
         rows = [point.model_dump() for point in points]
         bind = session.get_bind()
         dialect_name = bind.dialect.name if bind is not None else ""
@@ -162,12 +176,14 @@ class BaseCollector(ABC):
             stmt = insert(DataPoint).values(rows)
 
         await session.execute(stmt)
-        await session.commit()
 
     async def _update_source_status(
         self, session: AsyncSession, *, success: bool
     ) -> None:
-        """Update the DataSource record with collection status."""
+        """Update the DataSource record with collection status.
+
+        Execute-only: ``collect`` owns the transaction (see ``_store``).
+        """
         from datetime import datetime, timezone
 
         now = datetime.now(timezone.utc)
@@ -200,4 +216,3 @@ class BaseCollector(ABC):
             stmt = insert(DataSource).values(values)
 
         await session.execute(stmt)
-        await session.commit()

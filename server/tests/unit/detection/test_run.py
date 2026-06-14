@@ -460,6 +460,35 @@ class TestRunDetectionEndToEnd:
         assert any(_to_utc(r.timestamp) == spike_ts for r in rows)
 
     @pytest.mark.asyncio
+    async def test_records_persist_failure_without_aborting_run(
+        self, db_session, monkeypatch
+    ) -> None:
+        # A per-group persist failure must be recorded on the GroupSummary and
+        # let the run finish, not raise out of run_detection with no summary.
+        n = 200
+        spike_idx = 120
+        points = [
+            _dp(
+                ts=T0 + timedelta(hours=i),
+                value=(220.0 if i == spike_idx else _seasonal(i)),
+            )
+            for i in range(n)
+        ]
+        await _seed(db_session, points)
+
+        async def _boom(session, anomalies):
+            raise RuntimeError("db write failed")
+
+        monkeypatch.setattr("app.detection.run.persist_anomalies", _boom)
+
+        summary = await run_detection(db_session)
+
+        assert summary.n_groups_run == 1
+        assert summary.n_persisted == 0
+        assert summary.groups[0].persist_error is not None
+        assert "RuntimeError" in summary.groups[0].persist_error
+
+    @pytest.mark.asyncio
     async def test_skips_groups_under_min_points(self, db_session) -> None:
         # Only 10 points — well below default min_points=50
         points = [_dp(ts=T0 + timedelta(hours=i), value=10.0 + i) for i in range(10)]

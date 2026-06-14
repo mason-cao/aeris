@@ -354,6 +354,7 @@ class EnrichmentLine:
     n_points: int
     sources_present: list[str]
     persisted: bool
+    error: str | None = None
 
 
 @dataclass
@@ -383,6 +384,21 @@ def _line_for(
     )
 
 
+def _error_line_for(anomaly: Anomaly, exc: Exception) -> EnrichmentLine:
+    """A line for an anomaly whose enrichment or persist failed mid-pass."""
+    return EnrichmentLine(
+        anomaly_id=str(anomaly.id),
+        timestamp=_ensure_utc(anomaly.timestamp),
+        metric=anomaly.metric,
+        source=anomaly.source,
+        severity=anomaly.severity,
+        n_points=0,
+        sources_present=[],
+        persisted=False,
+        error=f"{type(exc).__name__}: {exc}",
+    )
+
+
 async def enrich_pending_anomalies(
     session: AsyncSession,
     *,
@@ -404,16 +420,31 @@ async def enrich_pending_anomalies(
         stmt = stmt.limit(limit)
 
     anomalies = list((await session.execute(stmt)).scalars().all())
+    # Detach the loaded anomalies so a mid-pass rollback (below) can't expire
+    # the ones still queued: async SQLAlchemy can't lazily reload an expired
+    # column outside the greenlet. We only ever read their columns here.
+    for anomaly in anomalies:
+        session.expunge(anomaly)
     summary = EnrichmentSummary(n_pending=len(anomalies))
 
     for anomaly in anomalies:
-        record = await enrich_anomaly(session, anomaly, config=config)
-        persisted = False
-        if not dry_run:
-            persisted = await persist_enrichment(session, record)
-            if persisted:
-                summary.n_persisted += 1
-        summary.lines.append(_line_for(anomaly, record, persisted))
+        # Record a per-anomaly failure and continue: one anomaly's read or
+        # persist error must not abort the pass and lose every other line.
+        # rollback() clears the failed transaction so the next anomaly commits.
+        try:
+            record = await enrich_anomaly(session, anomaly, config=config)
+            persisted = False
+            if not dry_run:
+                persisted = await persist_enrichment(session, record)
+                if persisted:
+                    summary.n_persisted += 1
+            summary.lines.append(_line_for(anomaly, record, persisted))
+        except Exception as exc:
+            # Build the line before rollback() expires the anomaly's loaded
+            # columns (which would trigger a lazy reload outside the greenlet).
+            line = _error_line_for(anomaly, exc)
+            await session.rollback()
+            summary.lines.append(line)
 
     return summary
 
@@ -457,8 +488,8 @@ def _format_summary(summary: EnrichmentSummary) -> str:
         f"{'saved':>6}  sources",
     ]
     for line in summary.lines:
-        saved = "yes" if line.persisted else "no"
-        sources = ",".join(line.sources_present) or "(none)"
+        saved = "ERROR" if line.error else ("yes" if line.persisted else "no")
+        sources = line.error if line.error else (",".join(line.sources_present) or "(none)")
         lines.append(
             f"{line.anomaly_id[:8]:<10} {line.severity:<10} "
             f"{line.metric:<14} {line.n_points:>6} {saved:>6}  {sources}"

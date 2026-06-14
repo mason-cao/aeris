@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy import (
     CHAR,
+    JSON,
     Boolean,
     DateTime,
     Dialect,
@@ -17,7 +18,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSON, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeEngine
 

@@ -15,6 +15,7 @@ from app.detection.run import (
     _stl_period_for,
     build_aux_inputs,
     group_points_by_series,
+    load_points,
     persist_anomalies,
     run_detection,
 )
@@ -205,6 +206,26 @@ class TestNearestValue:
 
     def test_returns_none_when_rows_empty(self) -> None:
         assert _nearest_value(T0, [], timedelta(hours=3)) is None
+
+
+class TestLoadPointsSinceBoundary:
+    @pytest.mark.asyncio
+    async def test_aware_since_windows_correctly_on_sqlite(self, db_session) -> None:
+        # `since` is aware UTC but SQLite stores naive timestamps. The boundary
+        # row must be included (>=) and the earlier row excluded, regardless of
+        # the tzinfo mismatch.
+        await _seed(
+            db_session,
+            [
+                _dp(ts=T0, value=1.0),
+                _dp(ts=T0 + timedelta(hours=1), value=2.0),
+                _dp(ts=T0 + timedelta(hours=2), value=3.0),
+            ],
+        )
+
+        points = await load_points(db_session, since=T0 + timedelta(hours=1))
+
+        assert sorted(p.value for p in points) == [2.0, 3.0]
 
 
 class TestLoadGfsWindCells:

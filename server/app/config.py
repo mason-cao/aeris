@@ -15,6 +15,12 @@ class Settings(BaseSettings):
 
     # Air Quality APIs
     openaq_api_key: str = ""
+    # OpenAQ /latest returns a station's most recent reading regardless of age,
+    # so an offline station re-emits a stale value every hourly run. Drop any
+    # reading older than this (seconds). Default 6h: well past any real station
+    # cadence + publication lag, but far short of the weeks/months-old values
+    # dead stations carry.
+    openaq_max_reading_age_s: float = 6 * 3600.0
 
     # Weather
     openweather_api_key: str = ""

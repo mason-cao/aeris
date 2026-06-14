@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -45,8 +45,12 @@ def make_sensor(
     *,
     unit: str = "\u00b5g/m\u00b3",
     value: float | None = 10.5,
-    timestamp: str = "2026-04-13T12:00:00Z",
+    timestamp: str | None = None,
 ) -> dict[str, Any]:
+    # A healthy station's /latest is recent; default to "just now" so the age
+    # guard keeps it. Tests covering staleness pass an explicit old timestamp.
+    if timestamp is None:
+        timestamp = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
     latest = None
     if value is not None:
         latest = {
@@ -117,11 +121,13 @@ class TestOpenAQNormalize:
         assert points[0].unit == "ug/m3"
 
     def test_normalize_parses_timestamp(self, collector: OpenAQCollector) -> None:
-        points = collector.normalize(make_raw([make_sensor(1, "pm25")]))
-
-        assert points[0].timestamp == datetime(
-            2026, 4, 13, 12, 0, tzinfo=timezone.utc
+        recent = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(
+            minutes=1
         )
+        ts = recent.isoformat().replace("+00:00", "Z")
+        points = collector.normalize(make_raw([make_sensor(1, "pm25", timestamp=ts)]))
+
+        assert points[0].timestamp == recent
 
     def test_normalize_preserves_raw_json(self, collector: OpenAQCollector) -> None:
         points = collector.normalize(make_raw([make_sensor(1, "pm25")]))
@@ -153,6 +159,26 @@ class TestOpenAQNormalize:
         points = collector.normalize({"locations": [], "sensors_by_location_id": {}})
 
         assert points == []
+
+    def test_normalize_drops_stale_reading(
+        self, collector: OpenAQCollector
+    ) -> None:
+        # An offline station's /latest is months old; emitting it as a fresh
+        # DataPoint every run feeds detection a stale-but-current-looking value
+        # and pollutes the series date range.
+        sensor = make_sensor(1, "pm25", timestamp="2020-01-01T00:00:00Z")
+
+        assert collector.normalize(make_raw([sensor])) == []
+
+    def test_normalize_keeps_recent_reading(
+        self, collector: OpenAQCollector
+    ) -> None:
+        recent = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+        points = collector.normalize(
+            make_raw([make_sensor(1, "pm25", timestamp=recent)])
+        )
+
+        assert len(points) == 1
 
 
 class TestOpenAQFetch:

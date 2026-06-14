@@ -225,6 +225,16 @@ class OpenAQCollector(BaseCollector):
             logger.warning("Could not parse OpenAQ timestamp for sensor: %s", sensor)
             return None
 
+        age_s = (datetime.now(timezone.utc) - timestamp).total_seconds()
+        if age_s > settings.openaq_max_reading_age_s:
+            logger.debug(
+                "Skipping stale OpenAQ reading for sensor %s (%s): %.0fs old",
+                sensor.get("id"),
+                parameter_name,
+                age_s,
+            )
+            return None
+
         latest_coordinates = latest.get("coordinates") or {}
         lat = latest_coordinates.get("latitude", location_coordinates.get("latitude"))
         lon = latest_coordinates.get("longitude", location_coordinates.get("longitude"))

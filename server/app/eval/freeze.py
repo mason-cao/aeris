@@ -273,28 +273,29 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 async def _amain(argv: list[str] | None = None) -> int:
     # Imported lazily so library-mode use (and tests on a SQLite engine)
     # don't pay for spinning up the production asyncpg engine.
-    from app.db.session import async_session
+    from app.db.session import async_session, engine_lifecycle
 
-    args = _parse_args(argv)
-    window_start = _parse_date(args.start)
-    window_end = _parse_date(args.end)
-    if "T" not in args.end:
-        window_end += timedelta(days=1)
+    async with engine_lifecycle():
+        args = _parse_args(argv)
+        window_start = _parse_date(args.start)
+        window_end = _parse_date(args.end)
+        if "T" not in args.end:
+            window_end += timedelta(days=1)
 
-    async with async_session() as session:
-        result = await freeze_eval_set(
-            session,
-            window_start=window_start,
-            window_end=window_end,
-            top_n=args.top,
-        )
-    print(_format_result(result))
-    if not args.dry_run:
-        out = Path(args.out)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps(fixture_payload(result), indent=2) + "\n")
-        print(f"\nFrozen set written to {out}")
-    return 0
+        async with async_session() as session:
+            result = await freeze_eval_set(
+                session,
+                window_start=window_start,
+                window_end=window_end,
+                top_n=args.top,
+            )
+        print(_format_result(result))
+        if not args.dry_run:
+            out = Path(args.out)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(json.dumps(fixture_payload(result), indent=2) + "\n")
+            print(f"\nFrozen set written to {out}")
+        return 0
 
 
 def main() -> None:

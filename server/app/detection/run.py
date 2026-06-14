@@ -586,21 +586,22 @@ def _format_summary(summary: RunSummary) -> str:
 async def _amain(argv: list[str] | None = None) -> int:
     # Imported lazily so library-mode use (and tests using a SQLite test
     # engine) don't pay for spinning up the production asyncpg engine.
-    from app.db.session import async_session
+    from app.db.session import async_session, engine_lifecycle
 
-    args = _parse_args(argv)
-    since = _parse_since(args.since)
-    async with async_session() as session:
-        summary = await run_detection(
-            session,
-            source=args.source,
-            metric=args.metric,
-            since=since,
-            dry_run=args.dry_run,
-            min_points=args.min_points,
-        )
-    print(_format_summary(summary))
-    return 0
+    async with engine_lifecycle():
+        args = _parse_args(argv)
+        since = _parse_since(args.since)
+        async with async_session() as session:
+            summary = await run_detection(
+                session,
+                source=args.source,
+                metric=args.metric,
+                since=since,
+                dry_run=args.dry_run,
+                min_points=args.min_points,
+            )
+        print(_format_summary(summary))
+        return 0
 
 
 def main() -> None:

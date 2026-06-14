@@ -7,7 +7,7 @@ from app.collectors.base import BaseCollector, CollectionResult
 from app.collectors.logsetup import configure_logging
 from app.collectors.registry import create_collectors, source_choices
 from app.config import settings
-from app.db.session import async_session, engine
+from app.db.session import async_session, engine_lifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -105,18 +105,18 @@ def exit_code(results: Iterable[CollectionResult]) -> int:
 
 
 async def async_main(argv: list[str] | None = None) -> int:
-    configure_logging()
-    args = build_parser().parse_args(argv)
-    collectors = create_collectors(args.source)
-    warn_missing_credentials(collectors)
+    async with engine_lifecycle():
+        configure_logging()
+        args = build_parser().parse_args(argv)
+        collectors = create_collectors(args.source)
+        warn_missing_credentials(collectors)
 
-    results = await run_collectors(collectors, max_retries=args.max_retries)
+        results = await run_collectors(collectors, max_retries=args.max_retries)
 
-    for result in results:
-        print(format_result(result))
+        for result in results:
+            print(format_result(result))
 
-    await engine.dispose()
-    return exit_code(results)
+        return exit_code(results)
 
 
 def main(argv: list[str] | None = None) -> int:

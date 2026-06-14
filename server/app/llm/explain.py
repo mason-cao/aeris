@@ -371,20 +371,21 @@ def _format_explanation(explanation: Explanation, persisted: bool) -> str:
 async def _amain(argv: list[str] | None = None) -> int:
     # Imported lazily so library-mode use (and tests on a SQLite engine)
     # don't pay for spinning up the production asyncpg engine.
-    from app.db.session import async_session
+    from app.db.session import async_session, engine_lifecycle
 
-    args = _parse_args(argv)
-    client = make_client(args.model)
-    try:
-        async with async_session() as session:
-            explanation = await generate_explanation(
-                session, uuid.UUID(args.anomaly_id), client
-            )
-            persisted = await persist_explanation(session, explanation)
-    finally:
-        await client.close()
-    print(_format_explanation(explanation, persisted))
-    return 0
+    async with engine_lifecycle():
+        args = _parse_args(argv)
+        client = make_client(args.model)
+        try:
+            async with async_session() as session:
+                explanation = await generate_explanation(
+                    session, uuid.UUID(args.anomaly_id), client
+                )
+                persisted = await persist_explanation(session, explanation)
+        finally:
+            await client.close()
+        print(_format_explanation(explanation, persisted))
+        return 0
 
 
 def main() -> None:

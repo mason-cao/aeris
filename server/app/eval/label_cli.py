@@ -192,17 +192,18 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 async def _amain(argv: list[str] | None = None) -> int:
-    from app.db.session import async_session
+    from app.db.session import async_session, engine_lifecycle
 
-    args = _parse_args(argv)
-    async with async_session() as session:
-        label = await run_label_session(
-            session,
-            uuid.UUID(args.anomaly_id),
-            labeler=args.labeler,
-            model=args.model,
-        )
-    return 0 if label is not None else 1
+    async with engine_lifecycle():
+        args = _parse_args(argv)
+        async with async_session() as session:
+            label = await run_label_session(
+                session,
+                uuid.UUID(args.anomaly_id),
+                labeler=args.labeler,
+                model=args.model,
+            )
+        return 0 if label is not None else 1
 
 
 def main() -> None:

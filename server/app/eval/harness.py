@@ -156,15 +156,16 @@ def _format_summaries(summaries: dict[str, ModelSweepSummary]) -> str:
 
 
 async def _amain(argv: list[str] | None = None) -> int:
-    from app.db.session import async_session
+    from app.db.session import async_session, engine_lifecycle
 
-    args = _parse_args(argv)
-    anomaly_ids = load_anomaly_set(args.anomaly_set)
-    async with async_session() as session:
-        summaries = await run_harness(session, anomaly_ids, models=args.models)
-    print(_format_summaries(summaries))
-    failed = sum(len(s.errors) + s.parse_failures for s in summaries.values())
-    return 1 if failed else 0
+    async with engine_lifecycle():
+        args = _parse_args(argv)
+        anomaly_ids = load_anomaly_set(args.anomaly_set)
+        async with async_session() as session:
+            summaries = await run_harness(session, anomaly_ids, models=args.models)
+        print(_format_summaries(summaries))
+        failed = sum(len(s.errors) + s.parse_failures for s in summaries.values())
+        return 1 if failed else 0
 
 
 def main() -> None:

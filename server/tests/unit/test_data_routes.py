@@ -5,6 +5,7 @@ import httpx
 import pytest
 import pytest_asyncio
 
+from app.api.routes.data import _to_utc
 from app.db.models import DataPoint, DataSource
 from app.db.session import get_session
 from app.main import app
@@ -255,3 +256,49 @@ class TestDataPointRoutes:
         assert payload["offset"] == 1
         assert len(payload["items"]) == 1
         assert payload["items"][0]["source_entity_id"] == "sensor-1"
+
+    @pytest.mark.asyncio
+    async def test_get_data_by_source_accepts_naive_time_bounds(
+        self, api_client, db_session
+    ) -> None:
+        # A client may omit the offset, yielding naive bounds. They must be
+        # treated as UTC (not rejected / mis-compared against the tz-aware
+        # timestamp column on asyncpg).
+        source = "api_naive_bounds"
+        await seed_data_point(
+            db_session,
+            source=source,
+            metric="pm25",
+            value=10.0,
+            timestamp=datetime(2026, 4, 21, 12, 0, tzinfo=timezone.utc),
+            source_entity_id="in-window",
+        )
+        await seed_data_point(
+            db_session,
+            source=source,
+            metric="pm25",
+            value=30.0,
+            timestamp=datetime(2026, 4, 18, 12, 0, tzinfo=timezone.utc),
+            source_entity_id="too-old",
+        )
+
+        response = await api_client.get(
+            f"/api/data/{source}",
+            params={"start": "2026-04-20T00:00:00", "end": "2026-04-22T00:00:00"},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["total"] == 1
+        assert payload["items"][0]["source_entity_id"] == "in-window"
+
+
+class TestToUtc:
+    def test_naive_is_assumed_utc(self) -> None:
+        coerced = _to_utc(datetime(2026, 5, 1, 12, 0))
+        assert coerced == datetime(2026, 5, 1, 12, 0, tzinfo=timezone.utc)
+        assert coerced.tzinfo is timezone.utc
+
+    def test_aware_is_unchanged(self) -> None:
+        aware = datetime(2026, 5, 1, 12, 0, tzinfo=timezone.utc)
+        assert _to_utc(aware) is aware

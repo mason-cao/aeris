@@ -1,5 +1,5 @@
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -12,6 +12,19 @@ from app.db.models import DataPoint, DataSource
 from app.db.session import get_session
 
 router = APIRouter(tags=["data"])
+
+
+def _to_utc(value: datetime) -> datetime:
+    """Coerce a query-param datetime to tz-aware UTC for range filtering.
+
+    The ``timestamp`` column is tz-aware; a naive bound (client omitted the
+    offset) raises or mis-compares on asyncpg. The store is all-UTC, so a
+    naive bound is assumed UTC. SQLite ignores tzinfo, so this is a no-op
+    there.
+    """
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
 
 
 class DataPointResponse(BaseModel):
@@ -81,9 +94,11 @@ async def get_data_by_source(
         query = query.where(DataPoint.metric == metric)
         count_query = count_query.where(DataPoint.metric == metric)
     if start:
+        start = _to_utc(start)
         query = query.where(DataPoint.timestamp >= start)
         count_query = count_query.where(DataPoint.timestamp >= start)
     if end:
+        end = _to_utc(end)
         query = query.where(DataPoint.timestamp <= end)
         count_query = count_query.where(DataPoint.timestamp <= end)
     if lat is not None and lon is not None and radius_km is not None:

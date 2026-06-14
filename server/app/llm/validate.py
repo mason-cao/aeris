@@ -76,6 +76,17 @@ _UNIT_ALIASES = {
     "°f": "f",
 }
 
+# A bare (unit-less) claim number carries no metric of its own, so the unit
+# guard in _match_numbers cannot reject a same-magnitude context number of a
+# different metric ("index hit 45" vs "humidity 45%"). We instead require a
+# salient metric token to co-occur within this many characters of *both*
+# numbers. Tokens carrying a digit (no2, pm25) count as metric names; the bare
+# number itself is excluded — numeric equality is handled by _supports. This
+# can still be fooled by a location/time word adjacent to both numbers, but in
+# the real (long) enrichment context distinct metrics separate, and it is far
+# less permissive than matching any number within tolerance.
+_METRIC_WINDOW = 32
+
 _STOPWORDS = frozenset(
     {
         "this",
@@ -152,9 +163,31 @@ def _supports(
     return False
 
 
+def _metric_terms_near(clean_text: str, position: int) -> set[str]:
+    """Salient metric tokens within _METRIC_WINDOW chars of a number.
+
+    ``clean_text`` is already lowercased and locator-stripped — the same string
+    the quantity offsets index into. Pure-number tokens are excluded: numeric
+    equality is _supports's job; here we compare *what* is being measured.
+    """
+    lo = position - _METRIC_WINDOW
+    hi = position + _METRIC_WINDOW
+    terms: set[str] = set()
+    for match in _TERM_RE.finditer(clean_text):
+        if match.end() <= lo or match.start() >= hi:
+            continue
+        token = match.group()
+        if token in _STOPWORDS or not any(ch.isalpha() for ch in token):
+            continue
+        if len(token) >= 4 or any(ch.isdigit() for ch in token):
+            terms.add(token)
+    return terms
+
+
 def _match_numbers(
     claim_text: str,
     claim_quantities: list[tuple[float, str | None, int]],
+    context_text: str,
     context_quantities: list[tuple[float, str | None, int]],
     tolerance: float,
 ) -> list[dict] | None:
@@ -162,16 +195,27 @@ def _match_numbers(
 
     Returns the matched pairs, or None if any claim quantity has no support.
     Units must agree when both sides state one; a bare number can support a
-    united one. Point tolerance is relative to the context's measured value;
-    threshold-worded quantities also accept any value past the threshold.
+    united one only when a metric token co-occurs near both (else "index hit
+    45" would ground against "humidity 45%"). Point tolerance is relative to
+    the context's measured value; threshold-worded quantities also accept any
+    value past the threshold.
     """
-    cues = threshold_cues(strip_locators(claim_text.lower()))
+    claim_clean = strip_locators(claim_text.lower())
+    context_clean = strip_locators(context_text.lower())
+    cues = threshold_cues(claim_clean)
     matched: list[dict] = []
     for value, unit, position in claim_quantities:
         relation = _threshold_relation(cues, position)
+        claim_metric = (
+            _metric_terms_near(claim_clean, position) if unit is None else None
+        )
         support: dict | None = None
-        for ctx_value, ctx_unit, _ctx_position in context_quantities:
+        for ctx_value, ctx_unit, ctx_position in context_quantities:
             if unit and ctx_unit and unit != ctx_unit:
+                continue
+            if claim_metric is not None and not (
+                claim_metric & _metric_terms_near(context_clean, ctx_position)
+            ):
                 continue
             if _supports(value, ctx_value, relation, tolerance):
                 support = {
@@ -219,6 +263,7 @@ def check_grounding(
         matched_numbers = _match_numbers(
             claim_text,
             claim_quantities,
+            context_text,
             _quantities(context_text),
             numeric_tolerance,
         )

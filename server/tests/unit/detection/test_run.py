@@ -471,6 +471,38 @@ class TestRunDetectionEndToEnd:
         assert summary.groups[0].skipped_reason is not None
 
     @pytest.mark.asyncio
+    async def test_sub_hourly_series_reports_stl_skip(self, db_session) -> None:
+        # 60 points at 15-min cadence clears min_points=50 and runs, but the
+        # cadence resolves to period=96 (STL floor 2*96+1=193), so STL cannot
+        # decompose it. That must be reported, not silently disabled — else the
+        # group reads "ok" while one of three detectors never fired.
+        points = [
+            _dp(ts=T0 + timedelta(minutes=15 * i), value=_seasonal(i))
+            for i in range(60)
+        ]
+        await _seed(db_session, points)
+
+        summary = await run_detection(db_session)
+
+        assert summary.n_groups_run == 1
+        group = summary.groups[0]
+        assert group.skipped_reason is not None
+        assert "stl" in group.skipped_reason.lower()
+
+    @pytest.mark.asyncio
+    async def test_hourly_series_runs_stl_without_skip(self, db_session) -> None:
+        # 60 hourly points: period=24, floor=49, so STL runs — no skip note.
+        points = [
+            _dp(ts=T0 + timedelta(hours=i), value=_seasonal(i)) for i in range(60)
+        ]
+        await _seed(db_session, points)
+
+        summary = await run_detection(db_session)
+
+        assert summary.n_groups_run == 1
+        assert summary.groups[0].skipped_reason is None
+
+    @pytest.mark.asyncio
     async def test_filter_by_source(self, db_session) -> None:
         # Seed two sources of PM2.5; filter to one.
         openaq = [

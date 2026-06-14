@@ -151,6 +151,43 @@ class TestThresholdGrounding:
         assert result.verdict == UNVERIFIED
 
 
+class TestUnitlessNumericGrounding:
+    """A bare (unit-less) claim number must not ground against an arbitrary
+    context number of a different metric that happens to share a magnitude.
+    Without a metric check, "index hit 45" passes the hallucination gate on a
+    context reporting "humidity 45%", silently inflating the Phase 1 -> Phase 2
+    delta.
+    """
+
+    def test_unitless_claim_does_not_ground_against_unrelated_metric(self) -> None:
+        # "index hit 45" carries no unit; the only same-magnitude context number
+        # is humidity's 45%, a different measurement. The metrics near each
+        # number share no token, so it must not ground.
+        result = check_grounding(
+            "the air quality index hit 45 in the afternoon",
+            "openaq reports no2 at 30 ppb in the afternoon; "
+            "gfs winds light and southerly; "
+            "openweather relative humidity measured 45%",
+            cited_sources=["openweather"],
+        )
+
+        assert result.verdict == UNVERIFIED
+        assert result.evidence_ref is None
+
+    def test_unitless_claim_grounds_when_metric_token_shared(self) -> None:
+        # A bare number still grounds when its metric co-occurs with the context
+        # number — "no2 ... 80" against an openaq no2 reading — so the fix does
+        # not over-reject legitimate unit-less threshold claims.
+        result = check_grounding(
+            "no2 exceeded 80 at the downtown monitor",
+            "openaq downtown no2 nearest to anomaly reached 120 ppb",
+            cited_sources=["openaq"],
+        )
+
+        assert result.verdict == GROUNDED
+        assert result.evidence_ref is not None
+
+
 class TestGroundClaimDrafts:
     def test_returns_verdict_per_draft(self) -> None:
         drafts = [

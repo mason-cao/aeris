@@ -68,9 +68,10 @@ AUX_METRIC_PBL = "pbl_height"
 # primary timestamp without crossing into "stale aux" territory.
 AUX_TIME_TOLERANCE: timedelta = timedelta(hours=3)
 
-# Minimum series length to attempt detection. IsolationForest defaults to
-# min_points=50 and STL needs 2*period+1=49 for hourly data with daily
-# seasonality, so 50 is the binding floor.
+# Minimum series length to attempt detection at all, set by IsolationForest's
+# min_points=50. STL's own floor is cadence-dependent (2*period+1 — 49 for
+# hourly, 193 for 15-min) and enforced separately in _engine_for, which drops
+# STL and records the reason when a qualifying group is still too short for it.
 MIN_GROUP_POINTS: int = 50
 
 # STL models the diurnal cycle, so its period must be samples-per-day for the
@@ -97,12 +98,37 @@ def _stl_period_for(series: list[tuple[datetime, float]]) -> int | None:
     return period if period >= MIN_STL_SAMPLES_PER_DAY else None
 
 
-def _engine_for(series: list[tuple[datetime, float]]) -> DetectionEngine:
-    """The 3-detector engine, with STL tuned to (or dropped for) the cadence."""
+def _engine_for(
+    series: list[tuple[datetime, float]],
+) -> tuple[DetectionEngine, str | None]:
+    """The 3-detector engine plus a reason if STL was dropped (else None).
+
+    STL needs ``2*period+1`` samples for its cadence-derived period, so a
+    sub-hourly series resolves to a large period (15-min -> 96 -> floor 193)
+    that a 50-192 point group cannot meet. Rather than attach an STL that
+    silently returns ``[]``, drop it and surface the reason so the group is not
+    reported "ok" while one of three detectors never fired.
+    """
     period = _stl_period_for(series)
+    if period is None:
+        return (
+            _three_detector_engine(stl=None),
+            "stl skipped: cadence too coarse for diurnal decomposition",
+        )
+    floor = 2 * period + 1
+    if len(series) < floor:
+        reason = (
+            f"stl skipped: {len(series)} points < {floor} required for "
+            f"cadence period {period}"
+        )
+        return _three_detector_engine(stl=None), reason
+    return _three_detector_engine(stl=STLDetector(period=period)), None
+
+
+def _three_detector_engine(*, stl: STLDetector | None) -> DetectionEngine:
     return DetectionEngine(
         zscore=ZScoreDetector(),
-        stl=STLDetector(period=period) if period is not None else None,
+        stl=stl,
         isolation_forest=IsolationForestDetector(),
     )
 
@@ -457,7 +483,7 @@ async def run_detection(
 
         series = [(p.timestamp, p.value) for p in group_points]
         iso_inputs = await build_aux_inputs(session, group_points)
-        engine = _engine_for(series)
+        engine, stl_skip_reason = _engine_for(series)
         anomalies = engine.run(
             series,
             metric=key.metric,
@@ -475,6 +501,7 @@ async def run_detection(
             n_moderate=sum(1 for a in anomalies if a.severity == "moderate"),
             n_minor=sum(1 for a in anomalies if a.severity == "minor"),
             iso_forest_used=iso_inputs is not None,
+            skipped_reason=stl_skip_reason,
         )
         summary.groups.append(group_summary)
         summary.n_groups_run += 1

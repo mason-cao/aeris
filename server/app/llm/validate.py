@@ -27,6 +27,30 @@ UNVERIFIED = "unverified"
 # Phase 1 -> Phase 2 delta can't be attributed to a strictness gap.
 NUMERIC_TOLERANCE = 0.25
 
+# A relative band is a fraction of the reference magnitude, which collapses to
+# zero width when the reference is ~0 — a legitimate 0 reading would then
+# reject every value but an exact 0. The floor keeps a minimal absolute band
+# around zero. It is a degeneracy guard, not a widener: only references within
+# ~floor/pct of zero are affected, so real measurements behave as before.
+TOLERANCE_FLOOR = 1e-9
+
+
+def within_tolerance(
+    value: float,
+    reference: float,
+    pct: float,
+    *,
+    floor: float = TOLERANCE_FLOOR,
+) -> bool:
+    """Whether ``value`` is within a relative ``pct`` band of ``reference``.
+
+    The band is ``pct * |reference|`` floored at ``floor`` so a near-zero
+    reference cannot produce a zero-width band that only an exact match clears.
+    Shared by the Phase 1 grounding check (_supports) and the Phase 2
+    concentration scorer so both read near-zero readings the same way.
+    """
+    return abs(value - reference) <= max(pct * abs(reference), floor)
+
 # Threshold cue words. A quantity preceded by one of these in the claim is
 # matched directionally instead of by point tolerance. Shared with the
 # Phase 2 concentration scorer (via threshold_cues) so both phases read
@@ -154,7 +178,7 @@ def _supports(
     tolerance: float,
 ) -> bool:
     """Whether one context quantity is consistent with one claim quantity."""
-    if abs(value - ctx_value) <= tolerance * abs(ctx_value):
+    if within_tolerance(value, ctx_value, tolerance):
         return True
     if relation == "over":
         return ctx_value >= value

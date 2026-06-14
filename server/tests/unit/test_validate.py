@@ -1,10 +1,13 @@
 from app.llm.parser import ClaimDraft
 from app.llm.validate import (
     GROUNDED,
+    TOLERANCE_FLOOR,
     UNVERIFIED,
     GroundingResult,
+    _supports,
     check_grounding,
     ground_claim_drafts,
+    within_tolerance,
 )
 
 
@@ -206,3 +209,35 @@ class TestGroundClaimDrafts:
         results = ground_claim_drafts(drafts, CONTEXT)
 
         assert [r.verdict for r in results] == [GROUNDED, UNVERIFIED]
+
+
+class TestWithinTolerance:
+    def test_normal_magnitude_relative_band(self) -> None:
+        # Within 25% of the reference passes; outside it fails. Unchanged from
+        # the previous inline expression for any non-degenerate reference.
+        assert within_tolerance(78.0, 80.0, 0.25) is True
+        assert within_tolerance(120.0, 80.0, 0.25) is False
+
+    def test_zero_reference_does_not_collapse_to_exact_match(self) -> None:
+        # The bug: a relative band around a ~zero reference is zero-width, so a
+        # value that is also essentially zero wrongly mismatches. The floor
+        # keeps a minimal absolute band so the degenerate case behaves.
+        assert within_tolerance(0.0, 0.0, 0.25) is True
+        assert within_tolerance(5e-10, 0.0, 0.25) is True
+
+    def test_floor_does_not_widen_band_for_real_magnitudes(self) -> None:
+        # The floor is a degeneracy guard only: a genuinely different value
+        # near a zero reference must still fail. We do not ground "0.5" on "0".
+        assert within_tolerance(0.5, 0.0, 0.25) is False
+        assert within_tolerance(2e-9, 0.0, 0.25) is False
+
+    def test_floor_is_configurable(self) -> None:
+        assert within_tolerance(2e-9, 0.0, 0.25, floor=1e-8) is True
+        assert TOLERANCE_FLOOR == 1e-9
+
+    def test_supports_zero_reading_routes_through_floor(self) -> None:
+        # _supports is one of the two rewired sites; a near-zero reading that
+        # used to mismatch a near-zero claim now grounds.
+        assert _supports(0.0, 0.0, "approx", 0.25) is True
+        assert _supports(5e-10, 0.0, "approx", 0.25) is True
+        assert _supports(0.5, 0.0, "approx", 0.25) is False

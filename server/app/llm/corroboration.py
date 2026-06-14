@@ -23,7 +23,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from statistics import fmean, pstdev
 
-from app.llm.validate import strip_locators, threshold_cues
+from app.llm.validate import strip_locators, threshold_cues, within_tolerance
 
 # Per-source verdict on a single claim. A source either supports the claim,
 # contradicts it, or is silent (no data bearing on it within the window).
@@ -293,7 +293,7 @@ def score_concentration_elevation(
                 f"{source}: {metric} nearest={nearest} vs {kind}-threshold={limit}"
             )
         elif point is not None:
-            within = abs(nearest - point) <= tolerance.value_pct * abs(nearest)
+            within = within_tolerance(point, nearest, tolerance.value_pct)
             verdict = SUPPORTING if within else CONTRADICTING
             notes.append(
                 f"{source}: {metric} nearest={nearest} vs claimed={point}"

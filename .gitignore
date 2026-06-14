@@ -51,6 +51,7 @@ coverage/
 graphify-out/
 
 # Personal workflow files
+.claude/
 CLAUDE.md
 session_summary.md
 

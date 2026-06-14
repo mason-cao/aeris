@@ -55,5 +55,5 @@ graphify-out/
 CLAUDE.md
 session_summary.md
 
-# Mentor materials (local only)
-docs/bracco/
+# Docs (local only — solo dev, not published; existing history is untouched)
+docs/

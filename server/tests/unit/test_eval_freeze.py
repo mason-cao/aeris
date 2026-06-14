@@ -79,6 +79,33 @@ class TestGroupEvents:
         )
         assert len(events) == 2
 
+    def test_bridging_anomaly_unions_two_separate_events(self) -> None:
+        # A and B are ~16 km apart (separate events); C sits ~8 km from each,
+        # within the radius of both, so it bridges them into one event.
+        # First-match-and-break joins C to A only and strands B as a second
+        # event, under-merging one physical event into two representatives.
+        a = _anomaly(ts=T0, lat=HOUSTON_LAT)
+        b = _anomaly(ts=T0 + timedelta(minutes=1), lat=HOUSTON_LAT + 0.144)
+        c = _anomaly(ts=T0 + timedelta(minutes=2), lat=HOUSTON_LAT + 0.072)
+
+        events = group_events([a, b, c])
+
+        assert len(events) == 1
+        assert len(events[0]) == 3
+
+    def test_event_grouping_is_order_independent(self) -> None:
+        # Same three anomalies (A--C--B chain by space, equal timestamps so the
+        # stable sort preserves input order) must yield one event regardless of
+        # the order they arrive in — connected components, not first-match.
+        a = _anomaly(ts=T0, lat=HOUSTON_LAT)
+        b = _anomaly(ts=T0, lat=HOUSTON_LAT + 0.144)
+        c = _anomaly(ts=T0, lat=HOUSTON_LAT + 0.072)
+
+        for ordering in ([a, b, c], [c, b, a], [b, a, c]):
+            events = group_events(list(ordering))
+            assert len(events) == 1, ordering
+            assert len(events[0]) == 3
+
     def test_single_linkage_chains_a_moving_event(self) -> None:
         # A->B and B->C are each within the merge window; A->C is not.
         # Chain linkage keeps the moving plume one event.

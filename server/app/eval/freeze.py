@@ -65,16 +65,20 @@ def group_events(
 ) -> list[list[Anomaly]]:
     """Merge same-metric anomalies into events by spatiotemporal proximity.
 
-    Single-linkage on a time-sorted scan: an anomaly joins the first event
-    with any member within the merge window and radius, so an event can
-    stretch across hours (a moving plume) without double-counting it.
+    Single-linkage: an anomaly joins every event holding a member within the
+    merge window and radius, and those events are unioned together — so an
+    anomaly that sits between two previously separate events bridges them into
+    one. This is incremental connected-components over the per-metric
+    proximity graph, so the partition is independent of arrival order. An event
+    can stretch across hours (a moving plume) without double-counting it.
     """
     events_by_metric: dict[str, list[list[Anomaly]]] = defaultdict(list)
     ordered = sorted(anomalies, key=lambda a: _ensure_utc(a.timestamp))
     for anomaly in ordered:
         ts = _ensure_utc(anomaly.timestamp)
-        joined: list[Anomaly] | None = None
-        for event in events_by_metric[anomaly.metric]:
+        metric_events = events_by_metric[anomaly.metric]
+        matching: list[list[Anomaly]] = []
+        for event in metric_events:
             for member in event:
                 close_in_time = (
                     abs(ts - _ensure_utc(member.timestamp)) <= merge_window
@@ -83,14 +87,16 @@ def group_events(
                     distance_km(anomaly.lat, anomaly.lon, member.lat, member.lon)
                     <= merge_radius_km
                 ):
-                    joined = event
+                    matching.append(event)
                     break
-            if joined is not None:
-                break
-        if joined is None:
-            events_by_metric[anomaly.metric].append([anomaly])
-        else:
-            joined.append(anomaly)
+        if not matching:
+            metric_events.append([anomaly])
+            continue
+        primary = matching[0]
+        primary.append(anomaly)
+        for other in matching[1:]:
+            primary.extend(other)
+            metric_events.remove(other)
     return [event for events in events_by_metric.values() for event in events]
 
 

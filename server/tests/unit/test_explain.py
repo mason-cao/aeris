@@ -270,21 +270,11 @@ async def test_persist_explanation_is_insert_only_per_model(db_session):
     )
     assert await persist_explanation(db_session, second) is False
 
-    # Committed rows outlive each test (session-scoped engine), so counts
-    # must be scoped to this test's own anomaly.
     n_explanations = (
-        await db_session.execute(
-            select(func.count(Explanation.id)).where(
-                Explanation.anomaly_id == anomaly.id
-            )
-        )
+        await db_session.execute(select(func.count(Explanation.id)))
     ).scalar_one()
     n_claims = (
-        await db_session.execute(
-            select(func.count(Claim.id))
-            .join(Explanation, Claim.explanation_id == Explanation.id)
-            .where(Explanation.anomaly_id == anomaly.id)
-        )
+        await db_session.execute(select(func.count(Claim.id)))
     ).scalar_one()
     assert n_explanations == 1
     assert n_claims == 2

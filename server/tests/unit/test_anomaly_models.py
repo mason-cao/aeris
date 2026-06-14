@@ -2,8 +2,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytest_asyncio
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from app.db.models import Anomaly, EnrichmentRecord
 
@@ -27,16 +26,6 @@ def _make_anomaly(**overrides) -> Anomaly:
     )
     defaults.update(overrides)
     return Anomaly(**defaults)
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def _clean_anomaly_tables(db_session):
-    # The shared session-scoped engine retains committed rows across tests;
-    # clear anomaly-related rows so each test starts from a known empty state.
-    await db_session.execute(delete(EnrichmentRecord))
-    await db_session.execute(delete(Anomaly))
-    await db_session.commit()
-    yield
 
 
 class TestAnomalyModel:

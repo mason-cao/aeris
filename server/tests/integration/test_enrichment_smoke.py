@@ -12,8 +12,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytest_asyncio
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from app.db.models import Anomaly, DataPoint, EnrichmentRecord
 from app.detection.enrichment import enrich_anomaly, enrich_pending_anomalies
@@ -35,15 +34,6 @@ OW_NORTH = (29.9800, -95.3698)
 OW_SOUTH = (29.5400, -95.3698)
 GFS_CELL_A = (29.75, -95.25)         # nearest 0.25-deg GFS cell
 GFS_CELL_B = (29.75, -95.50)
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def _clean_tables(db_session):
-    await db_session.execute(delete(EnrichmentRecord))
-    await db_session.execute(delete(Anomaly))
-    await db_session.execute(delete(DataPoint))
-    await db_session.commit()
-    yield
 
 
 def _series(source, metric, entity, loc, unit, samples):

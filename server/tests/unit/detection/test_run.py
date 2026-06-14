@@ -2,10 +2,9 @@ import math
 from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytest_asyncio
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
-from app.db.models import Anomaly, DataPoint, EnrichmentRecord
+from app.db.models import Anomaly, DataPoint
 from app.detection.consensus import ConsensusAnomaly
 from app.detection.run import (
     GroupKey,
@@ -32,15 +31,6 @@ def _to_utc(dt: datetime) -> datetime:
 HOUSTON_LAT = 29.7604
 HOUSTON_LON = -95.3698
 T0 = datetime(2026, 5, 1, 0, 0, tzinfo=timezone.utc)
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def _clean_tables(db_session):
-    await db_session.execute(delete(EnrichmentRecord))
-    await db_session.execute(delete(Anomaly))
-    await db_session.execute(delete(DataPoint))
-    await db_session.commit()
-    yield
 
 
 def _dp(

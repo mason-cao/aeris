@@ -3,8 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import httpx
 import pytest
-import pytest_asyncio
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from app.collectors.backfill import (
     OpenAQArchiveBackfill,
@@ -33,12 +32,6 @@ HOUSTON_ROW = (
     '42,3919,"Houston Monitor","2026-05-01T01:00:00-06:00",'
     '"29.7604","-95.3698","pm25","µg/m³","32.0"'
 )
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def _clean_data_points(db_session):
-    await db_session.execute(delete(DataPoint))
-    await db_session.commit()
 
 
 class TestArchiveKey:

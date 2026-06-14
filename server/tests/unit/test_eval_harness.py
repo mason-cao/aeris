@@ -154,8 +154,6 @@ async def _seed(db_session, n: int) -> list[uuid.UUID]:
 
 
 async def _n_explanations(db_session, ids: list[uuid.UUID]) -> int:
-    # Committed rows outlive each test (session-scoped engine), so counts
-    # must be scoped to this test's own anomalies.
     return (
         await db_session.execute(
             select(func.count(Explanation.id)).where(Explanation.anomaly_id.in_(ids))

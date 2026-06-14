@@ -77,7 +77,7 @@ class TestDataSourceRoutes:
 
         assert response.status_code == 200
         data = response.json()
-        names = [item["name"] for item in data if item["name"].startswith("api_source_")]
+        names = [item["name"] for item in data]
         assert names == ["api_source_alpha", "api_source_beta"]
         alpha = next(item for item in data if item["name"] == "api_source_alpha")
         assert alpha["status"] == "error"

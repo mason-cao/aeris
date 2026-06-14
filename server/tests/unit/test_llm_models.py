@@ -2,8 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
-import pytest_asyncio
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from app.db.models import Anomaly, Claim, ExpertLabel, Explanation
 
@@ -68,18 +67,6 @@ def _make_claim(explanation_id, **overrides) -> Claim:
     )
     defaults.update(overrides)
     return Claim(**defaults)
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def _clean_tables(db_session):
-    # Shared session-scoped engine retains committed rows; clear LLM-pipeline
-    # tables so each test starts empty.
-    await db_session.execute(delete(Claim))
-    await db_session.execute(delete(Explanation))
-    await db_session.execute(delete(ExpertLabel))
-    await db_session.execute(delete(Anomaly))
-    await db_session.commit()
-    yield
 
 
 class TestExplanationModel:

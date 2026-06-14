@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytest_asyncio
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from app.db.models import Anomaly, DataPoint, EnrichmentRecord
 from app.detection.enrichment import (
@@ -80,17 +79,6 @@ def _summary(
     return build_cross_source_summary(
         anomaly, points, window_start=start, window_end=end, config=config
     )
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def _clean_tables(db_session):
-    # The session-scoped engine retains committed rows across tests; clear
-    # anomaly-related tables so each test starts from a known empty state.
-    await db_session.execute(delete(EnrichmentRecord))
-    await db_session.execute(delete(Anomaly))
-    await db_session.execute(delete(DataPoint))
-    await db_session.commit()
-    yield
 
 
 async def _seed(db_session, points: list[DataPoint]) -> None:

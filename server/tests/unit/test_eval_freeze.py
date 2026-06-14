@@ -11,10 +11,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytest_asyncio
-from sqlalchemy import delete
 
-from app.db.models import Anomaly, DataPoint, EnrichmentRecord
+from app.db.models import Anomaly, EnrichmentRecord
 from app.eval.freeze import (
     FreezeResult,
     fixture_payload,
@@ -26,15 +24,6 @@ from app.eval.harness import load_anomaly_set
 T0 = datetime(2026, 7, 2, 12, 0, tzinfo=timezone.utc)
 HOUSTON_LAT = 29.7604
 HOUSTON_LON = -95.3698
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def _clean_tables(db_session):
-    await db_session.execute(delete(EnrichmentRecord))
-    await db_session.execute(delete(Anomaly))
-    await db_session.execute(delete(DataPoint))
-    await db_session.commit()
-    yield
 
 
 def _anomaly(

@@ -4,8 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-import pytest_asyncio
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from app.collectors.backfill import (
     BackfillResult,
@@ -30,13 +29,6 @@ def _fast_limiter() -> AsyncRateLimiter:
 
 
 T0 = datetime(2026, 5, 1, 0, 0, tzinfo=timezone.utc)
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def _clean_data_points(db_session):
-    await db_session.execute(delete(DataPoint))
-    await db_session.commit()
-    yield
 
 
 # OpenAQ mock-response factories -----------------------------------------

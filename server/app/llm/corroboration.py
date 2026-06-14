@@ -197,24 +197,36 @@ def _resolve_pollutant(claim_text: str) -> tuple[str | None, str | None]:
     return None, None
 
 
-def _threshold_value(claim_text: str) -> float | None:
-    """The numeric threshold in an 'exceeded N' style claim, else None.
+def _threshold_value(claim_text: str) -> tuple[float, str] | None:
+    """``(value, "over" | "under")`` for a threshold claim, else None.
 
-    Clock times and dates are blanked first (the Phase 1 locator rule), and
-    pollutant tokens are blanked position-preserving, so "exceeded typical
-    values at 14:00" yields no threshold while "NO2 exceeded 80 ppb between
-    14:00-18:00" yields 80. The number must sit at/after the cue word —
-    numbers before it describe something else.
+    "exceeded 80" yields ``(80.0, "over")`` and "stayed below 5" yields
+    ``(5.0, "under")`` — the mirror Phase 1 grounding already handles, so the
+    two phases read threshold claims the same way. Clock times and dates are
+    blanked first (the Phase 1 locator rule), and pollutant tokens are blanked
+    position-preserving, so "exceeded typical values at 14:00" yields no
+    threshold while "NO2 exceeded 80 ppb between 14:00-18:00" yields 80. The
+    number must sit at/after a cue word — numbers before it describe something
+    else — and the nearest cue preceding the number sets the direction (mirrors
+    ``validate._threshold_relation``).
     """
     lowered = strip_locators(claim_text.lower())
-    over_cues = [offset for offset, kind in threshold_cues(lowered) if kind == "over"]
-    if not over_cues:
+    cues = threshold_cues(lowered)
+    if not cues:
         return None
     cleaned = lowered
     for pattern, _metric in _POLLUTANT_PATTERNS:
         cleaned = re.sub(pattern, _blank_match, cleaned)
-    match = re.search(r"\d+(?:\.\d+)?", cleaned[over_cues[0]:])
-    return float(match.group()) if match else None
+    match = re.search(r"\d+(?:\.\d+)?", cleaned[cues[0][0]:])
+    if not match:
+        return None
+    position = cues[0][0] + match.start()
+    relation = cues[0][1]
+    for offset, kind in cues:
+        if offset > position:
+            break
+        relation = kind
+    return float(match.group()), relation
 
 
 def _point_value(claim_text: str) -> float | None:
@@ -272,9 +284,13 @@ def score_concentration_elevation(
 
         nearest = data["nearest_in_time"]["v"]
         if threshold is not None:
-            verdict = SUPPORTING if nearest >= threshold else CONTRADICTING
+            limit, kind = threshold
+            if kind == "under":
+                verdict = SUPPORTING if nearest <= limit else CONTRADICTING
+            else:
+                verdict = SUPPORTING if nearest >= limit else CONTRADICTING
             notes.append(
-                f"{source}: {metric} nearest={nearest} vs threshold={threshold}"
+                f"{source}: {metric} nearest={nearest} vs {kind}-threshold={limit}"
             )
         elif point is not None:
             within = abs(nearest - point) <= tolerance.value_pct * abs(nearest)

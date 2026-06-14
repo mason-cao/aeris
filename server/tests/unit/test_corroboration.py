@@ -144,6 +144,64 @@ def test_concentration_threshold_claim_contradicted_by_openaq():
     assert verdicts["openaq"] == CONTRADICTING
 
 
+def test_concentration_under_threshold_claim_supported_by_openaq():
+    # "stayed below 50" is the mirror of "exceeded 80": a low nearest value
+    # supports it. The qualitative-elevation branch would invert this.
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": {
+                    "unit": "ppb",
+                    "value_range": {"min": 8.0, "max": 22.0, "mean": 14.0},
+                    "nearest_in_time": {"v": 18.0},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_concentration_elevation(
+        "NO2 stayed below 50 ppb at the nearest monitor.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+
+
+def test_concentration_under_threshold_claim_contradicted_by_openaq():
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": {
+                    "unit": "ppb",
+                    "value_range": {"min": 70.0, "max": 95.0, "mean": 82.0},
+                    "nearest_in_time": {"v": 88.0},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_concentration_elevation(
+        "NO2 stayed below 50 ppb at the nearest monitor.", summary
+    )
+    assert verdicts["openaq"] == CONTRADICTING
+
+
+def test_concentration_elevated_but_below_threshold_is_under_claim():
+    # "elevated but stayed below 80" is an under-claim despite the word
+    # "elevated": nearest 60 sits below 80, so it is supported.
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": {
+                    "unit": "ppb",
+                    "value_range": {"min": 40.0, "max": 65.0, "mean": 55.0},
+                    "nearest_in_time": {"v": 60.0},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_concentration_elevation(
+        "NO2 was elevated but stayed below 80 ppb.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+
+
 def test_concentration_unmatched_pollutant_is_silent():
     summary = _summary_with(
         {

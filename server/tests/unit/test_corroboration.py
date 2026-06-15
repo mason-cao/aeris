@@ -838,6 +838,24 @@ def test_source_type_unknown_intent_returns_no_verdicts():
     assert note
 
 
+def test_source_type_point_silent_when_stations_lack_coverage():
+    # Each station reports too few in-window readings for its mean to anchor the
+    # spatial-CV verdict. Like the background_vs_event scorer, the point/area
+    # check must return silent on the data-quality precondition rather than read
+    # a verdict off single-reading "means".
+    entities = [
+        _entity("a", _series(10, [80, 85, 82])),
+        _entity("b", _series(10, [10, 11, 9])),
+        _entity("c", _series(10, [11, 10, 12])),
+    ]
+    summary = _summary_with({"openaq": {"no2": _metric_from_entities(entities)}})
+    verdicts, note = score_emissions_source_type(
+        "Persistent NO2 consistent with a Ship Channel point source.", summary
+    )
+    assert verdicts["openaq"] == SILENT
+    assert "obs" in note
+
+
 # --- secondary_formation (type 9) ---
 
 

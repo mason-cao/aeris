@@ -970,6 +970,11 @@ class SourceTypeTolerance:
     morning_end_h: int = 10
     min_stations: int = 3
     min_points: int = 4
+    # Per-station in-window obs floor for the spatial-CV path: a station with
+    # fewer readings has too thin a mean to anchor the point/area verdict. Set
+    # to match this type's own data-sufficiency floor (min_points), looser than
+    # background_vs_event's 6 — consistent with this type's looser min_stations.
+    min_obs_per_station: int = 4
 
 
 DEFAULT_SOURCE_TYPE_TOLERANCE = SourceTypeTolerance()
@@ -1021,11 +1026,14 @@ def score_emissions_source_type(
             f"openaq: {metric} peak at {local_hour:02d}:00 local",
         )
 
-    means = _station_means(block)
+    means = _station_means(block, min_obs=tolerance.min_obs_per_station)
     if len(means) < tolerance.min_stations:
         return (
             {"openaq": SILENT},
-            f"openaq: {len(means)} stations, need {tolerance.min_stations}",
+            (
+                f"openaq: {len(means)} stations with >= "
+                f"{tolerance.min_obs_per_station} obs, need {tolerance.min_stations}"
+            ),
         )
     cv = _spatial_cv(means)
     if cv is None:

@@ -225,8 +225,33 @@ async def test_rerun_skips_existing_cells_without_llm_calls(db_session):
 
     assert summaries["model-a"].skipped == 2
     assert summaries["model-a"].completed == 0
-    assert second["model-a"].calls == 0  # skip check happens before generation
+    # Every cell is resumed-complete, so no client is constructed at all.
+    assert "model-a" not in second
     assert await _n_explanations(db_session, ids) == 2
+
+
+@pytest.mark.asyncio
+async def test_all_skipped_model_builds_no_client(db_session):
+    # A fully-resumed model must not pay to construct its (cloud) client when
+    # there is no cell left to fill.
+    ids = await _seed(db_session, 2)
+    await run_harness(
+        db_session, ids, models=["model-a"],
+        client_factory=_scripted_factory({}, n_anomalies=2),
+    )
+
+    built: list[str] = []
+
+    def counting_factory(model: str) -> LLMClient:
+        built.append(model)
+        return ScriptedClient(model, _chain_script() * 2)
+
+    summaries = await run_harness(
+        db_session, ids, models=["model-a"], client_factory=counting_factory
+    )
+
+    assert summaries["model-a"].skipped == 2
+    assert built == []
 
 
 @pytest.mark.asyncio

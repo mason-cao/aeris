@@ -86,12 +86,17 @@ async def run_harness(
     summaries: dict[str, ModelSweepSummary] = {}
     for model in models:
         summary = summaries.setdefault(model, ModelSweepSummary())
-        client = client_factory(model)
+        # Build the client lazily, on the first cell that actually needs it: a
+        # fully-resumed model skips every cell and must not pay to construct a
+        # (cloud) client it never calls.
+        client: LLMClient | None = None
         try:
             for anomaly_id in anomaly_ids:
                 if await _cell_exists(session, anomaly_id, model):
                     summary.skipped += 1
                     continue
+                if client is None:
+                    client = client_factory(model)
                 try:
                     explanation = await generate_explanation(
                         session, anomaly_id, client
@@ -113,7 +118,8 @@ async def run_harness(
                         extra={"model": model, "anomaly_id": str(anomaly_id)},
                     )
         finally:
-            await client.close()
+            if client is not None:
+                await client.close()
     return summaries
 
 

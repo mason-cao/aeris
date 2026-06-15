@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -8,6 +9,7 @@ from app.collectors.openaq import (
     PARAMETER_MAP,
     OpenAQCollector,
     clear_locations_cache,
+    location_within_target_radius,
     normalize_openaq_unit,
     parse_openaq_datetime,
 )
@@ -180,6 +182,19 @@ class TestOpenAQNormalize:
 
         assert len(points) == 1
 
+    def test_normalize_skips_sensor_with_bad_coordinates(
+        self, collector: OpenAQCollector
+    ) -> None:
+        # One station reporting non-numeric coordinates must be skipped, not
+        # abort the whole normalize pass with an uncaught float() error.
+        bad = make_sensor(1, "pm25")
+        bad["latest"]["coordinates"] = {"latitude": "N/A", "longitude": "N/A"}
+        good = make_sensor(2, "pm25")
+
+        points = collector.normalize(make_raw([bad, good]))
+
+        assert len(points) == 1
+
 
 class TestOpenAQFetch:
     @pytest.mark.asyncio
@@ -276,8 +291,36 @@ class TestOpenAQFetch:
         assert locations_calls == 2
         await client.aclose()
 
+    @pytest.mark.asyncio
+    async def test_fetch_logs_clear_message_on_rejected_key(
+        self, monkeypatch, caplog
+    ) -> None:
+        # A rejected key returns 401 on the first call; surface a clear log
+        # instead of an opaque HTTPStatusError, and still propagate it.
+        monkeypatch.setattr(settings, "openaq_api_key", "dead-key")
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(401, json={"message": "Invalid API key"})
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = OpenAQCollector(http_client=client, rate_limiter=fast_limiter())
+
+        with caplog.at_level(logging.ERROR, logger="app.collectors.openaq"):
+            with pytest.raises(httpx.HTTPStatusError):
+                await collector.fetch()
+
+        assert any("key rejected" in r.getMessage().lower() for r in caplog.records)
+        await client.aclose()
+
 
 class TestOpenAQHelpers:
+    def test_location_within_radius_skips_bad_coordinates(self) -> None:
+        # Malformed coordinates must not raise an uncaught float() error that
+        # aborts the whole location scan.
+        bad = {"coordinates": {"latitude": "N/A", "longitude": "N/A"}}
+
+        assert location_within_target_radius(bad) is False
+
     def test_unit_map_covers_common_openaq_units(self) -> None:
         assert normalize_openaq_unit("\u00b5g/m\u00b3") == "ug/m3"
         assert normalize_openaq_unit("ug/m3") == "ug/m3"

@@ -5,7 +5,7 @@ import pytest
 from pydantic import BaseModel
 
 from app.config import settings
-from app.llm.client_base import LLMClient
+from app.llm.client_base import LLMClient, LLMParseError
 from app.llm.gemini_client import GeminiClient
 
 
@@ -103,6 +103,38 @@ class TestGeminiClient:
         client = _client_with(handler)
         raw = await client._complete("p", _Attribution)
         assert raw.text == '{"cause": "transport", "confidence": 0.4}'
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_complete_raises_parse_error_when_prompt_blocked(self) -> None:
+        # A blocked prompt returns 200 with no candidates; must surface as
+        # LLMParseError not an IndexError crash.
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "modelVersion": "gemini-3-thinking-0601",
+                    "promptFeedback": {"blockReason": "SAFETY"},
+                },
+            )
+
+        client = _client_with(handler)
+        with pytest.raises(LLMParseError):
+            await client._complete("p", _Attribution)
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_complete_raises_parse_error_on_empty_content(self) -> None:
+        # An all-thought / no-text candidate yields empty content; rather than
+        # return "" and burn the parse retries, surface LLMParseError.
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200, json=_gemini_response([{"text": "thinking", "thought": True}])
+            )
+
+        client = _client_with(handler)
+        with pytest.raises(LLMParseError):
+            await client._complete("p", _Attribution)
         await client.close()
 
     @pytest.mark.asyncio

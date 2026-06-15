@@ -1,6 +1,8 @@
+import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
+import httpx
 import pytest
 from sqlalchemy import select
 
@@ -172,6 +174,56 @@ class TestMockCollectorCollect:
             select(DataPoint).where(DataPoint.source == "test_source")
         )
         assert data_result.scalars().all() == []
+
+    @pytest.mark.asyncio
+    async def test_collect_does_not_retry_on_4xx(self, db_session, monkeypatch) -> None:
+        # A 4xx (e.g. a rejected API key) won't succeed on retry; collect must
+        # break immediately instead of burning the 90s backoff budget.
+        slept: list[float] = []
+
+        async def _no_sleep(seconds: float) -> None:
+            slept.append(seconds)
+
+        monkeypatch.setattr(asyncio, "sleep", _no_sleep)
+        calls = {"n": 0}
+
+        class AuthFailCollector(MockCollector):
+            async def fetch(self) -> dict[str, Any]:
+                calls["n"] += 1
+                request = httpx.Request("GET", "https://example.test")
+                raise httpx.HTTPStatusError(
+                    "unauthorized",
+                    request=request,
+                    response=httpx.Response(401, request=request),
+                )
+
+        result = await AuthFailCollector().collect(db_session, max_retries=3)
+
+        assert result.success is False
+        assert calls["n"] == 1
+        assert slept == []
+
+    @pytest.mark.asyncio
+    async def test_collect_retries_transient_error(self, db_session, monkeypatch) -> None:
+        # A network blip is transient: collect should use every attempt.
+        slept: list[float] = []
+
+        async def _no_sleep(seconds: float) -> None:
+            slept.append(seconds)
+
+        monkeypatch.setattr(asyncio, "sleep", _no_sleep)
+        calls = {"n": 0}
+
+        class FlakyCollector(MockCollector):
+            async def fetch(self) -> dict[str, Any]:
+                calls["n"] += 1
+                raise ConnectionError("network blip")
+
+        result = await FlakyCollector().collect(db_session, max_retries=3)
+
+        assert result.success is False
+        assert calls["n"] == 3
+        assert len(slept) == 2
 
     @pytest.mark.asyncio
     async def test_collect_failure_sets_error_status(self, db_session) -> None:

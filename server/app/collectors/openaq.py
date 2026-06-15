@@ -83,8 +83,11 @@ def location_within_target_radius(location: dict[str, Any]) -> bool:
     lon = coordinates.get("longitude")
     if lat is None or lon is None:
         return False
-
-    return within_target_radius(float(lat), float(lon))
+    try:
+        return within_target_radius(float(lat), float(lon))
+    except (TypeError, ValueError):
+        logger.debug("Skipping OpenAQ location with bad coordinates: %s/%s", lat, lon)
+        return False
 
 
 class OpenAQCollector(BaseCollector):
@@ -142,7 +145,15 @@ class OpenAQCollector(BaseCollector):
             else {}
         )
 
-        locations = await self._target_locations(client, headers)
+        try:
+            locations = await self._target_locations(client, headers)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in (401, 403):
+                logger.error(
+                    "OpenAQ API key rejected (HTTP %s); check OPENAQ_API_KEY",
+                    exc.response.status_code,
+                )
+            raise
         sensors_by_location_id: dict[str, list[dict[str, Any]]] = {}
 
         for location in locations:
@@ -240,6 +251,17 @@ class OpenAQCollector(BaseCollector):
         lon = latest_coordinates.get("longitude", location_coordinates.get("longitude"))
         if lat is None or lon is None:
             return None
+        try:
+            lat = float(lat)
+            lon = float(lon)
+        except (TypeError, ValueError):
+            logger.debug(
+                "Skipping OpenAQ sensor %s with bad coordinates: %s/%s",
+                sensor.get("id"),
+                lat,
+                lon,
+            )
+            return None
 
         sensor_id = sensor.get("id")
         if sensor_id is None:
@@ -247,8 +269,8 @@ class OpenAQCollector(BaseCollector):
 
         return DataPointCreate(
             timestamp=timestamp,
-            lat=float(lat),
-            lon=float(lon),
+            lat=lat,
+            lon=lon,
             metric=metric,
             value=value,
             unit=normalize_openaq_unit(parameter.get("units")),

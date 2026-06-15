@@ -5,7 +5,7 @@ import pytest
 from pydantic import BaseModel
 
 from app.config import settings
-from app.llm.client_base import LLMClient
+from app.llm.client_base import LLMClient, LLMParseError
 from app.llm.gpt_client import GPTClient
 
 
@@ -88,6 +88,37 @@ class TestGPTClient:
         assert client.model_version is None
         await client._complete("p", _Attribution)
         assert client.model_version == "gpt-5.4-2026-03-11"
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_complete_raises_parse_error_on_empty_choices(self) -> None:
+        # A safety-filtered 200 can return no choices; must surface as
+        # LLMParseError (harness parse_failure) not an IndexError crash.
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"model": "gpt-5.4", "choices": []})
+
+        client = _client_with(handler)
+        with pytest.raises(LLMParseError):
+            await client._complete("p", _Attribution)
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_complete_raises_parse_error_on_null_content(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "model": "gpt-5.4",
+                    "choices": [
+                        {"message": {"role": "assistant", "content": None},
+                         "finish_reason": "content_filter"}
+                    ],
+                },
+            )
+
+        client = _client_with(handler)
+        with pytest.raises(LLMParseError):
+            await client._complete("p", _Attribution)
         await client.close()
 
     @pytest.mark.asyncio

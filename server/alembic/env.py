@@ -10,7 +10,9 @@ from app.db.models import Base
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False so running a migration in-process (incl.
+    # the test suite) does not silence the app's already-configured loggers.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # URL defaults from app settings, but tests / autogenerate runs may set
 # sqlalchemy.url on the Config first; honor that override when present.

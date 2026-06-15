@@ -6,7 +6,7 @@ import httpx
 from pydantic import BaseModel
 
 from app.config import settings
-from app.llm.client_base import LLMClient, RawCompletion
+from app.llm.client_base import LLMClient, LLMParseError, RawCompletion
 
 logger = logging.getLogger(__name__)
 
@@ -97,8 +97,19 @@ class GeminiClient(LLMClient):
         data = response.json()
         if data.get("modelVersion"):
             self.model_version = data["modelVersion"]
-        parts = data["candidates"][0]["content"].get("parts", [])
+        candidates = data.get("candidates") or []
+        content = candidates[0].get("content", {}) if candidates else {}
+        parts = content.get("parts", [])
         text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+        if not text:
+            reason = (
+                candidates[0].get("finishReason")
+                if candidates
+                else data.get("promptFeedback", {}).get("blockReason")
+            )
+            raise LLMParseError(
+                f"{self.model_name} returned no usable content (reason={reason})"
+            )
         usage = data.get("usageMetadata", {})
         return RawCompletion(
             text=text,

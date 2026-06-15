@@ -2,7 +2,7 @@ import httpx
 from pydantic import BaseModel
 
 from app.config import settings
-from app.llm.client_base import LLMClient, RawCompletion
+from app.llm.client_base import LLMClient, LLMParseError, RawCompletion
 
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_MODEL = "gpt-5.4"
@@ -86,8 +86,16 @@ class GPTClient(LLMClient):
         if data.get("model"):
             self.model_version = data["model"]
         usage = data.get("usage", {})
+        choices = data.get("choices") or []
+        content = choices[0].get("message", {}).get("content") if choices else None
+        if not content:
+            finish = choices[0].get("finish_reason") if choices else None
+            raise LLMParseError(
+                f"{self.model_name} returned no usable content "
+                f"(finish_reason={finish})"
+            )
         return RawCompletion(
-            text=data["choices"][0]["message"]["content"],
+            text=content,
             prompt_tokens=usage.get("prompt_tokens"),
             completion_tokens=usage.get("completion_tokens"),
         )

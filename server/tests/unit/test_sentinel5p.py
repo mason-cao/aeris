@@ -722,6 +722,45 @@ class TestDownloadGranule:
 
         assert path.read_bytes() == body
 
+    @pytest.mark.asyncio
+    async def test_refreshes_token_and_retries_on_401(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        # The token can expire mid-download (the download timeout can exceed
+        # the token's remaining lifetime). A 401 must trigger one refresh and
+        # retry, not silently drop the granule.
+        monkeypatch.setattr(settings, "cdse_username", "alice")
+        monkeypatch.setattr(settings, "cdse_password", "secret")
+        refreshes = {"n": 0}
+
+        async def fake_refresh(client, user, password):
+            refreshes["n"] += 1
+            return "fresh-token"
+
+        monkeypatch.setattr(
+            "app.collectors.sentinel5p.fetch_access_token", fake_refresh
+        )
+        seen_auth: list[str | None] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen_auth.append(request.headers.get("authorization"))
+            if len(seen_auth) == 1:
+                return httpx.Response(401)
+            return httpx.Response(200, content=b"granule-bytes")
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = Sentinel5PCollector(http_client=client)
+        path = tmp_path / "granule.nc"
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT)
+        try:
+            await collector._download_granule(client, "abc-123", "stale-token", fd)
+        finally:
+            await client.aclose()
+
+        assert refreshes["n"] == 1
+        assert seen_auth == ["Bearer stale-token", "Bearer fresh-token"]
+        assert path.read_bytes() == b"granule-bytes"
+
 
 class TestExtractColumnsTokenRefresh:
     @pytest.mark.asyncio

@@ -418,7 +418,39 @@ class Sentinel5PCollector(BaseCollector):
         token: str,
         fd: int,
     ) -> None:
-        """Stream a granule to ``fd``, following redirects by hand.
+        """Stream a granule to ``fd`` with one token-refresh retry on 401.
+
+        The access token can expire mid-download — the download timeout can
+        exceed the token's remaining lifetime — which surfaces as a 401. On the
+        first 401 the token is refreshed once and the download retried so the
+        granule is not silently dropped.
+        """
+        with os.fdopen(fd, "wb") as out:
+            for refresh_attempt in range(2):
+                try:
+                    await self._stream_granule(client, product_id, token, out)
+                    return
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code != 401 or refresh_attempt == 1:
+                        raise
+                    logger.info(
+                        "CDSE token rejected mid-download; refreshing and retrying",
+                        extra={"product_id": product_id},
+                    )
+                    token = await fetch_access_token(
+                        client, settings.cdse_username, settings.cdse_password
+                    )
+                    out.seek(0)
+                    out.truncate()
+
+    async def _stream_granule(
+        self,
+        client: httpx.AsyncClient,
+        product_id: str,
+        token: str,
+        out,
+    ) -> None:
+        """Stream one granule attempt to ``out``, following redirects by hand.
 
         The OData ``$value`` endpoint 301s to a separate download host, and
         httpx drops the Authorization header on cross-host redirects (so
@@ -427,33 +459,30 @@ class Sentinel5PCollector(BaseCollector):
         """
         url = granule_download_url(product_id)
         headers = {"Authorization": f"Bearer {token}"}
-        with os.fdopen(fd, "wb") as out:
-            for _ in range(DOWNLOAD_MAX_REDIRECTS + 1):
-                async with client.stream(
-                    "GET", url, headers=headers, timeout=GRANULE_DOWNLOAD_TIMEOUT_S
-                ) as response:
-                    if response.is_redirect:
-                        url = str(
-                            httpx.URL(url).join(response.headers["location"])
-                        )
-                        continue
-                    response.raise_for_status()
-                    written = 0
-                    async for chunk in response.aiter_bytes():
-                        if chunk:
-                            out.write(chunk)
-                            written += len(chunk)
-                    expected = response.headers.get("content-length")
-                    if (
-                        expected is not None
-                        and "content-encoding" not in response.headers
-                        and written != int(expected)
-                    ):
-                        raise RuntimeError(
-                            f"S5P granule download truncated: wrote {written} "
-                            f"of {expected} bytes for {product_id}"
-                        )
-                    return
+        for _ in range(DOWNLOAD_MAX_REDIRECTS + 1):
+            async with client.stream(
+                "GET", url, headers=headers, timeout=GRANULE_DOWNLOAD_TIMEOUT_S
+            ) as response:
+                if response.is_redirect:
+                    url = str(httpx.URL(url).join(response.headers["location"]))
+                    continue
+                response.raise_for_status()
+                written = 0
+                async for chunk in response.aiter_bytes():
+                    if chunk:
+                        out.write(chunk)
+                        written += len(chunk)
+                expected = response.headers.get("content-length")
+                if (
+                    expected is not None
+                    and "content-encoding" not in response.headers
+                    and written != int(expected)
+                ):
+                    raise RuntimeError(
+                        f"S5P granule download truncated: wrote {written} "
+                        f"of {expected} bytes for {product_id}"
+                    )
+                return
         raise RuntimeError(
             f"S5P granule download exceeded {DOWNLOAD_MAX_REDIRECTS} redirects"
         )

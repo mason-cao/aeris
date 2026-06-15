@@ -40,6 +40,20 @@ class CollectionResult(BaseModel):
     errors: list[str] = Field(default_factory=list)
 
 
+def _is_transient(exc: Exception) -> bool:
+    """Whether retrying ``exc`` could plausibly succeed.
+
+    4xx client/auth errors (a rejected key, a malformed request) won't fix
+    themselves, so retrying them just burns the backoff budget — break out
+    instead. 429 (rate-limited) clears with time, and 5xx / network errors /
+    timeouts are transient, so all of those are still retried.
+    """
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        return status == 429 or status >= 500
+    return True
+
+
 class BaseCollector(ABC):
     """Abstract base class for all data source collectors.
 
@@ -129,6 +143,13 @@ class BaseCollector(ABC):
                         "error": str(e),
                     },
                 )
+
+                if not _is_transient(e):
+                    logger.error(
+                        "Non-transient error; not retrying",
+                        extra={"source": self.source_name, "error": str(e)},
+                    )
+                    break
 
                 if attempt < max_retries:
                     backoff = 30 * (2 ** (attempt - 1))  # 30s, 60s, 120s

@@ -37,7 +37,9 @@ class ReasoningStepResponse(BaseModel):
 
 class SynthesisResponse(BaseModel):
     final_narrative: str
-    stated_confidence: float
+    # A probability in [0, 1]; the bound rejects a model emitting 5, -1, or NaN
+    # at parse time so a nonsense value can't reach the corroboration analysis.
+    stated_confidence: float = Field(ge=0, le=1)
     claims: list[StepClaim] = Field(default_factory=list)
 
 

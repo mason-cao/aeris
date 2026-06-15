@@ -1,3 +1,8 @@
+import math
+
+import pytest
+from pydantic import ValidationError
+
 from app.llm.prompt import (
     MAX_CLAIMS_PER_STEP,
     STEP_SEQUENCE,
@@ -69,3 +74,21 @@ class TestBuildStepPrompt:
         )
         assert "final_narrative" in prompt
         assert "stated_confidence" in prompt
+
+
+class TestSynthesisConfidenceBounds:
+    """stated_confidence is a probability in [0, 1]. An out-of-range or
+    non-finite value (a model emitting 5, -1, or NaN) must be rejected at parse
+    time rather than flowing into the corroboration confidence analysis.
+    """
+
+    @pytest.mark.parametrize("value", [0.0, 0.5, 1.0])
+    def test_in_range_confidence_accepted(self, value: float) -> None:
+        response = SynthesisResponse(final_narrative="x", stated_confidence=value)
+
+        assert response.stated_confidence == value
+
+    @pytest.mark.parametrize("value", [5.0, -1.0, 1.0001, math.nan, math.inf])
+    def test_out_of_range_confidence_rejected(self, value: float) -> None:
+        with pytest.raises(ValidationError):
+            SynthesisResponse(final_narrative="x", stated_confidence=value)

@@ -1,9 +1,11 @@
+import math
 import os
 from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import patch
 
 import httpx
+import numpy as np
 import pytest
 
 from app.collectors.geo import BoundingBox
@@ -13,6 +15,7 @@ from app.collectors.sentinel5p import (
     PRODUCT_QA_THRESHOLD,
     PRODUCT_TYPE_MAP,
     Sentinel5PCollector,
+    _normalize_qa,
     extract_product_code,
     fetch_access_token,
     filter_and_mean,
@@ -287,6 +290,31 @@ class TestFilterAndMean:
             )
             is None
         )
+
+
+class TestNormalizeQa:
+    """qa_value is a 0-100 quality percentage with a 0.01 scale_factor; decoded
+    it should be the [0, 1] fraction filter_and_mean compares against the
+    qa_threshold. A granule whose values arrive unscaled (0-100) must be
+    normalized down, or every low-quality pixel would clear a fractional
+    threshold (10 >= 0.75) and pollute the column mean.
+    """
+
+    def test_fractional_qa_is_unchanged(self) -> None:
+        assert _normalize_qa(np.array([0.0, 0.5, 0.75, 1.0])) == [0.0, 0.5, 0.75, 1.0]
+
+    def test_percentage_qa_is_scaled_to_fraction(self) -> None:
+        assert _normalize_qa(np.array([0.0, 50.0, 75.0, 100.0])) == [0.0, 0.5, 0.75, 1.0]
+
+    def test_nan_does_not_defeat_the_scale_decision(self) -> None:
+        # A NaN max would make `max() > 1` false and skip scaling; the decision
+        # must use the finite maximum (100 here) so the array is still scaled.
+        out = _normalize_qa(np.array([np.nan, 50.0, 100.0]))
+        assert math.isnan(out[0])
+        assert out[1:] == [0.5, 1.0]
+
+    def test_empty_array_returns_empty(self) -> None:
+        assert _normalize_qa(np.array([])) == []
 
 
 class TestFetchAccessToken:

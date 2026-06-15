@@ -9,6 +9,7 @@ from math import isfinite, isnan
 from typing import Any, Sequence
 
 import httpx
+import numpy as np
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -229,6 +230,21 @@ def filter_and_mean(
     return total / count
 
 
+def _normalize_qa(qa: np.ndarray) -> list[float]:
+    """Return qa_value as the [0, 1] fraction filter_and_mean expects.
+
+    qa_value is a 0-100 quality percentage packed with a 0.01 scale_factor;
+    xarray's mask_and_scale decodes it to [0, 1]. A granule lacking that
+    attribute arrives unscaled (0-100), which would let every low-quality pixel
+    clear a fractional qa_threshold, so divide down when the finite maximum
+    still exceeds 1. NaNs (masked pixels) are ignored in that decision.
+    """
+    finite = qa[np.isfinite(qa)]
+    if finite.size and float(finite.max()) > 1.0:
+        qa = qa / 100.0
+    return qa.tolist()
+
+
 def _load_granule_arrays(
     path: str,
     product_code: str,
@@ -237,13 +253,18 @@ def _load_granule_arrays(
     import xarray as xr
 
     variable_name = PRODUCT_NETCDF_VARIABLE[product_code]
-    with xr.open_dataset(path, engine="netcdf4", group="PRODUCT") as ds:
+    # mask_and_scale=True (xarray's default, pinned here explicitly) applies each
+    # variable's scale_factor/add_offset and fill-value masking, so the column
+    # density and qa_value arrive in physical units rather than packed integers.
+    with xr.open_dataset(
+        path, engine="netcdf4", group="PRODUCT", mask_and_scale=True
+    ) as ds:
         if variable_name not in ds.variables:
             raise RuntimeError(
                 f"S5P granule missing expected variable {variable_name}"
             )
         values = ds[variable_name].values.ravel().tolist()
-        qa = ds["qa_value"].values.ravel().tolist()
+        qa = _normalize_qa(ds["qa_value"].values.ravel())
         lat = ds["latitude"].values.ravel().tolist()
         lon = ds["longitude"].values.ravel().tolist()
     return values, qa, lat, lon

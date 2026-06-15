@@ -1,6 +1,7 @@
 import math
 from datetime import datetime, timedelta, timezone
 
+import numpy as np
 import pytest
 
 from app.detection.stl import STLAnomaly, STLDetector
@@ -109,6 +110,29 @@ class TestSTLDetectorOutliers:
         flagged_timestamps = {a.timestamp for a in anomalies}
         for idx in spikes:
             assert series[idx][0] in flagged_timestamps
+
+    def test_large_outlier_does_not_mask_moderate_ones(self) -> None:
+        # Masking: a plain-std residual scale is inflated by the largest spike,
+        # raising the effective threshold until smaller (still real) spikes
+        # score below it and go undetected. A robust MAD-based scale tracks the
+        # noise level rather than the outliers, so every injected spike stays
+        # above threshold. Noise is required to demonstrate this — on a perfect
+        # (noiseless) fit there is no spread for std to be inflated relative to.
+        rng = np.random.default_rng(0)
+        series = [
+            (ts, value + float(rng.normal(0.0, 2.0)))
+            for ts, value in _seasonal_series(n_periods=5)  # 120 points
+        ]
+        spikes = {30: +600.0, 60: +50.0, 75: +50.0, 90: +50.0}
+        for idx, delta in spikes.items():
+            ts, original = series[idx]
+            series[idx] = (ts, original + delta)
+
+        anomalies = STLDetector(period=24, threshold=2.5).detect(series)
+        flagged = {a.timestamp for a in anomalies}
+
+        for idx in spikes:
+            assert series[idx][0] in flagged, f"spike at index {idx} was masked"
 
 
 class TestSTLDetectorConfiguration:

@@ -78,6 +78,11 @@ OPENAQ_API_BASE = "https://api.openaq.org/v3"
 OPENAQ_LOCATIONS_LIMIT = 1000
 OPENAQ_DEFAULT_PAGE_SIZE = 1000
 OPENAQ_SENSOR_DELAY_S = 0.1  # gentle rate-limiting between sensors
+# Hard ceiling on measurement pages per sensor: at the default page size this
+# is ~1M points, far beyond any real sensor's history, so it only ever trips
+# on a misbehaving endpoint that ignores `page` and returns a full page
+# forever (which would otherwise spin the loop indefinitely).
+OPENAQ_MAX_PAGES = 1000
 
 SENTINEL_WINDOW_HOURS = 48
 
@@ -116,31 +121,54 @@ class BackfillStrategy(ABC):
 # Shared persistence helper -------------------------------------------
 
 
+# Conservative bound-parameter caps per dialect. SQLite's portable cap is 999
+# (SQLITE_MAX_VARIABLE_NUMBER on builds before 3.32 — newer builds raise it,
+# but we target the floor so the chunk size is safe wherever CI/deploy runs);
+# Postgres' wire protocol caps a statement at 65535 bound parameters.
+_SQLITE_PARAM_CAP = 999
+_POSTGRES_PARAM_CAP = 65535
+
+
+def _insert_chunk_size(dialect: str, n_cols: int) -> int:
+    """Max rows per multi-row INSERT so ``rows * n_cols`` stays under the cap."""
+    cap = _POSTGRES_PARAM_CAP if dialect == "postgresql" else _SQLITE_PARAM_CAP
+    return max(1, cap // max(1, n_cols))
+
+
 async def _store_points(
     session: AsyncSession,
     points: Sequence[DataPointCreate],
 ) -> int:
-    """Upsert via the data_points dedup index; mirrors BaseCollector._store."""
+    """Upsert via the data_points dedup index; mirrors BaseCollector._store.
+
+    Inserts are chunked so a large backfill never exceeds the dialect's
+    bound-parameter cap (a single ``VALUES`` over the whole list blows SQLite's
+    999-variable limit at ~111 rows). All chunks share one transaction, so the
+    store stays all-or-nothing as before.
+    """
     if not points:
         return 0
     rows = [p.model_dump() for p in points]
     bind = session.get_bind()
     dialect = bind.dialect.name if bind is not None else ""
     dedup_cols = ["source", "metric", "source_entity_id", "timestamp"]
+    chunk_size = _insert_chunk_size(dialect, len(rows[0]))
 
-    if dialect == "postgresql":
-        stmt = pg_insert(DataPoint).values(rows).on_conflict_do_nothing(
-            index_elements=dedup_cols
-        )
-    elif dialect == "sqlite":
-        stmt = sqlite_insert(DataPoint).values(rows).on_conflict_do_nothing(
-            index_elements=dedup_cols
-        )
-    else:
-        from sqlalchemy import insert
-        stmt = insert(DataPoint).values(rows)
+    for start in range(0, len(rows), chunk_size):
+        chunk = rows[start : start + chunk_size]
+        if dialect == "postgresql":
+            stmt = pg_insert(DataPoint).values(chunk).on_conflict_do_nothing(
+                index_elements=dedup_cols
+            )
+        elif dialect == "sqlite":
+            stmt = sqlite_insert(DataPoint).values(chunk).on_conflict_do_nothing(
+                index_elements=dedup_cols
+            )
+        else:
+            from sqlalchemy import insert
+            stmt = insert(DataPoint).values(chunk)
+        await session.execute(stmt)
 
-    await session.execute(stmt)
     await session.commit()
     return len(rows)
 
@@ -159,12 +187,14 @@ class OpenAQBackfill(BackfillStrategy):
         *,
         page_size: int = OPENAQ_DEFAULT_PAGE_SIZE,
         sensor_delay_s: float = OPENAQ_SENSOR_DELAY_S,
+        max_pages: int = OPENAQ_MAX_PAGES,
         rate_limiter: AsyncRateLimiter | None = None,
     ) -> None:
         self._client = http_client
         self._owns_client = http_client is None
         self.page_size = page_size
         self.sensor_delay_s = sensor_delay_s
+        self.max_pages = max_pages
         self._limiter = rate_limiter or OPENAQ_LIMITER
 
     async def _client_or_default(self) -> httpx.AsyncClient:
@@ -299,6 +329,15 @@ class OpenAQBackfill(BackfillStrategy):
         points: list[DataPointCreate] = []
         page = 1
         while True:
+            if page > self.max_pages:
+                logger.warning(
+                    "OpenAQ measurements hit max_pages guard; stopping pagination",
+                    extra={
+                        "sensor_id": sensor_id,
+                        "max_pages": self.max_pages,
+                    },
+                )
+                break
             try:
                 response = await rate_limited_get(
                     client,
@@ -372,6 +411,11 @@ class OpenAQBackfill(BackfillStrategy):
 # measurement day, so recent days legitimately 404.
 OPENAQ_ARCHIVE_BASE = "https://openaq-data-archive.s3.amazonaws.com"
 OPENAQ_ARCHIVE_DELAY_S = 0.05
+# Max archive objects fetched at once. The N(locations) x D(days) GETs are the
+# bottleneck; fetching a bounded batch concurrently (then storing serially, as
+# one AsyncSession can't be shared across concurrent writes) collapses the wall
+# time without unbounding either connections or in-memory payloads.
+OPENAQ_ARCHIVE_CONCURRENCY = 8
 
 
 def archive_key(location_id: int, day: date) -> str:
@@ -453,11 +497,13 @@ class OpenAQArchiveBackfill(BackfillStrategy):
         *,
         location_ids: Sequence[int] | None = None,
         request_delay_s: float = OPENAQ_ARCHIVE_DELAY_S,
+        max_concurrency: int = OPENAQ_ARCHIVE_CONCURRENCY,
     ) -> None:
         self._client = http_client
         self._owns_client = http_client is None
         self.location_ids = list(location_ids) if location_ids else None
         self.request_delay_s = request_delay_s
+        self.max_concurrency = max(1, max_concurrency)
 
     async def _client_or_default(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -495,27 +541,28 @@ class OpenAQArchiveBackfill(BackfillStrategy):
 
             days = _days_between(since, until)
             client = await self._client_or_default()
-            for location_id in location_ids:
-                for day in days:
-                    url = f"{OPENAQ_ARCHIVE_BASE}/{archive_key(location_id, day)}"
-                    try:
-                        response = await client.get(url)
-                        if response.status_code == 404:
-                            missing_days += 1
-                            continue
-                        response.raise_for_status()
-                    except httpx.HTTPError as exc:
-                        logger.warning(
-                            "OpenAQ archive object failed",
-                            extra={"url": url, "error": str(exc)},
-                        )
-                        continue
+            urls = [
+                f"{OPENAQ_ARCHIVE_BASE}/{archive_key(location_id, day)}"
+                for location_id in location_ids
+                for day in days
+            ]
 
-                    points = parse_archive_csv(response.content)
-                    total_inserted += await _store_points(session, points)
-
-                    if self.request_delay_s > 0:
-                        await asyncio.sleep(self.request_delay_s)
+            # Fetch a bounded batch of objects concurrently, then parse + store
+            # that batch serially: the GETs are the slow part and parallelize
+            # safely, but the shared AsyncSession can't take concurrent writes,
+            # and batching also caps how many object bodies are held at once.
+            for batch_start in range(0, len(urls), self.max_concurrency):
+                batch = urls[batch_start : batch_start + self.max_concurrency]
+                fetched = await asyncio.gather(
+                    *(self._fetch_archive_object(client, url) for url in batch)
+                )
+                for status, content in fetched:
+                    if status == "missing":
+                        missing_days += 1
+                    elif status == "ok" and content is not None:
+                        points = parse_archive_csv(content)
+                        total_inserted += await _store_points(session, points)
+                    # "error": already logged in the fetch, skip without counting.
 
             return BackfillResult(
                 source=self.source_name,
@@ -535,6 +582,30 @@ class OpenAQArchiveBackfill(BackfillStrategy):
             )
         finally:
             await self.close()
+
+    async def _fetch_archive_object(
+        self, client: httpx.AsyncClient, url: str
+    ) -> tuple[str, bytes | None]:
+        """GET one archive object, tagging the outcome for the serial store.
+
+        ``("ok", bytes)`` on a 2xx body, ``("missing", None)`` on a 404 (a day
+        whose object hasn't landed yet), ``("error", None)`` on any transport
+        error (logged here, skipped without counting as missing).
+        """
+        try:
+            response = await client.get(url)
+            if response.status_code == 404:
+                return ("missing", None)
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            logger.warning(
+                "OpenAQ archive object failed",
+                extra={"url": url, "error": str(exc)},
+            )
+            return ("error", None)
+        if self.request_delay_s > 0:
+            await asyncio.sleep(self.request_delay_s)
+        return ("ok", response.content)
 
 
 def _days_between(since: datetime, until: datetime) -> list[date]:

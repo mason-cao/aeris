@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -100,6 +100,216 @@ def _build_client(routes: dict[str, Any]) -> tuple[httpx.AsyncClient, _MockTrans
 # Tests ------------------------------------------------------------------
 
 
+def _dpc(ts: datetime, value: float):
+    """A minimal distinct-keyed DataPointCreate for _store_points tests."""
+    from app.collectors.base import DataPointCreate
+
+    return DataPointCreate(
+        timestamp=ts,
+        lat=29.76,
+        lon=-95.37,
+        metric="pm25",
+        value=value,
+        unit="ug/m3",
+        source="openaq",
+        source_entity_id="sensor-1",
+        raw_json=None,
+    )
+
+
+class TestStorePointsChunking:
+    def test_insert_chunk_size_respects_param_caps(self) -> None:
+        from app.collectors.backfill import _insert_chunk_size
+
+        n_cols = 9
+        sqlite_chunk = _insert_chunk_size("sqlite", n_cols)
+        pg_chunk = _insert_chunk_size("postgresql", n_cols)
+        # SQLite's portable 999-variable cap must never be exceeded by a batch.
+        assert 1 <= sqlite_chunk
+        assert sqlite_chunk * n_cols <= 999
+        # Postgres' 65535 cap allows materially larger batches.
+        assert pg_chunk * n_cols <= 65535
+        assert pg_chunk > sqlite_chunk
+
+    @pytest.mark.asyncio
+    async def test_stores_more_rows_than_one_sqlite_batch(self, db_session) -> None:
+        from app.collectors.backfill import _insert_chunk_size, _store_points
+
+        chunk = _insert_chunk_size("sqlite", 9)
+        n = chunk * 2 + 5
+        points = [_dpc(T0 + timedelta(minutes=i), float(i)) for i in range(n)]
+        stored = await _store_points(db_session, points)
+        assert stored == n
+        rows = (await db_session.execute(select(DataPoint))).scalars().all()
+        assert len(rows) == n
+
+    @pytest.mark.asyncio
+    async def test_splits_large_insert_into_capped_chunks(
+        self, db_session, monkeypatch
+    ) -> None:
+        from app.collectors import backfill as bf
+
+        chunk = bf._insert_chunk_size("sqlite", 9)
+        n = chunk * 2 + 5
+        points = [_dpc(T0 + timedelta(minutes=i), float(i)) for i in range(n)]
+
+        calls = {"n": 0}
+        real = db_session.execute
+
+        async def _counting(*args, **kwargs):
+            calls["n"] += 1
+            return await real(*args, **kwargs)
+
+        monkeypatch.setattr(db_session, "execute", _counting)
+        await bf._store_points(db_session, points)
+        # ceil((2*chunk + 5) / chunk) == 3 capped inserts, not one giant one.
+        assert calls["n"] == 3
+
+
+def _archive_csv_gz(
+    n_rows: int, *, location_id: int, sensor_id: int, day: "date"
+) -> bytes:
+    """A gzipped OpenAQ-archive CSV for one (location, day) object."""
+    import csv as _csv
+    import gzip
+    import io
+
+    buf = io.StringIO()
+    writer = _csv.DictWriter(
+        buf,
+        fieldnames=[
+            "location_id", "sensors_id", "location", "datetime",
+            "lat", "lon", "parameter", "units", "value",
+        ],
+    )
+    writer.writeheader()
+    for i in range(n_rows):
+        ts = datetime(day.year, day.month, day.day, i % 24, tzinfo=timezone.utc)
+        writer.writerow({
+            "location_id": location_id,
+            "sensors_id": sensor_id,
+            "location": f"loc-{location_id}",
+            "datetime": ts.isoformat(),
+            "lat": "29.76",
+            "lon": "-95.37",
+            "parameter": "pm25",
+            "units": "ug/m3",
+            "value": str(10.0 + i),
+        })
+    return gzip.compress(buf.getvalue().encode("utf-8"))
+
+
+class _FakeArchiveResponse:
+    def __init__(self, status_code: int, content: bytes) -> None:
+        self.status_code = status_code
+        self.content = content
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise httpx.HTTPStatusError(
+                "archive error", request=None, response=None  # type: ignore[arg-type]
+            )
+
+
+class _ConcurrencyTrackingClient:
+    """Async client that records peak in-flight GETs (404 for unknown URLs)."""
+
+    def __init__(self, content_by_url: dict[str, bytes]) -> None:
+        self.content_by_url = content_by_url
+        self.in_flight = 0
+        self.max_in_flight = 0
+        self.urls: list[str] = []
+
+    async def get(self, url: str) -> _FakeArchiveResponse:
+        import asyncio as _asyncio
+
+        self.urls.append(url)
+        self.in_flight += 1
+        self.max_in_flight = max(self.max_in_flight, self.in_flight)
+        await _asyncio.sleep(0.005)
+        self.in_flight -= 1
+        content = self.content_by_url.get(url)
+        if content is None:
+            return _FakeArchiveResponse(404, b"")
+        return _FakeArchiveResponse(200, content)
+
+    async def aclose(self) -> None:
+        pass
+
+
+class TestOpenAQArchiveBackfill:
+    @pytest.mark.asyncio
+    async def test_fetches_concurrently_within_bound(self, db_session) -> None:
+        from app.collectors.backfill import (
+            OPENAQ_ARCHIVE_BASE,
+            OpenAQArchiveBackfill,
+            archive_key,
+        )
+
+        locs = [1, 2]
+        days = [date(2026, 5, 1), date(2026, 5, 2), date(2026, 5, 3)]
+        content_by_url = {
+            f"{OPENAQ_ARCHIVE_BASE}/{archive_key(loc, day)}": _archive_csv_gz(
+                2, location_id=loc, sensor_id=100 + loc, day=day
+            )
+            for loc in locs
+            for day in days
+        }
+        client = _ConcurrencyTrackingClient(content_by_url)
+        strategy = OpenAQArchiveBackfill(
+            http_client=client,  # type: ignore[arg-type]
+            location_ids=locs,
+            request_delay_s=0.0,
+            max_concurrency=4,
+        )
+        result = await strategy.backfill(
+            db_session,
+            since=datetime(2026, 5, 1, tzinfo=timezone.utc),
+            until=datetime(2026, 5, 3, tzinfo=timezone.utc),
+        )
+        assert result.error is None
+        # Serial code would peak at 1; the bound caps it at max_concurrency.
+        assert 2 <= client.max_in_flight <= 4
+
+    @pytest.mark.asyncio
+    async def test_stores_all_objects_and_counts_missing(self, db_session) -> None:
+        from app.collectors.backfill import (
+            OPENAQ_ARCHIVE_BASE,
+            OpenAQArchiveBackfill,
+            archive_key,
+        )
+
+        locs = [1, 2]
+        days = [date(2026, 5, 1), date(2026, 5, 2)]
+        content_by_url: dict[str, bytes] = {}
+        for loc in locs:
+            for day in days:
+                if loc == 2 and day == date(2026, 5, 2):
+                    continue  # one object absent → 404
+                url = f"{OPENAQ_ARCHIVE_BASE}/{archive_key(loc, day)}"
+                content_by_url[url] = _archive_csv_gz(
+                    3, location_id=loc, sensor_id=100 + loc, day=day
+                )
+        client = _ConcurrencyTrackingClient(content_by_url)
+        strategy = OpenAQArchiveBackfill(
+            http_client=client,  # type: ignore[arg-type]
+            location_ids=locs,
+            request_delay_s=0.0,
+            max_concurrency=4,
+        )
+        result = await strategy.backfill(
+            db_session,
+            since=datetime(2026, 5, 1, tzinfo=timezone.utc),
+            until=datetime(2026, 5, 2, tzinfo=timezone.utc),
+        )
+        assert result.error is None
+        # 3 present objects x 3 rows = 9 inserted; 1 object missing.
+        assert result.records == 9
+        assert "1 objects absent" in (result.notes or "")
+        rows = (await db_session.execute(select(DataPoint))).scalars().all()
+        assert len(rows) == 9
+
+
 class TestAvailableStrategies:
     def test_lists_all_four_collectors(self) -> None:
         names = {s.source_name for s in available_strategies()}
@@ -181,6 +391,60 @@ class TestOpenAQBackfillSingleSensor:
         assert {r.metric for r in rows} == {"pm25"}
         assert {r.source for r in rows} == {"openaq"}
         assert {r.source_entity_id for r in rows} == {"100"}
+
+    @pytest.mark.asyncio
+    async def test_measurements_pagination_is_bounded_by_max_pages(
+        self, db_session
+    ) -> None:
+        # A misbehaving endpoint that returns a full page forever would spin the
+        # `while True` loop indefinitely; max_pages caps the page count.
+        page_size = 2
+
+        def always_full(query: dict[str, str]) -> dict[str, Any]:
+            page = int(query.get("page", "1"))
+            base = (page - 1) * page_size
+            return {
+                "results": [
+                    _measurement(T0 + timedelta(hours=base + i), 10.0 + base + i)
+                    for i in range(page_size)
+                ],
+                "meta": {"page": page},
+            }
+
+        client, transport = _build_client(
+            routes={
+                "/v3/locations": {
+                    "results": [_location(1, 29.76, -95.37)],
+                    "meta": {"found": 1},
+                },
+                "/v3/locations/1/sensors": {
+                    "results": [_sensor(100, "pm25")],
+                    "meta": {"found": 1},
+                },
+                "/v3/sensors/100/measurements": always_full,
+            },
+        )
+        try:
+            strategy = OpenAQBackfill(
+                http_client=client,
+                rate_limiter=_fast_limiter(),
+                page_size=page_size,
+                max_pages=3,
+            )
+            await strategy.backfill(
+                db_session,
+                since=T0 - timedelta(days=1),
+                until=T0 + timedelta(days=1),
+            )
+        finally:
+            await client.aclose()
+
+        measurement_calls = [
+            path
+            for path, _ in transport.calls
+            if path == "/v3/sensors/100/measurements"
+        ]
+        assert len(measurement_calls) == 3
 
     @pytest.mark.asyncio
     async def test_filters_to_target_radius_locations_only(self, db_session) -> None:

@@ -5,7 +5,6 @@ import re
 import tempfile
 import time
 from datetime import datetime, timedelta, timezone
-from math import isfinite, isnan
 from typing import Any, Sequence
 
 import httpx
@@ -198,58 +197,63 @@ def filter_and_mean(
     qa_threshold: float,
     min_pixels: int = MIN_VALID_PIXELS,
 ) -> float | None:
-    """Mean of pixel values that survive QA + bbox + finite-value masking."""
+    """Mean of pixel values that survive QA + bbox + finite-value masking.
+
+    Vectorized over the full granule (~1.8M pixels) rather than a per-pixel
+    Python loop. ``None`` entries coerce to NaN, so they drop out exactly as
+    before. The mask reproduces the original element-wise logic precisely:
+    only the *value* is finiteness-checked, a qa of NaN compares False against
+    the threshold and so leaks through, and NaN coordinates fail the bbox test
+    and drop out.
+    """
     if not (len(values) == len(qa) == len(lats) == len(lons)):
         return None
 
-    total = 0.0
-    count = 0
-    for value, q, lat, lon in zip(values, qa, lats, lons):
-        if value is None or q is None or lat is None or lon is None:
-            continue
-        try:
-            v = float(value)
-            qv = float(q)
-            la = float(lat)
-            lo = float(lon)
-        except (TypeError, ValueError):
-            continue
-        if not isfinite(v) or isnan(v):
-            continue
-        if qv < qa_threshold:
-            continue
-        if not (bbox.min_lat <= la <= bbox.max_lat):
-            continue
-        if not (bbox.min_lon <= lo <= bbox.max_lon):
-            continue
-        total += v
-        count += 1
+    v = np.asarray(values, dtype=float)
+    q = np.asarray(qa, dtype=float)
+    la = np.asarray(lats, dtype=float)
+    lo = np.asarray(lons, dtype=float)
 
+    keep = (
+        np.isfinite(v)
+        & ~(q < qa_threshold)
+        & (la >= bbox.min_lat)
+        & (la <= bbox.max_lat)
+        & (lo >= bbox.min_lon)
+        & (lo <= bbox.max_lon)
+    )
+
+    count = int(keep.sum())
     if count < min_pixels:
         return None
-    return total / count
+    return float(v[keep].sum() / count)
 
 
-def _normalize_qa(qa: np.ndarray) -> list[float]:
+def _normalize_qa(qa: np.ndarray) -> np.ndarray:
     """Return qa_value as the [0, 1] fraction filter_and_mean expects.
 
     qa_value is a 0-100 quality percentage packed with a 0.01 scale_factor;
     xarray's mask_and_scale decodes it to [0, 1]. A granule lacking that
     attribute arrives unscaled (0-100), which would let every low-quality pixel
     clear a fractional qa_threshold, so divide down when the finite maximum
-    still exceeds 1. NaNs (masked pixels) are ignored in that decision.
+    still exceeds 1. NaNs (masked pixels) are ignored in that decision. Stays a
+    numpy array so the granule is never boxed into a Python list.
     """
     finite = qa[np.isfinite(qa)]
     if finite.size and float(finite.max()) > 1.0:
         qa = qa / 100.0
-    return qa.tolist()
+    return qa
 
 
 def _load_granule_arrays(
     path: str,
     product_code: str,
-) -> tuple[list[float], list[float], list[float], list[float]]:
-    """Open a downloaded S5P granule and return flat (value, qa, lat, lon) lists."""
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Open a downloaded S5P granule and return flat (value, qa, lat, lon) arrays.
+
+    Kept as numpy arrays — not Python lists — so ``filter_and_mean`` masks the
+    ~1.8M pixels in numpy rather than boxing each one.
+    """
     import xarray as xr
 
     variable_name = PRODUCT_NETCDF_VARIABLE[product_code]
@@ -263,10 +267,10 @@ def _load_granule_arrays(
             raise RuntimeError(
                 f"S5P granule missing expected variable {variable_name}"
             )
-        values = ds[variable_name].values.ravel().tolist()
+        values = ds[variable_name].values.ravel()
         qa = _normalize_qa(ds["qa_value"].values.ravel())
-        lat = ds["latitude"].values.ravel().tolist()
-        lon = ds["longitude"].values.ravel().tolist()
+        lat = ds["latitude"].values.ravel()
+        lon = ds["longitude"].values.ravel()
     return values, qa, lat, lon
 
 

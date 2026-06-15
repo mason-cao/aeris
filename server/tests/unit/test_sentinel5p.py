@@ -252,6 +252,38 @@ class TestFilterAndMean:
 
         assert result == pytest.approx(1.0)
 
+    def test_accepts_numpy_array_inputs(self) -> None:
+        # _load_granule_arrays now hands numpy arrays straight through; the
+        # masked mean over them must match the list path.
+        result = filter_and_mean(
+            values=np.array([1.0, 2.0, 3.0] + [4.0] * 10),
+            qa=np.array([0.9] * 13),
+            lats=np.array([29.7] * 13),
+            lons=np.array([-95.3] * 13),
+            bbox=self._bbox(),
+            qa_threshold=0.75,
+            min_pixels=10,
+        )
+
+        assert result == pytest.approx((1 + 2 + 3 + 40) / 13)
+
+    def test_nan_qa_pixel_with_finite_value_is_retained(self) -> None:
+        # The filter only finiteness-checks the value, so a finite-value pixel
+        # whose qa is NaN compares False against the threshold and is kept. This
+        # is the pre-existing production behavior; pin it so vectorizing doesn't
+        # silently change which pixels enter the column mean.
+        result = filter_and_mean(
+            values=[1.0] * 10 + [5.0] * 5,
+            qa=[0.9] * 10 + [float("nan")] * 5,
+            lats=[29.7] * 15,
+            lons=[-95.3] * 15,
+            bbox=self._bbox(),
+            qa_threshold=0.75,
+            min_pixels=5,
+        )
+
+        assert result == pytest.approx((10 * 1.0 + 5 * 5.0) / 15)
+
     def test_returns_none_when_below_min_pixels(self) -> None:
         result = filter_and_mean(
             values=[1.0] * 3,
@@ -301,20 +333,24 @@ class TestNormalizeQa:
     """
 
     def test_fractional_qa_is_unchanged(self) -> None:
-        assert _normalize_qa(np.array([0.0, 0.5, 0.75, 1.0])) == [0.0, 0.5, 0.75, 1.0]
+        assert _normalize_qa(np.array([0.0, 0.5, 0.75, 1.0])).tolist() == [
+            0.0, 0.5, 0.75, 1.0
+        ]
 
     def test_percentage_qa_is_scaled_to_fraction(self) -> None:
-        assert _normalize_qa(np.array([0.0, 50.0, 75.0, 100.0])) == [0.0, 0.5, 0.75, 1.0]
+        assert _normalize_qa(np.array([0.0, 50.0, 75.0, 100.0])).tolist() == [
+            0.0, 0.5, 0.75, 1.0
+        ]
 
     def test_nan_does_not_defeat_the_scale_decision(self) -> None:
         # A NaN max would make `max() > 1` false and skip scaling; the decision
         # must use the finite maximum (100 here) so the array is still scaled.
         out = _normalize_qa(np.array([np.nan, 50.0, 100.0]))
         assert math.isnan(out[0])
-        assert out[1:] == [0.5, 1.0]
+        assert out[1:].tolist() == [0.5, 1.0]
 
     def test_empty_array_returns_empty(self) -> None:
-        assert _normalize_qa(np.array([])) == []
+        assert _normalize_qa(np.array([])).tolist() == []
 
 
 class TestFetchAccessToken:

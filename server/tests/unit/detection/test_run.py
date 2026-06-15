@@ -7,6 +7,8 @@ from sqlalchemy import select
 from app.db.models import Anomaly, DataPoint
 from app.detection.consensus import ConsensusAnomaly
 from app.detection.run import (
+    AUX_METRIC_U,
+    AUX_METRIC_V,
     GroupKey,
     _load_gfs_wind_cells,
     _nearest_cell_value,
@@ -402,6 +404,106 @@ class TestBuildAuxInputs:
     async def test_returns_none_when_primary_empty(self, db_session) -> None:
         result = await build_aux_inputs(db_session, [])
         assert result is None
+
+
+class TestBuildAuxInputsCache:
+    @pytest.mark.asyncio
+    async def test_cache_path_matches_db_path_per_group(self, db_session) -> None:
+        # The hoisted cache path must produce IsolationForest inputs byte-for-byte
+        # identical to the per-group DB path, for every group, including a second
+        # station whose nearest aux cell differs.
+        from app.detection.run import _load_aux_cache
+
+        near = "gfs:29.76,-95.37"
+        far = "gfs:30.50,-95.37"
+        s1 = [
+            _dp(ts=T0 + timedelta(hours=i), value=20.0 + i, entity="openaq-1")
+            for i in range(5)
+        ]
+        s2 = [
+            _dp(
+                ts=T0 + timedelta(hours=i),
+                value=40.0 + i,
+                entity="openaq-2",
+                lat=HOUSTON_LAT + 0.6,
+            )
+            for i in range(5)
+        ]
+        aux: list[DataPoint] = []
+        for i in range(5):
+            ts = T0 + timedelta(hours=i)
+            aux += _gfs_wind(ts, u=3.0, v=4.0, entity=near)
+            aux += _gfs_wind(ts, u=1.0, v=1.0, entity=far, lat=HOUSTON_LAT + 0.74)
+            aux.append(
+                _dp(ts=ts, value=1000.0 + i, metric="pbl_height",
+                    source="noaa_gfs", entity=near)
+            )
+            aux.append(
+                _dp(ts=ts, value=500.0 + i, metric="pbl_height",
+                    source="noaa_gfs", entity=far, lat=HOUSTON_LAT + 0.74)
+            )
+        await _seed(db_session, s1 + s2 + aux)
+
+        groups = group_points_by_series(s1 + s2)
+        cache = await _load_aux_cache(db_session, s1 + s2)
+        assert cache is not None
+        for grp in groups.values():
+            grp_sorted = sorted(grp, key=lambda p: p.timestamp)
+            db_path = await build_aux_inputs(db_session, grp_sorted)
+            cache_path = await build_aux_inputs(
+                db_session, grp_sorted, aux_cache=cache
+            )
+            assert db_path is not None
+            dumped_db = [r.model_dump() for r in db_path]
+            dumped_cache = [r.model_dump() for r in cache_path]
+            assert dumped_cache == dumped_db
+
+    @pytest.mark.asyncio
+    async def test_run_detection_loads_each_aux_component_once(
+        self, db_session, monkeypatch
+    ) -> None:
+        # Two qualifying groups must share one aux load, not re-query per group:
+        # _load_gfs_component fires exactly once for u and once for v across the
+        # whole run (the O(groups) DB rescan collapses to O(1)).
+        from app.detection import run as run_mod
+
+        n = 55
+        s1 = [
+            _dp(ts=T0 + timedelta(hours=i), value=_seasonal(i), entity="openaq-1")
+            for i in range(n)
+        ]
+        s2 = [
+            _dp(
+                ts=T0 + timedelta(hours=i),
+                value=_seasonal(i) + 5.0,
+                entity="openaq-2",
+                lat=HOUSTON_LAT + 0.6,
+            )
+            for i in range(n)
+        ]
+        aux: list[DataPoint] = []
+        for i in range(0, n, 3):
+            ts = T0 + timedelta(hours=i)
+            aux += _gfs_wind(ts, u=3.0, v=4.0, entity="gfs:29.76,-95.37")
+            aux.append(
+                _dp(ts=ts, value=1000.0, metric="pbl_height",
+                    source="noaa_gfs", entity="gfs:29.76,-95.37")
+            )
+        await _seed(db_session, s1 + s2 + aux)
+
+        calls = {AUX_METRIC_U: 0, AUX_METRIC_V: 0}
+        orig = run_mod._load_gfs_component
+
+        async def _counting(session, metric, window_start, window_end):
+            if metric in calls:
+                calls[metric] += 1
+            return await orig(session, metric, window_start, window_end)
+
+        monkeypatch.setattr(run_mod, "_load_gfs_component", _counting)
+        await run_detection(db_session, dry_run=True)
+
+        assert calls[AUX_METRIC_U] == 1
+        assert calls[AUX_METRIC_V] == 1
 
 
 class TestPersistAnomalies:

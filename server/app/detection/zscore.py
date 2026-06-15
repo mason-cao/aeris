@@ -36,18 +36,32 @@ class ZScoreDetector:
             return []
 
         sorted_series = sorted(series, key=lambda p: p[0])
+        times = [ts for ts, _ in sorted_series]
+        values = np.asarray([v for _, v in sorted_series], dtype=float)
         anomalies: list[ZScoreAnomaly] = []
 
-        for ts_i, value_i in sorted_series:
+        # Two monotonic pointers replace the per-point full-series rescan: the
+        # series is sorted, so as ts_i advances the half-open window [cutoff,
+        # ts_i) only slides forward. `lo` tracks the inclusive cutoff bound and
+        # `hi` the exclusive ts_i bound; both compare timestamps (not indices),
+        # so same-timestamp siblings are excluded just as `cutoff <= ts < ts_i`
+        # did. mean/std run on the contiguous slice for numerics identical to
+        # the old per-window reduction.
+        lo = 0
+        hi = 0
+        for i, (ts_i, value_i) in enumerate(sorted_series):
             cutoff = ts_i - self.window
-            window_values = [v for ts, v in sorted_series if cutoff <= ts < ts_i]
-            n = len(window_values)
+            while lo < len(times) and times[lo] < cutoff:
+                lo += 1
+            while hi < len(times) and times[hi] < ts_i:
+                hi += 1
+            n = hi - lo
             if n < self.min_points:
                 continue
 
-            arr = np.asarray(window_values, dtype=float)
-            mean = float(arr.mean())
-            std = float(arr.std(ddof=0))
+            window = values[lo:hi]
+            mean = float(window.mean())
+            std = float(window.std(ddof=0))
             if std == 0:
                 continue
 

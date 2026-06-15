@@ -567,6 +567,64 @@ class TestEnrichPendingAnomalies:
         assert "Pending anomalies: 1" in rendered
 
 
+class TestEnrichBatchesContext:
+    @pytest.mark.asyncio
+    async def test_co_located_anomalies_share_one_context_query(
+        self, db_session, monkeypatch
+    ) -> None:
+        # Three anomalies in one spatiotemporal bucket must collapse to a single
+        # context query, not one per anomaly (the O(pending) bbox-scan N+1).
+        import app.detection.enrichment as enr
+
+        await _persist_anomaly(db_session, timestamp=T0)
+        await _persist_anomaly(db_session, timestamp=T0 + timedelta(hours=1))
+        await _persist_anomaly(db_session, timestamp=T0 + timedelta(hours=2))
+        await _seed(db_session, [_dp(ts=T0, value=120.0)])
+
+        calls = {"n": 0}
+        real = enr._query_box_window
+
+        async def _counting(session, box, window_start, window_end):
+            calls["n"] += 1
+            return await real(session, box, window_start, window_end)
+
+        monkeypatch.setattr(enr, "_query_box_window", _counting)
+
+        summary = await enrich_pending_anomalies(db_session)
+
+        assert summary.n_pending == 3
+        assert summary.n_persisted == 3
+        assert calls["n"] == 1
+
+    @pytest.mark.asyncio
+    async def test_batched_summaries_match_per_anomaly_path(self, db_session) -> None:
+        # The batched context must produce summaries byte-identical to the
+        # per-anomaly DB path, with each anomaly filtered to its own window.
+        a1 = await _persist_anomaly(db_session, timestamp=T0)
+        a2 = await _persist_anomaly(db_session, timestamp=T0 + timedelta(hours=3))
+        await _seed(
+            db_session,
+            [
+                _dp(ts=T0, value=120.0),
+                _dp(ts=T0 + timedelta(hours=3), value=80.0),
+            ],
+        )
+        ref1 = (await enrich_anomaly(db_session, a1)).cross_source_summary_json
+        ref2 = (await enrich_anomaly(db_session, a2)).cross_source_summary_json
+        assert ref1["sources"]["openaq"]["n_points"] > 0
+
+        await enrich_pending_anomalies(db_session)
+
+        stored = {
+            r.anomaly_id: r.cross_source_summary_json
+            for r in (
+                await db_session.execute(select(EnrichmentRecord))
+            ).scalars().all()
+        }
+        assert stored[a1.id] == ref1
+        assert stored[a2.id] == ref2
+
+
 class TestCLI:
     def test_parse_args_defaults(self) -> None:
         args = _parse_args([])

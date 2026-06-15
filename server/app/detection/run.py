@@ -205,11 +205,27 @@ def group_points_by_series(
     return dict(groups)
 
 
+@dataclass
+class _AuxCache:
+    """GFS aux for a whole run, loaded once over the union time window.
+
+    Holds only the station-independent raw data — the per-cell u/v component
+    dicts and the raw pbl rows. Each group derives its own distance-ranked,
+    window-filtered view in memory (see ``_shape_wind_cells`` /
+    ``_shape_aux_cells``) instead of re-querying the same overlapping window.
+    """
+
+    u_by_cell: dict[tuple[datetime, str], tuple[float, float, float]]
+    v_by_cell: dict[tuple[datetime, str], tuple[float, float, float]]
+    pbl_rows: list[tuple[datetime, float, float, float, str]]
+
+
 async def build_aux_inputs(
     session: AsyncSession,
     primary_points: Sequence[DataPoint],
     *,
     time_tolerance: timedelta = AUX_TIME_TOLERANCE,
+    aux_cache: _AuxCache | None = None,
 ) -> list[IsolationForestInput] | None:
     """Assemble IsolationForest inputs by joining wind speed + pbl_height aux.
 
@@ -225,6 +241,11 @@ async def build_aux_inputs(
 
     Timestamps with no aux row in range are dropped from the IF input but
     still flow through Z-score and STL via the primary series.
+
+    Pass ``aux_cache`` (built once by ``_load_aux_cache`` over the run's union
+    window) to shape this group's view from memory instead of re-querying;
+    the cached path is byte-identical to the per-group DB query because each
+    group's window is a subset of the cache's window.
     """
     if not primary_points:
         return None
@@ -236,12 +257,25 @@ async def build_aux_inputs(
     station_lat = primary_points[0].lat
     station_lon = primary_points[0].lon
 
-    wind_cells = await _load_gfs_wind_cells(
-        session, window_start, window_end, station_lat, station_lon
-    )
-    pbl_cells = await _load_aux_cells(
-        session, AUX_METRIC_PBL, window_start, window_end, station_lat, station_lon
-    )
+    if aux_cache is None:
+        wind_cells = await _load_gfs_wind_cells(
+            session, window_start, window_end, station_lat, station_lon
+        )
+        pbl_cells = await _load_aux_cells(
+            session, AUX_METRIC_PBL, window_start, window_end, station_lat, station_lon
+        )
+    else:
+        wind_cells = _shape_wind_cells(
+            aux_cache.u_by_cell,
+            aux_cache.v_by_cell,
+            window_start,
+            window_end,
+            station_lat,
+            station_lon,
+        )
+        pbl_cells = _shape_aux_cells(
+            aux_cache.pbl_rows, window_start, window_end, station_lat, station_lon
+        )
 
     if not wind_cells or not pbl_cells:
         return None
@@ -263,15 +297,43 @@ async def build_aux_inputs(
     return iso_inputs or None
 
 
-async def _load_aux_cells(
+async def _load_aux_cache(
+    session: AsyncSession,
+    primary_points: Sequence[DataPoint],
+    *,
+    time_tolerance: timedelta = AUX_TIME_TOLERANCE,
+) -> _AuxCache | None:
+    """Load every group's GFS aux in one pass over the run's union window.
+
+    Each group's per-build window is a subset of ``[min ts - tol, max ts +
+    tol]``, so one query per component over that union — filtered per group in
+    memory — returns exactly the rows the O(groups) per-group queries would.
+    """
+    if not primary_points:
+        return None
+    first_ts = min(p.timestamp for p in primary_points)
+    last_ts = max(p.timestamp for p in primary_points)
+    window_start = first_ts - time_tolerance
+    window_end = last_ts + time_tolerance
+    u_by_cell = await _load_gfs_component(
+        session, AUX_METRIC_U, window_start, window_end
+    )
+    v_by_cell = await _load_gfs_component(
+        session, AUX_METRIC_V, window_start, window_end
+    )
+    pbl_rows = await _fetch_aux_rows(
+        session, AUX_METRIC_PBL, window_start, window_end
+    )
+    return _AuxCache(u_by_cell=u_by_cell, v_by_cell=v_by_cell, pbl_rows=pbl_rows)
+
+
+async def _fetch_aux_rows(
     session: AsyncSession,
     metric: str,
     window_start: datetime,
     window_end: datetime,
-    station_lat: float,
-    station_lon: float,
-) -> list[list[tuple[datetime, float]]]:
-    """One time-sorted series per grid cell, nearest cell to the station first."""
+) -> list[tuple[datetime, float, float, float, str]]:
+    """Time-sorted ``(ts, value, lat, lon, entity)`` rows for one aux metric."""
     stmt = (
         select(
             DataPoint.timestamp,
@@ -285,13 +347,49 @@ async def _load_aux_cells(
         .where(DataPoint.timestamp <= window_end)
         .order_by(DataPoint.timestamp)
     )
+    return [
+        (_ensure_utc(ts), float(value), lat, lon, entity)
+        for ts, value, lat, lon, entity in (await session.execute(stmt)).all()
+    ]
+
+
+def _shape_aux_cells(
+    rows: Sequence[tuple[datetime, float, float, float, str]],
+    window_start: datetime,
+    window_end: datetime,
+    station_lat: float,
+    station_lon: float,
+) -> list[list[tuple[datetime, float]]]:
+    """One time-sorted series per grid cell, nearest cell to the station first.
+
+    Rows are filtered to ``[window_start, window_end]`` so a cache spanning the
+    whole run yields the same per-cell series a per-group query would. Rows
+    arrive time-sorted, so each cell's series stays sorted.
+    """
+    lower = _ensure_utc(window_start)
+    upper = _ensure_utc(window_end)
     by_cell: dict[str, tuple[float, list[tuple[datetime, float]]]] = {}
-    for ts, value, lat, lon, entity in (await session.execute(stmt)).all():
+    for ts, value, lat, lon, entity in rows:
+        if ts < lower or ts > upper:
+            continue
         if entity not in by_cell:
             by_cell[entity] = (distance_km(station_lat, station_lon, lat, lon), [])
-        by_cell[entity][1].append((_ensure_utc(ts), float(value)))
+        by_cell[entity][1].append((ts, value))
     ranked = sorted(by_cell.values(), key=lambda cell: cell[0])
     return [series for _distance, series in ranked]
+
+
+async def _load_aux_cells(
+    session: AsyncSession,
+    metric: str,
+    window_start: datetime,
+    window_end: datetime,
+    station_lat: float,
+    station_lon: float,
+) -> list[list[tuple[datetime, float]]]:
+    """One time-sorted series per grid cell, nearest cell to the station first."""
+    rows = await _fetch_aux_rows(session, metric, window_start, window_end)
+    return _shape_aux_cells(rows, window_start, window_end, station_lat, station_lon)
 
 
 async def _load_gfs_wind_cells(
@@ -314,13 +412,36 @@ async def _load_gfs_wind_cells(
     v_by_cell = await _load_gfs_component(
         session, AUX_METRIC_V, window_start, window_end
     )
+    return _shape_wind_cells(
+        u_by_cell, v_by_cell, window_start, window_end, station_lat, station_lon
+    )
 
+
+def _shape_wind_cells(
+    u_by_cell: dict[tuple[datetime, str], tuple[float, float, float]],
+    v_by_cell: dict[tuple[datetime, str], tuple[float, float, float]],
+    window_start: datetime,
+    window_end: datetime,
+    station_lat: float,
+    station_lon: float,
+) -> list[list[tuple[datetime, float]]]:
+    """``wind_speed = hypot(u, v)`` per cell-cycle, nearest cell first.
+
+    Filters the component dicts to ``[window_start, window_end]`` on the shared
+    ``(timestamp, cell)`` key; a u row and its paired v row carry the same
+    timestamp, so testing u's bound is enough. A cache spanning the whole run
+    thus yields the same per-cell series a per-group query would.
+    """
+    lower = _ensure_utc(window_start)
+    upper = _ensure_utc(window_end)
     by_cell: dict[str, tuple[float, list[tuple[datetime, float]]]] = {}
     for key, (u, lat, lon) in u_by_cell.items():
+        timestamp, entity = key
+        if timestamp < lower or timestamp > upper:
+            continue
         v_entry = v_by_cell.get(key)
         if v_entry is None:
             continue
-        timestamp, entity = key
         if entity not in by_cell:
             by_cell[entity] = (distance_km(station_lat, station_lon, lat, lon), [])
         by_cell[entity][1].append((timestamp, math.hypot(u, v_entry[0])))
@@ -467,6 +588,13 @@ async def run_detection(
 
     summary = RunSummary(n_groups_examined=len(groups))
 
+    # Load the GFS aux once over the union of all group windows; each group
+    # shapes its own view from this cache rather than re-querying the same
+    # overlapping window per group.
+    aux_cache = await _load_aux_cache(
+        session, [p for grp in groups.values() for p in grp]
+    )
+
     for key in sorted(groups, key=lambda k: (k.source, k.metric, k.source_entity_id)):
         group_points = sorted(groups[key], key=lambda p: p.timestamp)
 
@@ -483,7 +611,9 @@ async def run_detection(
             continue
 
         series = [(p.timestamp, p.value) for p in group_points]
-        iso_inputs = await build_aux_inputs(session, group_points)
+        iso_inputs = await build_aux_inputs(
+            session, group_points, aux_cache=aux_cache
+        )
         engine, stl_skip_reason = _engine_for(series)
         anomalies = engine.run(
             series,

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import math
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -252,6 +253,31 @@ def _nearest_in_time(entries: list[_Entry], anomaly_ts: datetime) -> dict:
     }
 
 
+async def _query_box_window(
+    session: AsyncSession,
+    box: BoundingBox,
+    window_start: datetime,
+    window_end: datetime,
+) -> list[DataPoint]:
+    """Every DataPoint inside a lat/lon box and time window, ts-ordered.
+
+    The coarse SQL pre-filter, shared by the per-anomaly and batched paths;
+    callers apply the exact great-circle radius themselves (SQLite, used in
+    CI, has no spatial functions).
+    """
+    stmt = (
+        select(DataPoint)
+        .where(DataPoint.timestamp >= window_start)
+        .where(DataPoint.timestamp <= window_end)
+        .where(DataPoint.lat >= box.min_lat)
+        .where(DataPoint.lat <= box.max_lat)
+        .where(DataPoint.lon >= box.min_lon)
+        .where(DataPoint.lon <= box.max_lon)
+        .order_by(DataPoint.timestamp)
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
 async def load_context_points(
     session: AsyncSession,
     *,
@@ -268,17 +294,7 @@ async def load_context_points(
     spatial functions. Rows come back ordered by timestamp.
     """
     box = anomaly_bounding_box(lat, lon, radius_km)
-    stmt = (
-        select(DataPoint)
-        .where(DataPoint.timestamp >= window_start)
-        .where(DataPoint.timestamp <= window_end)
-        .where(DataPoint.lat >= box.min_lat)
-        .where(DataPoint.lat <= box.max_lat)
-        .where(DataPoint.lon >= box.min_lon)
-        .where(DataPoint.lon <= box.max_lon)
-        .order_by(DataPoint.timestamp)
-    )
-    rows = (await session.execute(stmt)).scalars().all()
+    rows = await _query_box_window(session, box, window_start, window_end)
     return [
         row
         for row in rows
@@ -291,20 +307,28 @@ async def enrich_anomaly(
     anomaly: Anomaly,
     *,
     config: EnrichmentConfig = DEFAULT_CONFIG,
+    context_points: Sequence[DataPoint] | None = None,
 ) -> EnrichmentRecord:
-    """Build the EnrichmentRecord for one anomaly. Does not persist it."""
+    """Build the EnrichmentRecord for one anomaly. Does not persist it.
+
+    Pass ``context_points`` (a possibly over-fetched set from
+    ``_batch_load_context``) to skip this anomaly's own DB query;
+    ``build_cross_source_summary`` re-applies the exact window and radius, so
+    a wider batch set yields the same record as a per-anomaly query.
+    """
     window_start, window_end = context_window(anomaly.timestamp, config)
-    points = await load_context_points(
-        session,
-        lat=anomaly.lat,
-        lon=anomaly.lon,
-        window_start=window_start,
-        window_end=window_end,
-        radius_km=config.spatial_radius_km,
-    )
+    if context_points is None:
+        context_points = await load_context_points(
+            session,
+            lat=anomaly.lat,
+            lon=anomaly.lon,
+            window_start=window_start,
+            window_end=window_end,
+            radius_km=config.spatial_radius_km,
+        )
     summary = build_cross_source_summary(
         anomaly,
-        points,
+        context_points,
         window_start=window_start,
         window_end=window_end,
         config=config,
@@ -399,6 +423,74 @@ def _error_line_for(anomaly: Anomaly, exc: Exception) -> EnrichmentLine:
     )
 
 
+async def _batch_load_context(
+    session: AsyncSession,
+    anomalies: Sequence[Anomaly],
+    *,
+    config: EnrichmentConfig = DEFAULT_CONFIG,
+) -> dict[int, list[DataPoint]]:
+    """Context points per anomaly index, one DB query per spatiotemporal bucket.
+
+    Anomalies are bucketed by a coarse grid sized to the context window and
+    radius; one query over each bucket's union envelope replaces the per-
+    anomaly bbox scan (the N+1). Correctness is grouping-independent —
+    ``build_cross_source_summary`` re-filters each anomaly to its own window
+    and radius — so the bucket only governs over-fetch, not the result. A
+    failed bucket query is left unmapped so its anomalies fall back to their
+    own per-anomaly query (preserving the per-anomaly read isolation).
+    """
+    window_span_h = config.hours_before + config.hours_after or 1.0
+    bucket_seconds = window_span_h * 3600.0
+    # ~2x radius in degrees so genuine near-neighbours co-bucket without
+    # dragging distant anomalies into one oversized envelope.
+    grid_deg = max(2.0 * config.spatial_radius_km / 111.0, 1e-6)
+
+    buckets: dict[tuple[int, int, int], list[int]] = defaultdict(list)
+    for i, anomaly in enumerate(anomalies):
+        ts = _ensure_utc(anomaly.timestamp)
+        t_key = int(ts.timestamp() // bucket_seconds)
+        lat_key = math.floor(anomaly.lat / grid_deg)
+        lon_key = math.floor(anomaly.lon / grid_deg)
+        buckets[(t_key, lat_key, lon_key)].append(i)
+
+    context: dict[int, list[DataPoint]] = {}
+    for idxs in buckets.values():
+        boxes: list[BoundingBox] = []
+        starts: list[datetime] = []
+        ends: list[datetime] = []
+        for i in idxs:
+            anomaly = anomalies[i]
+            ws, we = context_window(anomaly.timestamp, config)
+            starts.append(ws)
+            ends.append(we)
+            boxes.append(
+                anomaly_bounding_box(
+                    anomaly.lat, anomaly.lon, config.spatial_radius_km
+                )
+            )
+        union_box = BoundingBox(
+            min_lat=min(b.min_lat for b in boxes),
+            max_lat=max(b.max_lat for b in boxes),
+            min_lon=min(b.min_lon for b in boxes),
+            max_lon=max(b.max_lon for b in boxes),
+        )
+        try:
+            points = await _query_box_window(
+                session, union_box, min(starts), max(ends)
+            )
+        except Exception:
+            continue
+        # Detach the loaded rows: a per-anomaly rollback in the enrich loop
+        # would otherwise expire these shared instances, and reading an expired
+        # column later triggers a lazy reload outside the async greenlet. Their
+        # columns are fully populated at query time, so detached reads are safe.
+        for point in points:
+            session.expunge(point)
+        for i in idxs:
+            context[i] = points
+    return context
+
+
 async def enrich_pending_anomalies(
     session: AsyncSession,
     *,
@@ -427,12 +519,20 @@ async def enrich_pending_anomalies(
         session.expunge(anomaly)
     summary = EnrichmentSummary(n_pending=len(anomalies))
 
-    for anomaly in anomalies:
+    # One context query per spatiotemporal bucket instead of one per anomaly.
+    context_by_index = await _batch_load_context(session, anomalies, config=config)
+
+    for index, anomaly in enumerate(anomalies):
         # Record a per-anomaly failure and continue: one anomaly's read or
         # persist error must not abort the pass and lose every other line.
         # rollback() clears the failed transaction so the next anomaly commits.
         try:
-            record = await enrich_anomaly(session, anomaly, config=config)
+            record = await enrich_anomaly(
+                session,
+                anomaly,
+                config=config,
+                context_points=context_by_index.get(index),
+            )
             persisted = False
             if not dry_run:
                 persisted = await persist_enrichment(session, record)

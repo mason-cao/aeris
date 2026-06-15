@@ -133,6 +133,44 @@ class TestZScoreDetectorConfiguration:
             ZScoreDetector(min_points=1)
 
 
+class TestZScoreWindowBounds:
+    def test_duplicate_timestamp_siblings_excluded_from_each_others_window(
+        self,
+    ) -> None:
+        # The window is half-open by *timestamp*: cutoff <= ts < ts_i. Two points
+        # sharing one timestamp must each see only the strictly-earlier points,
+        # never each other - so both spikes are scored against the 10-point
+        # baseline alone (window_n == 10), not 10-plus-the-sibling.
+        detector = ZScoreDetector(min_points=10, threshold=3.0)
+        baseline = [10.0, 11.0, 9.0, 10.0, 11.0, 9.0, 10.0, 11.0, 9.0, 10.0]
+        dup_ts = T0 + timedelta(hours=10)
+        series = _series(baseline) + [(dup_ts, 100.0), (dup_ts, 100.0)]
+
+        anomalies = detector.detect(series)
+
+        at_dup = [a for a in anomalies if a.timestamp == dup_ts]
+        assert len(at_dup) == 2
+        assert all(a.window_n == 10 for a in at_dup)
+
+    def test_lower_window_bound_is_inclusive_of_the_cutoff_point(self) -> None:
+        # cutoff = ts_i - window is inclusive: the point sitting exactly on the
+        # cutoff belongs to the window. window=10h means the hour-0 point is the
+        # cutoff for the hour-10 point, so its window holds all 10 earlier points.
+        detector = ZScoreDetector(
+            window=timedelta(hours=10), min_points=2, threshold=3.0
+        )
+        earlier = [9.0, 11.0, 9.0, 10.0, 11.0, 9.0, 10.0, 11.0, 9.0, 10.0]
+        series = _series(earlier) + [(T0 + timedelta(hours=10), 100.0)]
+
+        anomalies = detector.detect(series)
+
+        spike = next(
+            (a for a in anomalies if a.timestamp == T0 + timedelta(hours=10)), None
+        )
+        assert spike is not None
+        assert spike.window_n == 10
+
+
 class TestZScoreDetectorLookbackOnly:
     def test_anomaly_classification_uses_only_past_points(self) -> None:
         # Build a series where a single early spike would not be detected

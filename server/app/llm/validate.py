@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.llm.parser import ClaimDraft
+from app.llm.prompt import SOURCE_NAMES
 
 # Phase 1 - retrieval-grounded factuality check (the CLAUDE.md-mandated
 # hallucination gate). For each claim we ask the FActScore-style question: is
@@ -69,6 +70,23 @@ def threshold_cues(text: str) -> list[tuple[int, str]]:
     cues = [(m.start(), "over") for m in _OVER_CUE_RE.finditer(text)]
     cues += [(m.start(), "under") for m in _UNDER_CUE_RE.finditer(text)]
     return sorted(cues)
+
+# Causal connectives. A claim asserting one ("X caused Y", "elevated due to Z")
+# states a *relation*, not just the presence of its entities. Lexical term
+# overlap can't tell "no2 caused by pm25" (a fabricated link) from "no2 and
+# pm25 were elevated", so a causal claim is grounded only when the same kind of
+# relation is attested in the context — otherwise causal attribution is left to
+# Phase 2 corroboration, where it is scored against cross-source patterns. This
+# requires only that *a* causal connective co-occur in the context, not that it
+# link the same entities; in practice the observational context rarely contains
+# causal language at all, so this filters fabricated causal claims while a
+# context that does narrate the cause can still ground one.
+_CAUSAL_RE = re.compile(
+    r"\bcaus(?:e|es|ed|ing)\b|\bdue to\b|\bbecause\b|\bled to\b"
+    r"|\blead(?:s|ing)? to\b|\bresult(?:ed|ing|s)? (?:in|of|from)\b"
+    r"|\bdriven by\b|\bdrove\b|\battribut(?:ed|able) to\b"
+    r"|\bresponsible for\b|\btriggered\b|\bowing to\b|\bstem(?:s|med)? from\b"
+)
 
 _TERM_RE = re.compile(r"[a-z0-9.\-µ/]+")
 
@@ -265,6 +283,23 @@ def _salient_terms(text: str) -> set[str]:
     return terms
 
 
+def _cited_source_grounded(source: str, context_tokens: set[str]) -> bool:
+    """Whether a cited source names a known data source present in the context.
+
+    A cited source counts only when one of the known AERIS source names
+    (``SOURCE_NAMES``) appears as a whole token in *both* the citation and the
+    context. The raw `src.lower() in context` substring check it replaces let
+    an empty string ground (it is a substring of everything) and let any
+    co-occurring word ("afternoon") pose as a source. Token matching against
+    the known names rejects both. A multi-token citation ("noaa gfs") is
+    grounded by its recognized part.
+    """
+    citation_tokens = set(_TERM_RE.findall(source.lower()))
+    return any(
+        name in citation_tokens and name in context_tokens for name in SOURCE_NAMES
+    )
+
+
 def check_grounding(
     claim_text: str,
     context_text: str,
@@ -278,8 +313,16 @@ def check_grounding(
 
     sources_present = True
     if cited_sources:
-        context_lower = context_text.lower()
-        sources_present = all(src.lower() in context_lower for src in cited_sources)
+        cited = [src for src in cited_sources if src and src.strip()]
+        if not cited:
+            # The claim asserted a citation but named only empty strings; a
+            # malformed citation must not vacuously satisfy the source check.
+            sources_present = False
+        else:
+            context_tokens = set(_TERM_RE.findall(context_text.lower()))
+            sources_present = all(
+                _cited_source_grounded(src, context_tokens) for src in cited
+            )
 
     claim_quantities = _quantities(claim_text)
     matched_numbers: list[dict] | None = []
@@ -292,7 +335,16 @@ def check_grounding(
             numeric_tolerance,
         )
 
-    if len(matched) >= min_overlap and sources_present and matched_numbers is not None:
+    relation_supported = True
+    if _CAUSAL_RE.search(claim_text.lower()):
+        relation_supported = _CAUSAL_RE.search(context_text.lower()) is not None
+
+    if (
+        len(matched) >= min_overlap
+        and sources_present
+        and matched_numbers is not None
+        and relation_supported
+    ):
         evidence_ref: dict = {"matched_terms": matched}
         if matched_numbers:
             evidence_ref["matched_numbers"] = matched_numbers

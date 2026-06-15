@@ -50,6 +50,41 @@ class TestCheckGrounding:
 
         assert result.verdict == UNVERIFIED
 
+    def test_empty_cited_source_does_not_auto_pass(self) -> None:
+        # A raw substring check let "" match any context (it is a substring of
+        # every string), vacuously satisfying the source requirement. An empty
+        # citation must not pass the gate.
+        result = check_grounding(
+            "ozone was elevated in the afternoon",
+            CONTEXT,
+            cited_sources=[""],
+        )
+
+        assert result.verdict == UNVERIFIED
+
+    def test_cited_non_source_word_does_not_pass(self) -> None:
+        # "afternoon" appears in the context but is not a data source. A raw
+        # substring check passed it; matching against known source names rejects
+        # citing an arbitrary co-occurring word as a source.
+        result = check_grounding(
+            "ozone was elevated in the afternoon",
+            CONTEXT,
+            cited_sources=["afternoon"],
+        )
+
+        assert result.verdict == UNVERIFIED
+
+    def test_blank_citation_alongside_real_one_is_filtered(self) -> None:
+        # A stray empty string mixed with a valid, present source must be
+        # filtered out, not reject the whole claim.
+        result = check_grounding(
+            "ozone was elevated in the afternoon",
+            CONTEXT,
+            cited_sources=["openaq", ""],
+        )
+
+        assert result.verdict == GROUNDED
+
 
 class TestNumericGrounding:
     def test_numeric_claim_contradicted_by_context_is_unverified(self) -> None:
@@ -189,6 +224,53 @@ class TestUnitlessNumericGrounding:
 
         assert result.verdict == GROUNDED
         assert result.evidence_ref is not None
+
+
+class TestCausalGrounding:
+    """A causal claim asserts a relation, not just co-occurring entities.
+
+    Phase 1 verifies a claim's content is present in the (observational) data
+    context. Without a relation check, "no2 caused by pm25" grounds whenever
+    both nouns appear, rewarding a fabricated causal link. Causal attribution
+    is scored in Phase 2 corroboration, so the causal link must itself be
+    attested in the context for Phase 1 to mark the claim grounded.
+    """
+
+    CO_OCCUR = "openaq reports no2 elevated and pm25 elevated in the afternoon"
+
+    def test_causal_claim_unsupported_by_context_is_unverified(self) -> None:
+        # Both nouns appear, but the context never asserts the causal link.
+        result = check_grounding(
+            "no2 was caused by pm25 buildup",
+            self.CO_OCCUR,
+            cited_sources=["openaq"],
+        )
+
+        assert result.verdict == UNVERIFIED
+        assert result.evidence_ref is None
+
+    def test_observational_claim_still_grounds(self) -> None:
+        # A non-causal claim over the same context must be unaffected by the
+        # causal gate.
+        result = check_grounding(
+            "no2 was elevated in the afternoon",
+            self.CO_OCCUR,
+            cited_sources=["openaq"],
+        )
+
+        assert result.verdict == GROUNDED
+
+    def test_causal_claim_grounds_when_context_attests_relation(self) -> None:
+        # When the context itself states the causal link, a causal claim grounds
+        # — the gate is a relation check, not a blanket ban on causal claims.
+        result = check_grounding(
+            "ozone was elevated due to photochemical production",
+            "openaq reports ozone elevated due to photochemical production "
+            "in the afternoon",
+            cited_sources=["openaq"],
+        )
+
+        assert result.verdict == GROUNDED
 
 
 class TestGroundClaimDrafts:

@@ -60,3 +60,22 @@ class TestExtractClaimDrafts:
 
         assert len(drafts) == 1
         assert drafts[0].claim_text == "real claim"
+
+    def test_claim_object_missing_statement_is_skipped(self) -> None:
+        # .claims is getattr-guarded, but a malformed claim item lacking
+        # .statement used to AttributeError; it must be skipped like a blank.
+        class _Resp:
+            claims = [object()]
+
+        assert extract_claim_drafts([_Resp()]) == []
+
+    def test_claim_missing_cited_sources_defaults_to_empty(self) -> None:
+        class _Claim:
+            statement = "real claim"
+
+        class _Resp:
+            claims = [_Claim()]
+
+        drafts = extract_claim_drafts([_Resp()])
+        assert len(drafts) == 1
+        assert drafts[0].cited_sources == []

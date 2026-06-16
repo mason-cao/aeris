@@ -26,14 +26,14 @@ def extract_claim_drafts(step_responses: Sequence[BaseModel]) -> list[ClaimDraft
     for step_index, response in enumerate(step_responses, start=1):
         kept = 0
         for claim in getattr(response, "claims", []):
-            statement = (claim.statement or "").strip()
+            statement = (getattr(claim, "statement", "") or "").strip()
             if not statement:
                 continue
             drafts.append(
                 ClaimDraft(
                     claim_text=statement,
                     step_index=step_index,
-                    cited_sources=list(claim.cited_sources),
+                    cited_sources=list(getattr(claim, "cited_sources", []) or []),
                 )
             )
             kept += 1

@@ -1,6 +1,7 @@
 import logging
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import httpx
@@ -75,14 +76,21 @@ class LLMClient(ABC):
         prompt: str,
         schema: type[BaseModel],
         max_attempts: int = 2,
+        *,
+        clock: Callable[[], float] = time.monotonic,
     ) -> GenerationResult:
         """Generate structured output validated against schema, retrying on parse failure."""
+        if max_attempts < 1:
+            raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
         errors: list[str] = []
+        # Accumulate across attempts: a failed retry still costs wall-clock time
+        # the eval pays for, so the reported latency must include it.
+        total_latency_ms = 0.0
 
         for attempt in range(1, max_attempts + 1):
-            start = time.monotonic()
+            start = clock()
             completion = await self._complete(prompt, schema)
-            latency_ms = (time.monotonic() - start) * 1000
+            total_latency_ms += (clock() - start) * 1000
 
             try:
                 parsed = schema.model_validate_json(completion.text)
@@ -103,7 +111,7 @@ class LLMClient(ABC):
                 raw_text=completion.text,
                 model_name=self.model_name,
                 model_version=self.model_version,
-                latency_ms=round(latency_ms, 1),
+                latency_ms=round(total_latency_ms, 1),
                 attempts=attempt,
                 prompt_tokens=completion.prompt_tokens,
                 completion_tokens=completion.completion_tokens,

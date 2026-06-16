@@ -37,6 +37,8 @@ from app.llm.validate import GROUNDED, GroundingResult, ground_claim_drafts
 
 
 def _with_unit(value: object, unit: str | None) -> str:
+    if value is None:
+        return "n/a"
     return f"{value} {unit}" if unit else f"{value}"
 
 

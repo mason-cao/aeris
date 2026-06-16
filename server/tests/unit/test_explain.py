@@ -17,12 +17,22 @@ from app.db.models import Anomaly, Claim, EnrichmentRecord, Explanation
 from app.llm.client_base import LLMClient, RawCompletion
 from app.llm.explain import (
     _parse_args,
+    _with_unit,
     generate_explanation,
     make_client,
     persist_explanation,
     render_anomaly_text,
     render_enrichment_text,
 )
+
+
+def test_with_unit_renders_na_for_missing_value():
+    # A None value used to render the literal string "None" into the grounding
+    # context; show "n/a" instead.
+    assert _with_unit(None, "ppb") == "n/a"
+    assert _with_unit(None, None) == "n/a"
+    assert _with_unit(12.0, "ppb") == "12.0 ppb"
+    assert _with_unit(12.0, None) == "12.0"
 
 ANOMALY_TS = datetime(2026, 6, 5, 18, 0, tzinfo=UTC)
 

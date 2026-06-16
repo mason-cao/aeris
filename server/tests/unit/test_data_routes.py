@@ -232,6 +232,54 @@ class TestDataPointRoutes:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
+    async def test_get_data_by_source_rejects_out_of_range_lat(
+        self, api_client
+    ) -> None:
+        response = await api_client.get(
+            "/api/data/api_data_source",
+            params={"lat": 200.0, "lon": 0.0, "radius_km": 10},
+        )
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_get_data_by_source_rejects_out_of_range_lon(
+        self, api_client
+    ) -> None:
+        response = await api_client.get(
+            "/api/data/api_data_source",
+            params={"lat": 0.0, "lon": 200.0, "radius_km": 10},
+        )
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_get_data_by_source_rejects_partial_geo_filter(
+        self, api_client, db_session
+    ) -> None:
+        # lat+lon without radius_km used to silently drop the geo filter and
+        # return unfiltered rows — a caller reads them as "inside my box".
+        # All three are mutually required: a partial triple is a 422.
+        source = "api_partial_geo"
+        await seed_data_point(
+            db_session,
+            source=source,
+            metric="pm25",
+            value=10.0,
+            timestamp=datetime(2026, 4, 21, 12, 0, tzinfo=timezone.utc),
+            lat=35.0,
+            lon=-95.3698,
+            source_entity_id="far-away",
+        )
+
+        response = await api_client.get(
+            f"/api/data/{source}",
+            params={"lat": 29.7604, "lon": -95.3698},
+        )
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
     async def test_get_data_by_source_paginates(self, api_client, db_session) -> None:
         source = "api_pagination_source"
         for index in range(3):

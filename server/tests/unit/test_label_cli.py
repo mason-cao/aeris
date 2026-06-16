@@ -220,6 +220,35 @@ async def test_session_is_blind_to_pipeline_judgments(db_session):
 
 
 @pytest.mark.asyncio
+async def test_labeler_text_never_leaks_model_or_pipeline_judgments(db_session):
+    # Cross-module invariant: the labeler transcript is built from
+    # explain.render_anomaly_text / render_enrichment_text (shared with the
+    # LLM-prompt path) plus claim_text only. The three things the labels get
+    # correlated against — model identity, grounding verdict, corroboration
+    # score — live on Explanation/Claim and must never reach the labeler, even
+    # as those shared render functions evolve.
+    anomaly = _anomaly()
+    claim = _claim("shared claim", step=1)
+    claim.grounding_verdict = "grounded"
+    claim.corroboration_score = 0.4242  # distinctive, can't render by accident
+    expl = _explanation(anomaly, "llama3:8b", [claim])
+    db_session.add_all([anomaly, _record(anomaly), expl])
+    await db_session.commit()
+
+    io = ScriptedIO(["v", "", "cause"])
+    await run_label_session(
+        db_session, anomaly.id, labeler="bracco",
+        input_fn=io.input_fn, echo=io.echo,
+    )
+
+    shown = io.text
+    assert "shared claim" in shown  # the claim text is actually presented...
+    lowered = shown.lower()
+    for leaked in ("llama", "grounded", "corroboration", "0.4242"):
+        assert leaked not in lowered, f"labeler saw {leaked!r}"
+
+
+@pytest.mark.asyncio
 async def test_invalid_verdict_input_reprompts(db_session):
     anomaly = await _seed(db_session)
     io = ScriptedIO(["x", "v", "", "u", "", "cause"])

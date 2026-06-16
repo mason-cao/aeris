@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,13 +78,22 @@ async def get_data_by_source(
     metric: str | None = None,
     start: datetime | None = None,
     end: datetime | None = None,
-    lat: float | None = None,
-    lon: float | None = None,
+    lat: float | None = Query(default=None, ge=-90, le=90),
+    lon: float | None = Query(default=None, ge=-180, le=180),
     radius_km: float | None = Query(default=None, gt=0),
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_session),
 ) -> PaginatedDataPoints:
+    # The geo filter is all-or-nothing: a partial triple used to drop silently,
+    # returning unfiltered rows a caller would read as inside the box.
+    geo_provided = sum(p is not None for p in (lat, lon, radius_km))
+    if geo_provided not in (0, 3):
+        raise HTTPException(
+            status_code=422,
+            detail="lat, lon, and radius_km must be provided together",
+        )
+
     query = select(DataPoint).where(DataPoint.source == source)
     count_query = (
         select(func.count()).select_from(DataPoint).where(DataPoint.source == source)

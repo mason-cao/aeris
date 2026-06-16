@@ -114,13 +114,39 @@ class OpenAQCollector(BaseCollector):
         if cached is not None and time.monotonic() - cached[0] < LOCATIONS_CACHE_TTL_S:
             return cached[1]
 
-        response = await rate_limited_get(
-            client,
-            f"{API_BASE}/locations",
-            limiter=self._limiter,
-            params={"bbox": bbox, "limit": LOCATIONS_LIMIT},
-            headers=headers,
-        )
+        try:
+            response = await rate_limited_get(
+                client,
+                f"{API_BASE}/locations",
+                limiter=self._limiter,
+                params={"bbox": bbox, "limit": LOCATIONS_LIMIT},
+                headers=headers,
+            )
+        except httpx.HTTPError as exc:
+            status = (
+                exc.response.status_code
+                if isinstance(exc, httpx.HTTPStatusError)
+                else None
+            )
+            if status in (401, 403):
+                logger.error(
+                    "OpenAQ API key rejected (HTTP %s); check OPENAQ_API_KEY", status
+                )
+            # The station topology barely changes, so a previously-discovered
+            # set is still usable. Falling back to it keeps pm2.5/ozone flowing
+            # through a discovery outage (a transient 401, a network blip)
+            # instead of taking the whole source dark for the run. Only re-raise
+            # when discovery has never succeeded and there is nothing to reuse.
+            if cached is not None:
+                logger.warning(
+                    "OpenAQ location discovery failed (%s); reusing %d cached "
+                    "locations (%.0fs old)",
+                    status if status is not None else type(exc).__name__,
+                    len(cached[1]),
+                    time.monotonic() - cached[0],
+                )
+                return cached[1]
+            raise
         payload = response.json()
 
         meta = payload.get("meta") or {}
@@ -148,15 +174,7 @@ class OpenAQCollector(BaseCollector):
             else {}
         )
 
-        try:
-            locations = await self._target_locations(client, headers)
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code in (401, 403):
-                logger.error(
-                    "OpenAQ API key rejected (HTTP %s); check OPENAQ_API_KEY",
-                    exc.response.status_code,
-                )
-            raise
+        locations = await self._target_locations(client, headers)
         sensors_by_location_id: dict[str, list[dict[str, Any]]] = {}
 
         for location in locations:

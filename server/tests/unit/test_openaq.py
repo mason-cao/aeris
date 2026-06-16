@@ -342,6 +342,63 @@ class TestOpenAQFetch:
         assert any("key rejected" in r.getMessage().lower() for r in caplog.records)
         await client.aclose()
 
+    @pytest.mark.asyncio
+    async def test_discovery_401_falls_back_to_cached_locations(
+        self, monkeypatch, caplog
+    ) -> None:
+        # Once the topology is discovered, a later 401 on /v3/locations must not
+        # take the source dark: reuse the cached locations and keep polling
+        # sensors. TTL is forced to 0 so the second fetch re-attempts discovery
+        # (and fails) instead of serving the still-fresh cache.
+        import app.collectors.openaq as openaq_module
+
+        monkeypatch.setattr(settings, "openaq_api_key", "test-key")
+        monkeypatch.setattr(openaq_module, "LOCATIONS_CACHE_TTL_S", 0.0)
+        location = make_location()
+        locations_calls = 0
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal locations_calls
+            if request.url.path == "/v3/locations":
+                locations_calls += 1
+                if locations_calls == 1:
+                    return httpx.Response(
+                        200, json={"meta": {"found": 1}, "results": [location]}
+                    )
+                return httpx.Response(401, json={"message": "Invalid API key"})
+            return httpx.Response(
+                200, json={"meta": {"found": 1}, "results": [make_sensor(1, "pm25")]}
+            )
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = OpenAQCollector(http_client=client, rate_limiter=fast_limiter())
+
+        await collector.fetch()  # warms the cache
+        with caplog.at_level(logging.WARNING, logger="app.collectors.openaq"):
+            raw = await collector.fetch()  # discovery 401 -> fall back to cache
+
+        assert locations_calls == 2  # the failed re-discovery was attempted
+        assert raw["locations"] == [location]  # served from the cache
+        assert raw["sensors_by_location_id"][str(location["id"])]  # sensors walked
+        assert any("reusing" in r.getMessage().lower() for r in caplog.records)
+        await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_discovery_401_cold_cache_still_raises(self, monkeypatch) -> None:
+        # With nothing cached to fall back on, a rejected key must fail the run
+        # loudly rather than inventing an empty location set.
+        monkeypatch.setattr(settings, "openaq_api_key", "dead-key")
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(401, json={"message": "Invalid API key"})
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = OpenAQCollector(http_client=client, rate_limiter=fast_limiter())
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await collector.fetch()
+        await client.aclose()
+
 
 class TestOpenAQHelpers:
     def test_location_within_radius_skips_bad_coordinates(self) -> None:

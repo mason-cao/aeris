@@ -132,6 +132,29 @@ class TestStorePointsChunking:
         assert pg_chunk > sqlite_chunk
 
     @pytest.mark.asyncio
+    async def test_store_points_raises_for_unsupported_dialect(self) -> None:
+        from app.collectors.backfill import _store_points
+
+        class _Dialect:
+            name = "mysql"
+
+        class _Bind:
+            dialect = _Dialect()
+
+        class _Session:
+            def get_bind(self):
+                return _Bind()
+
+            async def execute(self, stmt):  # pragma: no cover - must not run
+                return None
+
+            async def commit(self):  # pragma: no cover - must not run
+                return None
+
+        with pytest.raises(NotImplementedError, match="dialect"):
+            await _store_points(_Session(), [_dpc(T0, 1.0)])
+
+    @pytest.mark.asyncio
     async def test_stores_more_rows_than_one_sqlite_batch(self, db_session) -> None:
         from app.collectors.backfill import _insert_chunk_size, _store_points
 

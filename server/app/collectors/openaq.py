@@ -14,6 +14,9 @@ logger = logging.getLogger(__name__)
 
 API_BASE = "https://api.openaq.org/v3"
 LOCATIONS_LIMIT = 1000
+# A station has a handful of sensors; request a full page rather than trusting
+# the API's default limit.
+SENSORS_LIMIT = 100
 
 # Stay well under OpenAQ's documented 60/min. One shared limiter per process:
 # the collector and the API backfill spend from the same key's budget.
@@ -166,6 +169,7 @@ class OpenAQCollector(BaseCollector):
                     client,
                     f"{API_BASE}/locations/{location_id}/sensors",
                     limiter=self._limiter,
+                    params={"limit": SENSORS_LIMIT},
                     headers=headers,
                 )
             except httpx.HTTPError as exc:

@@ -194,7 +194,9 @@ class BaseCollector(ABC):
                 index_elements=dedup_columns
             )
         else:
-            stmt = insert(DataPoint).values(rows)
+            raise NotImplementedError(
+                f"_store has no dedup strategy for dialect {dialect_name!r}"
+            )
 
         await session.execute(stmt)
 

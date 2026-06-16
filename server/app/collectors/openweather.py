@@ -76,8 +76,12 @@ def extract_precipitation(payload: dict[str, Any]) -> float:
     total = 0.0
 
     for bucket in (rain, snow):
+        # 1h accumulation is preferred; fall back to 3h rather than drop it.
+        raw = bucket.get("1h")
+        if raw is None:
+            raw = bucket.get("3h")
         try:
-            total += float(bucket.get("1h", 0.0) or 0.0)
+            total += float(raw or 0.0)
         except (TypeError, ValueError):
             continue
 
@@ -90,6 +94,8 @@ class OpenWeatherCollector(BaseCollector):
 
     async def fetch(self) -> dict[str, Any]:
         """Fetch current weather for target-area grid points."""
+        if not settings.openweather_api_key:
+            raise RuntimeError("OPENWEATHER_API_KEY is not set")
         client = await self._get_client()
         observations: list[dict[str, Any]] = []
 

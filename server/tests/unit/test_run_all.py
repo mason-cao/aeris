@@ -49,6 +49,14 @@ class RunnerCollector(BaseCollector):
         await super().close()
 
 
+class CloseRaisingCollector(RunnerCollector):
+    """Succeeds in collect(), but its close() blows up during cleanup."""
+
+    async def close(self) -> None:
+        self.closed = True
+        raise RuntimeError("close boom")
+
+
 class TestRunCollectors:
     @pytest.mark.asyncio
     async def test_run_collectors_returns_results(self) -> None:
@@ -101,6 +109,25 @@ class TestRunCollectors:
         assert results[1].success is True
         assert all(collector.closed for collector in collectors)
 
+    @pytest.mark.asyncio
+    async def test_close_failure_does_not_abort_run_or_drop_results(self) -> None:
+        # A failing close() is cleanup noise; it must not propagate out of the
+        # loop, discarding this collector's result and skipping the rest.
+        collectors = [
+            CloseRaisingCollector(
+                CollectionResult(source="one", success=True, record_count=1)
+            ),
+            RunnerCollector(
+                CollectionResult(source="two", success=True, record_count=2)
+            ),
+        ]
+
+        results = await run_collectors(collectors, max_retries=1)
+
+        assert [result.source for result in results] == ["one", "two"]
+        assert results[0].success is True
+        assert collectors[1].closed is True
+
 
 class TestRunAllFormatting:
     def test_format_result_success(self) -> None:
@@ -129,6 +156,10 @@ class TestRunAllFormatting:
 
     def test_exit_code_success(self) -> None:
         assert exit_code([CollectionResult(source="one", success=True)]) == 0
+
+    def test_exit_code_empty_results_is_failure(self) -> None:
+        # No collector ran -> nothing succeeded; vacuous all([]) must not pass.
+        assert exit_code([]) == 1
 
     def test_exit_code_failure(self) -> None:
         assert exit_code(

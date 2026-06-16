@@ -7,6 +7,7 @@ import pytest
 
 from app.collectors.openaq import (
     PARAMETER_MAP,
+    SENSORS_LIMIT,
     OpenAQCollector,
     clear_locations_cache,
     location_within_target_radius,
@@ -232,6 +233,35 @@ class TestOpenAQFetch:
         ]
         assert raw["locations"] == [location]
         assert raw["sensors_by_location_id"][str(location["id"])] == [sensor]
+        await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_sensors_request_sets_explicit_limit(self, monkeypatch) -> None:
+        # Don't rely on the API's default page size for a location's sensors;
+        # request a full page explicitly.
+        monkeypatch.setattr(settings, "openaq_api_key", "test-key")
+        location = make_location()
+        sensor = make_sensor(1, "pm25")
+        seen_limit: list[str | None] = []
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/v3/locations":
+                return httpx.Response(
+                    200, json={"meta": {"found": 1}, "results": [location]}
+                )
+            if request.url.path == f"/v3/locations/{location['id']}/sensors":
+                seen_limit.append(request.url.params.get("limit"))
+                return httpx.Response(
+                    200, json={"meta": {"found": 1}, "results": [sensor]}
+                )
+            return httpx.Response(404)
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = OpenAQCollector(http_client=client, rate_limiter=fast_limiter())
+
+        await collector.fetch()
+
+        assert seen_limit == [str(SENSORS_LIMIT)]
         await client.aclose()
 
     @pytest.mark.asyncio

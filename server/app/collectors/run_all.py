@@ -80,7 +80,12 @@ async def run_collectors(
                 errors=[f"{type(exc).__name__}: {exc}"],
             )
         finally:
-            await collector.close()
+            try:
+                await collector.close()
+            except Exception:
+                logger.warning(
+                    "error closing collector %s", collector.source_name, exc_info=True
+                )
 
         results.append(result)
 
@@ -101,6 +106,11 @@ def format_result(result: CollectionResult) -> str:
 
 
 def exit_code(results: Iterable[CollectionResult]) -> int:
+    results = list(results)
+    # An empty set means nothing ran (e.g. unknown --source); that is a failure,
+    # not the vacuous success all([]) would report.
+    if not results:
+        return 1
     return 0 if all(result.success for result in results) else 1
 
 

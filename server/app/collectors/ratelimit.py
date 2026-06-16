@@ -10,6 +10,11 @@ logger = logging.getLogger(__name__)
 # Default wait when a 429 arrives without a Retry-After header.
 DEFAULT_RETRY_AFTER_S = 60.0
 
+# Ceiling on any header-derived wait. A rate-limit reset is at most one period
+# away; a value far beyond that is an absolute epoch sent where a duration was
+# expected, which would otherwise park the client for years.
+MAX_RETRY_WAIT_S = 300.0
+
 Clock = Callable[[], float]
 Sleeper = Callable[[float], Awaitable[None]]
 
@@ -69,7 +74,7 @@ def _retry_wait_seconds(response: httpx.Response) -> float:
     for header in ("x-ratelimit-reset", "Retry-After"):
         seconds = _header_seconds(response, header)
         if seconds is not None:
-            return seconds
+            return min(seconds, MAX_RETRY_WAIT_S)
     return DEFAULT_RETRY_AFTER_S
 
 
@@ -80,7 +85,7 @@ async def _defer_if_budget_spent(
     if remaining is not None and remaining <= 0:
         reset = _header_seconds(response, "x-ratelimit-reset")
         if reset:
-            await limiter.defer(reset)
+            await limiter.defer(min(reset, MAX_RETRY_WAIT_S))
 
 
 async def rate_limited_get(
@@ -104,6 +109,9 @@ async def rate_limited_get(
 
         if attempt < max_attempts:
             wait = _retry_wait_seconds(response)
+            # Push the shared budget so concurrent callers back off too, not
+            # just this one.
+            await limiter.defer(wait)
             logger.warning(
                 "Rate limited (429); waiting %.0fs before retry",
                 wait,

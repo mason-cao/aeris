@@ -1,7 +1,11 @@
 import httpx
 import pytest
 
-from app.collectors.ratelimit import AsyncRateLimiter, rate_limited_get
+from app.collectors.ratelimit import (
+    MAX_RETRY_WAIT_S,
+    AsyncRateLimiter,
+    rate_limited_get,
+)
 
 
 class FakeClock:
@@ -176,6 +180,58 @@ class TestOpenAQRateLimitHeaders:
             )
 
         assert any(call >= 9.0 for call in sleeper.calls)
+
+    @pytest.mark.asyncio
+    async def test_absurd_reset_value_is_capped(self) -> None:
+        # Some APIs send x-ratelimit-reset as an absolute epoch, not a duration.
+        # Read as seconds it would park the client for years; cap the wait.
+        attempts = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                return httpx.Response(429, headers={"x-ratelimit-reset": "1893456000"})
+            return httpx.Response(200, json={})
+
+        sleeper = SleepRecorder()
+        limiter = AsyncRateLimiter(6000, clock=FakeClock(), sleeper=sleeper)
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            await rate_limited_get(
+                client, "https://api.example.org/x", limiter=limiter, sleeper=sleeper
+            )
+
+        assert max(sleeper.calls) <= MAX_RETRY_WAIT_S
+        assert MAX_RETRY_WAIT_S in sleeper.calls
+
+    @pytest.mark.asyncio
+    async def test_429_defers_the_shared_limiter_budget(self) -> None:
+        # The 429 backoff must push the shared budget, not just make the one
+        # caller sleep -- otherwise concurrent callers keep hammering the API.
+        attempts = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                return httpx.Response(429, headers={"Retry-After": "8"})
+            return httpx.Response(200, json={})
+
+        clock = FakeClock()  # frozen: isolate the shared-defer effect
+        sleeper = SleepRecorder()
+        limiter = AsyncRateLimiter(6000, clock=clock, sleeper=sleeper)
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            await rate_limited_get(
+                client, "https://api.example.org/x", limiter=limiter, sleeper=sleeper
+            )
+
+        sleeper.calls.clear()
+        await limiter.acquire()  # a concurrent caller arriving during the backoff
+        assert any(call >= 8.0 for call in sleeper.calls)
 
     @pytest.mark.asyncio
     async def test_remaining_budget_does_not_defer(self) -> None:

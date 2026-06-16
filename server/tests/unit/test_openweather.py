@@ -185,6 +185,25 @@ class TestOpenWeatherFetch:
 
         await client.aclose()
 
+    @pytest.mark.asyncio
+    async def test_fetch_without_api_key_makes_no_requests(self, monkeypatch) -> None:
+        # An empty appid 401s every call; fail fast instead of burning 5 requests.
+        monkeypatch.setattr(settings, "openweather_api_key", "")
+        calls = 0
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            return httpx.Response(200, json=make_payload())
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        collector = OpenWeatherCollector(http_client=client)
+
+        with pytest.raises(RuntimeError, match="OPENWEATHER_API_KEY"):
+            await collector.fetch()
+        assert calls == 0
+        await client.aclose()
+
 
 class TestOpenWeatherHelpers:
     def test_parse_observation_time_returns_utc_datetime(self) -> None:
@@ -199,6 +218,16 @@ class TestOpenWeatherHelpers:
 
     def test_extract_precipitation_combines_rain_and_snow(self) -> None:
         assert extract_precipitation({"rain": {"1h": 1.1}, "snow": {"1h": 0.4}}) == 1.5
+
+    def test_extract_precipitation_falls_back_to_3h(self) -> None:
+        # OpenWeather reports 1h or 3h accumulation; a 3h-only bucket was
+        # silently dropped as 0.0.
+        assert extract_precipitation({"rain": {"3h": 1.5}}) == pytest.approx(1.5)
+
+    def test_extract_precipitation_prefers_1h_over_3h(self) -> None:
+        assert extract_precipitation(
+            {"rain": {"1h": 2.0, "3h": 9.0}}
+        ) == pytest.approx(2.0)
 
     def test_weather_query_points_returns_five_target_points(self) -> None:
         points = weather_query_points()

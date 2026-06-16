@@ -286,3 +286,33 @@ class TestStoreDialectDedup:
         ).scalars().all()
         assert len(rows) == 1
         assert rows[0].value == 1.0  # first write wins; the duplicate is dropped
+
+    @pytest.mark.asyncio
+    async def test_store_raises_for_unsupported_dialect(self) -> None:
+        # No dedup strategy exists for other dialects; a silent plain insert
+        # would drop the idempotency guarantee. Fail loud instead.
+        class _Dialect:
+            name = "mysql"
+
+        class _Bind:
+            dialect = _Dialect()
+
+        class _Session:
+            def get_bind(self):
+                return _Bind()
+
+            async def execute(self, stmt):  # pragma: no cover - must not run
+                return None
+
+        point = DataPointCreate(
+            timestamp=datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc),
+            lat=1.0,
+            lon=2.0,
+            metric="m",
+            value=1.0,
+            unit="u",
+            source="s",
+            source_entity_id="e",
+        )
+        with pytest.raises(NotImplementedError, match="dialect"):
+            await MockCollector()._store(_Session(), [point])

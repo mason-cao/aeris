@@ -165,8 +165,9 @@ async def _store_points(
                 index_elements=dedup_cols
             )
         else:
-            from sqlalchemy import insert
-            stmt = insert(DataPoint).values(chunk)
+            raise NotImplementedError(
+                f"_store_points has no dedup strategy for dialect {dialect!r}"
+            )
         await session.execute(stmt)
 
     await session.commit()

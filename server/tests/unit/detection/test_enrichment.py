@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -222,6 +223,33 @@ class TestBuildCrossSourceSummary:
         assert rng["min"] == pytest.approx(10.0)
         assert rng["max"] == pytest.approx(60.0)
         assert rng["mean"] == pytest.approx(30.0)
+
+    def test_nan_observations_are_dropped_before_aggregation(self) -> None:
+        # GFS/S5P can carry a NaN value. Unfiltered it poisons mean (-> NaN)
+        # and emits literal `NaN` into the JSON payload, which is invalid JSON.
+        points = [
+            _dp(ts=T0 - timedelta(hours=1), value=10.0),
+            _dp(ts=T0, value=float("nan")),
+            _dp(ts=T0 + timedelta(hours=1), value=20.0),
+        ]
+        pm25 = _summary(_anomaly(), points)["sources"]["openaq"]["metrics"]["pm25"]
+
+        assert pm25["n_points"] == 2  # the NaN observation is gone
+        rng = pm25["value_range"]
+        assert rng["min"] == pytest.approx(10.0)
+        assert rng["max"] == pytest.approx(20.0)
+        assert rng["mean"] == pytest.approx(15.0)
+        series_values = [v for e in pm25["entities"] for _, v in e["series"]]
+        assert series_values and all(math.isfinite(v) for v in series_values)
+
+    def test_metric_with_only_nonfinite_values_is_absent(self) -> None:
+        points = [
+            _dp(ts=T0, value=float("nan")),
+            _dp(ts=T0 + timedelta(hours=1), value=float("inf")),
+        ]
+        summary = _summary(_anomaly(), points)
+        assert summary["sources"] == {}
+        assert summary["coverage"]["openaq"] is False
 
     def test_nearest_in_time_picks_closest_observation(self) -> None:
         points = [

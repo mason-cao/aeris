@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import math
+import statistics
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
@@ -93,7 +94,7 @@ def _stl_period_for(series: list[tuple[datetime, float]]) -> int | None:
     )
     if not deltas:
         return None
-    median = deltas[len(deltas) // 2]
+    median = statistics.median(deltas)
     period = round(86400.0 / median)
     return period if period >= MIN_STL_SAMPLES_PER_DAY else None
 

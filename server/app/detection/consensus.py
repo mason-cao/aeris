@@ -83,12 +83,22 @@ def merge(
     """
     by_ts: dict[datetime, _Bucket] = {}
 
-    for z in zscore_results:
-        _bucket_for(by_ts, z.timestamp).zscore = z
-    for s in stl_results:
-        _bucket_for(by_ts, s.timestamp).stl = s
-    for i in isolation_forest_results:
-        _bucket_for(by_ts, i.timestamp).isolation_forest = i
+    # Each detector emits at most one anomaly per timestamp. A duplicate would
+    # silently overwrite the bucket slot and drop an anomaly, so treat it as the
+    # detector bug it is and fail loud.
+    for results, attr in (
+        (zscore_results, "zscore"),
+        (stl_results, "stl"),
+        (isolation_forest_results, "isolation_forest"),
+    ):
+        for result in results:
+            bucket = _bucket_for(by_ts, result.timestamp)
+            if getattr(bucket, attr) is not None:
+                raise ValueError(
+                    f"duplicate {attr} anomaly at {result.timestamp} for "
+                    f"{source}/{metric}"
+                )
+            setattr(bucket, attr, result)
 
     merged: list[ConsensusAnomaly] = []
     for ts in sorted(by_ts):

@@ -248,6 +248,36 @@ class TestMergeDistinctTimestamps:
         assert by_ts[t_if_only].methods_triggered == ["isolation_forest"]
 
 
+class TestMergeRejectsDuplicateTimestamps:
+    # Each detector emits at most one anomaly per timestamp; merge keyed buckets
+    # by timestamp and silently dropped all but the last duplicate. A duplicate
+    # means a detector bug, so it must fail loud, not vanish.
+    def test_duplicate_zscore_timestamp_raises(self) -> None:
+        ts = T0 + timedelta(hours=3)
+        with pytest.raises(ValueError, match="duplicate"):
+            merge(
+                **_merge_kwargs(),
+                zscore_results=[_z(ts, value=80.0), _z(ts, value=120.0)],
+            )
+
+    def test_duplicate_stl_timestamp_raises(self) -> None:
+        ts = T0 + timedelta(hours=3)
+        with pytest.raises(ValueError, match="duplicate"):
+            merge(**_merge_kwargs(), stl_results=[_stl(ts), _stl(ts)])
+
+    def test_same_timestamp_across_detectors_is_allowed(self) -> None:
+        # Cross-detector agreement at one timestamp is the consensus case, not a
+        # duplicate.
+        ts = T0 + timedelta(hours=3)
+        result = merge(
+            **_merge_kwargs(),
+            zscore_results=[_z(ts)],
+            stl_results=[_stl(ts)],
+        )
+        assert len(result) == 1
+        assert sorted(result[0].methods_triggered) == ["stl", "zscore"]
+
+
 class TestMergeOrdering:
     def test_output_is_sorted_by_timestamp_ascending(self) -> None:
         t_late = T0 + timedelta(hours=30)

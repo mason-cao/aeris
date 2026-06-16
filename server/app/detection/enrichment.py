@@ -146,6 +146,11 @@ def build_cross_source_summary(
 
     by_source: dict[str, list[_Entry]] = defaultdict(list)
     for point in points:
+        # NaN/inf (a masked GFS cell, an empty S5P granule) poison min/max/mean
+        # and serialize to invalid JSON; drop them here so every aggregate,
+        # series, and count downstream is finite.
+        if point.value is None or not math.isfinite(point.value):
+            continue
         point_ts = _ensure_utc(point.timestamp)
         if point_ts < start or point_ts > end:
             continue

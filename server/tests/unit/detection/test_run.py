@@ -324,6 +324,14 @@ class TestStlPeriodFor:
     def test_too_short_series_disables_stl(self) -> None:
         assert _stl_period_for([(T0, 1.0)]) is None
 
+    def test_period_uses_true_median_of_irregular_gaps(self) -> None:
+        # Gaps (s): 3600, 7200, 3600, 7200 -> sorted [3600, 3600, 7200, 7200].
+        # True median = (3600+7200)/2 = 5400 -> round(86400/5400) = 16. The
+        # upper-middle element (7200) would wrongly give 12.
+        offsets = [0, 3600, 10800, 14400, 21600]
+        series = [(T0 + timedelta(seconds=o), float(o)) for o in offsets]
+        assert _stl_period_for(series) == 16
+
 
 class TestBuildAuxInputs:
     @pytest.mark.asyncio

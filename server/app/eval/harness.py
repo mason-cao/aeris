@@ -59,7 +59,12 @@ def load_anomaly_set(path: Path | str) -> list[uuid.UUID]:
         data = data["anomaly_ids"]
     if not isinstance(data, list):
         raise ValueError(f"{path} must be a JSON array or an 'anomaly_ids' object")
-    return [uuid.UUID(item) for item in data]
+    # Order-preserving dedup: a duplicate id would otherwise sweep the same cell
+    # twice. An empty set is almost certainly a mistake worth surfacing.
+    ids = list(dict.fromkeys(uuid.UUID(item) for item in data))
+    if not ids:
+        logger.warning("anomaly set %s is empty", path)
+    return ids
 
 
 async def _cell_exists(
@@ -101,8 +106,14 @@ async def run_harness(
                     explanation = await generate_explanation(
                         session, anomaly_id, client
                     )
-                    await persist_explanation(session, explanation)
-                    summary.completed += 1
+                    # persist returns False when the cell already exists (a
+                    # concurrent run raced us); that is a skip, not a completion.
+                    # persist returns False when the cell already exists (a
+                    # concurrent run raced us); that is a skip, not a completion.
+                    if await persist_explanation(session, explanation):
+                        summary.completed += 1
+                    else:
+                        summary.skipped += 1
                 except LLMParseError:
                     await session.rollback()
                     summary.parse_failures += 1

@@ -185,6 +185,13 @@ def test_load_anomaly_set_rejects_other_shapes(tmp_path):
         load_anomaly_set(path)
 
 
+def test_load_anomaly_set_dedups_preserving_order(tmp_path):
+    a, b = str(uuid.uuid4()), str(uuid.uuid4())
+    path = tmp_path / "dups.json"
+    path.write_text(json.dumps([a, b, a]))  # a duplicated would sweep twice
+    assert load_anomaly_set(path) == [uuid.UUID(a), uuid.UUID(b)]
+
+
 # --- sweep ---
 
 
@@ -206,6 +213,27 @@ async def test_run_harness_fills_every_cell(db_session):
         assert summaries[model].skipped == 0
         assert summaries[model].parse_failures == 0
         assert summaries[model].errors == []
+
+
+@pytest.mark.asyncio
+async def test_persist_returning_false_counts_as_skip(db_session, monkeypatch):
+    # A raced/duplicate persist returns False; it must not inflate `completed`.
+    import app.eval.harness as harness_mod
+
+    ids = await _seed(db_session, 1)
+
+    async def _persist_false(session, explanation):
+        return False
+
+    monkeypatch.setattr(harness_mod, "persist_explanation", _persist_false)
+
+    summaries = await run_harness(
+        db_session, ids, models=["model-a"],
+        client_factory=_scripted_factory({}, n_anomalies=1),
+    )
+
+    assert summaries["model-a"].completed == 0
+    assert summaries["model-a"].skipped == 1
 
 
 @pytest.mark.asyncio

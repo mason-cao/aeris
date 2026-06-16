@@ -143,6 +143,17 @@ class TestFreezeEvalSet:
         assert len(result.selected) == 2
 
     @pytest.mark.asyncio
+    async def test_rejects_nonpositive_top_n(self, db_session) -> None:
+        # top_n=0 silently froze an empty set; a negative top sliced all-but-N.
+        with pytest.raises(ValueError, match="top_n"):
+            await freeze_eval_set(
+                db_session,
+                window_start=T0 - timedelta(days=1),
+                window_end=T0 + timedelta(days=1),
+                top_n=0,
+            )
+
+    @pytest.mark.asyncio
     async def test_consensus_count_outranks_z_score(self, db_session) -> None:
         three_methods = _anomaly(
             metric="ozone",

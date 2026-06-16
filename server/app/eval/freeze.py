@@ -150,6 +150,8 @@ async def freeze_eval_set(
     top_n: int = DEFAULT_TOP_N,
 ) -> FreezeResult:
     """Select the top-N event representatives inside the eval window."""
+    if top_n < 1:
+        raise ValueError(f"top_n must be >= 1, got {top_n}")
     anomalies = await load_window_anomalies(session, window_start, window_end)
     events = group_events(anomalies)
 

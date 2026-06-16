@@ -1,10 +1,14 @@
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, inspect, select, text
+from sqlalchemy.orm import Session
+
+from app.db.models import Anomaly, EnrichmentRecord
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -107,6 +111,55 @@ def test_upgrade_head_id_column_resists_numeric_affinity(sqlite_url) -> None:
             ).fetchone()
         assert stored_type == "text"
         assert value == NUMERIC_LOOKING.hex
+    finally:
+        engine.dispose()
+
+
+def test_upgrade_head_orm_uuid_roundtrips_pk_and_fk(sqlite_url) -> None:
+    # The raw-SQL affinity test covers data_points.id; this covers the ORM
+    # path the app actually uses against the *migrated* schema (not
+    # create_all): the GUID TypeDecorator must round-trip a pathological UUID
+    # primary key and a UUID foreign key. If migrations and models drift, this
+    # breaks where create_all-based tests can't see it.
+    cfg = _alembic_config(sqlite_url)
+    command.upgrade(cfg, "head")
+
+    engine = create_engine(sqlite_url)
+    try:
+        with Session(engine) as session:
+            session.add(
+                Anomaly(
+                    id=NUMERIC_LOOKING,
+                    timestamp=datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc),
+                    lat=29.76,
+                    lon=-95.37,
+                    metric="pm25",
+                    source="openaq",
+                    value=85.0,
+                    methods_triggered=["zscore"],
+                    severity="severe",
+                )
+            )
+            session.add(
+                EnrichmentRecord(
+                    anomaly_id=NUMERIC_LOOKING,
+                    context_window_start=datetime(2026, 6, 1, 6, 0, tzinfo=timezone.utc),
+                    context_window_end=datetime(2026, 6, 1, 18, 0, tzinfo=timezone.utc),
+                    cross_source_summary_json={"sources": {}},
+                )
+            )
+            session.commit()
+
+        with Session(engine) as session:
+            anomaly = session.execute(select(Anomaly)).scalar_one()
+            assert isinstance(anomaly.id, uuid.UUID)
+            assert anomaly.id == NUMERIC_LOOKING
+
+            record = session.execute(select(EnrichmentRecord)).scalar_one()
+            assert isinstance(record.anomaly_id, uuid.UUID)
+            assert record.anomaly_id == NUMERIC_LOOKING
+            # FK resolves back to the parent row through the migrated schema.
+            assert record.anomaly.id == NUMERIC_LOOKING
     finally:
         engine.dispose()
 

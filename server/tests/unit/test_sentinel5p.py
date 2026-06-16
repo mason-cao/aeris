@@ -15,6 +15,7 @@ from app.collectors.sentinel5p import (
     PRODUCT_QA_THRESHOLD,
     PRODUCT_TYPE_MAP,
     Sentinel5PCollector,
+    _load_granule_arrays,
     _normalize_qa,
     extract_product_code,
     fetch_access_token,
@@ -351,6 +352,92 @@ class TestNormalizeQa:
 
     def test_empty_array_returns_empty(self) -> None:
         assert _normalize_qa(np.array([])).tolist() == []
+
+
+def _write_granule(
+    path: str,
+    *,
+    variable: str = "nitrogendioxide_tropospheric_column",
+    column: list[list[float]],
+    qa_packed: list[list[int]],
+    lat: list[list[float]],
+    lon: list[list[float]],
+) -> None:
+    """Write a minimal TROPOMI-shaped L2 granule (PRODUCT group, packed qa).
+
+    Mirrors the real file the extractor reads: a PRODUCT group whose qa_value
+    is a uint8 percentage with a 0.01 scale_factor, and a column variable with
+    a _FillValue. xarray's mask_and_scale must decode both.
+    """
+    import netCDF4
+
+    fill = np.float32(-1.0e30)
+    with netCDF4.Dataset(path, "w") as ds:
+        product = ds.createGroup("PRODUCT")
+        product.createDimension("time", 1)
+        product.createDimension("scanline", 2)
+        product.createDimension("ground_pixel", 2)
+        dims = ("time", "scanline", "ground_pixel")
+
+        lat_v = product.createVariable("latitude", "f4", dims)
+        lat_v[:] = np.array([lat], dtype="f4")
+        lon_v = product.createVariable("longitude", "f4", dims)
+        lon_v[:] = np.array([lon], dtype="f4")
+
+        qa_v = product.createVariable("qa_value", "u1", dims)
+        qa_v.scale_factor = np.float64(0.01)
+        qa_v.set_auto_maskandscale(False)
+        qa_v[:] = np.array([qa_packed], dtype="u1")
+
+        col_v = product.createVariable(variable, "f4", dims, fill_value=fill)
+        col_v.set_auto_mask(False)
+        col_v[:] = np.array([column], dtype="f4")
+
+
+class TestLoadGranuleArrays:
+    """Parse a real netCDF granule, end to end, the way GRIB parsing does.
+
+    Every other extraction test mocks _download_and_extract, so the real
+    xarray decode (group lookup, mask_and_scale, qa normalization, ravel) was
+    untested against an actual file.
+    """
+
+    def test_decodes_real_netcdf_granule_with_scale_and_fill(self, tmp_path) -> None:
+        path = str(tmp_path / "granule.nc")
+        fill = -1.0e30
+        _write_granule(
+            path,
+            column=[[4.0e-5, 6.0e-5], [5.0e-5, fill]],
+            qa_packed=[[75, 100], [20, 75]],
+            lat=[[29.0, 29.5], [30.0, 30.5]],
+            lon=[[-95.0, -95.5], [-96.0, -96.5]],
+        )
+
+        values, qa, lat, lon = _load_granule_arrays(path, "NO2")
+
+        assert values.shape == (4,)
+        # mask_and_scale turns the _FillValue pixel into NaN; the rest decode.
+        assert np.isnan(values[3])
+        assert values[:3] == pytest.approx([4.0e-5, 6.0e-5, 5.0e-5], rel=1e-4)
+        # qa_value: uint8 percentage * 0.01 -> [0, 1] fraction.
+        assert qa.tolist() == pytest.approx([0.75, 1.0, 0.2, 0.75])
+        assert lat.tolist() == pytest.approx([29.0, 29.5, 30.0, 30.5])
+        assert lon.tolist() == pytest.approx([-95.0, -95.5, -96.0, -96.5])
+
+    def test_raises_when_expected_variable_absent(self, tmp_path) -> None:
+        # An NO2 granule lacks the SO2 column variable: a clear error, not a
+        # KeyError deep in xarray.
+        path = str(tmp_path / "granule.nc")
+        _write_granule(
+            path,
+            column=[[4.0e-5, 6.0e-5], [5.0e-5, 5.5e-5]],
+            qa_packed=[[75, 100], [20, 75]],
+            lat=[[29.0, 29.5], [30.0, 30.5]],
+            lon=[[-95.0, -95.5], [-96.0, -96.5]],
+        )
+
+        with pytest.raises(RuntimeError, match="missing expected variable"):
+            _load_granule_arrays(path, "SO2")
 
 
 class TestFetchAccessToken:

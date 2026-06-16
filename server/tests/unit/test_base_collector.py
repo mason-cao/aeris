@@ -247,3 +247,42 @@ class TestMockCollectorCollect:
             select(DataPoint).where(DataPoint.source == "test_source")
         )
         assert data_result.scalars().all() == []
+
+
+class TestStoreDialectDedup:
+    @pytest.mark.asyncio
+    async def test_store_ignores_duplicate_observation_on_sqlite(
+        self, db_session
+    ) -> None:
+        # _store dedups on (source, metric, source_entity_id, timestamp) via the
+        # dialect's on_conflict_do_nothing. A re-collection that re-sees the same
+        # observation must be a silent no-op, not a UNIQUE violation, and must
+        # not overwrite the stored value. No other test exercises this branch.
+        collector = MockCollector()
+        ts = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
+
+        def _point(value: float) -> DataPointCreate:
+            return DataPointCreate(
+                timestamp=ts,
+                lat=34.0,
+                lon=-84.0,
+                metric="test_metric",
+                value=value,
+                unit="unit",
+                source=collector.source_name,
+                source_entity_id="entity-dup",
+            )
+
+        await collector._store(db_session, [_point(1.0)])
+        await db_session.commit()
+        # Second run re-sees the same key with a different value.
+        await collector._store(db_session, [_point(2.0)])
+        await db_session.commit()
+
+        rows = (
+            await db_session.execute(
+                select(DataPoint).where(DataPoint.source == "test_source")
+            )
+        ).scalars().all()
+        assert len(rows) == 1
+        assert rows[0].value == 1.0  # first write wins; the duplicate is dropped

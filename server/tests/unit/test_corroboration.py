@@ -12,8 +12,11 @@ from app.llm.corroboration import (
     CONTRADICTING,
     SILENT,
     SUPPORTING,
+    ClaimType,
     aggregate_verdicts,
+    classify_claim,
     low_corroboration_flag,
+    score_claim,
     score_concentration_elevation,
     score_meteorological_state,
     score_transport_direction,
@@ -994,3 +997,36 @@ def test_background_sparse_stations_do_not_count_toward_precondition():
     )
     assert verdicts["openaq"] == SILENT
     assert "precondition" in note.lower()
+
+
+# --- dispatch: under-cued primary masks a contradicted secondary ---
+
+
+def test_under_cued_primary_type_drops_a_contradicted_secondary():
+    # A compound claim routes to two types: rank-1 background_vs_event
+    # (regional uniformity) and rank-2 concentration_elevation ("exceeding
+    # 80 ppb"). score_claim scores only the primary. Here the data leaves the
+    # background scorer under-cued -- too few stations for its precondition,
+    # so it returns silent -- and the claim ships unverified even though its
+    # concentration sub-claim is flatly contradicted (nearest ~11 ppb, not
+    # >80). The rank-2 contradiction never reaches the score: a known limit of
+    # single-primary scoring, pinned here so a dispatch change can't silently
+    # alter it. Fixing it (fall through to rank-2) is a scoring-design change.
+    claim = "PM2.5 was elevated across all stations in the region, exceeding 80 ppb."
+    entities = _stations([12.0, 11.0])  # only 2 stations -> precondition unmet
+    summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
+
+    matched = classify_claim(claim)
+    assert matched[0] is ClaimType.BACKGROUND_VS_EVENT
+    assert ClaimType.CONCENTRATION_ELEVATION in matched
+
+    # If the secondary were scored, it would contradict the "exceeding 80 ppb".
+    rank2_verdicts, _ = score_concentration_elevation(claim, summary)
+    assert rank2_verdicts["openaq"] == CONTRADICTING
+
+    # But only the under-cued primary is scored, so nothing is corroborated or
+    # contradicted -- the claim ships unverified ("green").
+    scored = score_claim(claim, summary)
+    assert scored.claim_type is ClaimType.BACKGROUND_VS_EVENT
+    assert scored.result.unverified is True
+    assert scored.result.corroboration_score is None

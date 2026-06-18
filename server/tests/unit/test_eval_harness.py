@@ -332,4 +332,4 @@ def test_parse_args_takes_set_path_and_model_list():
 
 
 def test_default_models_are_the_three_baselines():
-    assert DEFAULT_MODELS == ("llama3:8b", "gpt-5.4", "gemini-3-flash-preview")
+    assert DEFAULT_MODELS == ("llama3:8b", "gpt-5.4", "gemini-3.5-flash")

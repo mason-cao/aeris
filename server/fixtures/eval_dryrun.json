@@ -1,0 +1,23 @@
+{
+  "frozen_at": "2026-06-18T19:24:12.589114+00:00",
+  "window": {
+    "start": "2026-06-01T00:00:00+00:00",
+    "end": "2026-07-14T00:00:00+00:00"
+  },
+  "criteria": {
+    "rank": "detector-consensus count, then |z| within a tier",
+    "event_merge": {
+      "window_minutes": 30.0,
+      "radius_km": 10.0,
+      "linkage": "single, per metric"
+    },
+    "top": 3
+  },
+  "n_window_anomalies": 5247,
+  "n_events": 1895,
+  "anomaly_ids": [
+    "32be2942-55c9-4b4a-914c-a6f79e8c7d23",
+    "5cf15442-8ea7-44a8-975d-3541489e9654",
+    "f582da80-828b-488a-9bb7-b3878139f33f"
+  ]
+}

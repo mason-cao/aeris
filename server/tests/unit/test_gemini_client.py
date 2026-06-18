@@ -70,7 +70,7 @@ class TestGeminiClient:
         client = _client_with(handler)
         raw = await client._complete("explain this anomaly", _Attribution)
 
-        assert captured["path"] == "/v1beta/models/gemini-3-flash-preview:generateContent"
+        assert captured["path"] == "/v1beta/models/gemini-3.5-flash:generateContent"
         assert captured["key_header"] == "g-test"
         body = captured["body"]
         assert body["contents"] == [

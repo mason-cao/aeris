@@ -14,7 +14,11 @@ DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 # The cloud baseline (spec's "Gemini 3 Thinking" has no API id). Flash
 # rather than pro: pro has zero free-tier quota, flash runs free — decided
 # 2026-06-11, note the substitution in the methodology.
-DEFAULT_MODEL = "gemini-3-flash-preview"
+# GA, not preview: gemini-3-flash-preview 503'd / read-timed-out (>120s) on
+# every real structured-output request in the 2026-06-18 dry-run, while a
+# trivial request returned 200. gemini-3.5-flash (GA) completes the same
+# chain (~77s). Switched 2026-06-18 — record the GA substitution too.
+DEFAULT_MODEL = "gemini-3.5-flash"
 DEFAULT_REQUEST_TIMEOUT = 120.0
 # Free-tier Gemini quotas are per-minute, so 429s are expected during eval
 # sweeps; retried here (unlike OpenAI) because the API tells us how long to

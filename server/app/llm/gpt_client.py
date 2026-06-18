@@ -60,26 +60,32 @@ class GPTClient(LLMClient):
 
     async def _complete(self, prompt: str, schema: type[BaseModel]) -> RawCompletion:
         client = await self._get_client()
-        response = await client.post(
-            f"{self._base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {self._api_key}"},
-            json={
-                "model": self.model_name,
-                "messages": [{"role": "user", "content": prompt}],
-                # No temperature/top_p here: the thinking tier rejects
-                # sampling overrides, so GPT runs at the API default — record
-                # that asymmetry in the methodology note alongside the pinned
-                # temperature=0 on the Ollama and Gemini clients.
-                "response_format": {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": schema.__name__,
-                        "schema": _strict_json_schema(schema.model_json_schema()),
-                        "strict": True,
-                    },
+        body = {
+            "model": self.model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            # No temperature/top_p here: the thinking tier rejects sampling
+            # overrides, so GPT runs at the API default — record that asymmetry
+            # in the methodology note alongside the pinned temperature=0 on the
+            # Ollama and Gemini clients.
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema.__name__,
+                    "schema": _strict_json_schema(schema.model_json_schema()),
+                    "strict": True,
                 },
             },
-            timeout=self._request_timeout,
+        }
+        # Bounded backoff over transient 5xx/timeouts only. The observed 429 was
+        # insufficient_quota (account/billing), which retrying cannot fix, so
+        # 429 is left out of the retry set and propagates immediately.
+        response = await self._send_with_retry(
+            lambda: client.post(
+                f"{self._base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {self._api_key}"},
+                json=body,
+                timeout=self._request_timeout,
+            ),
         )
         response.raise_for_status()
         data = response.json()

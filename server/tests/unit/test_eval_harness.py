@@ -16,6 +16,8 @@ from sqlalchemy import func, select
 from app.db.models import Anomaly, EnrichmentRecord, Explanation
 from app.eval.harness import (
     DEFAULT_MODELS,
+    ModelSweepSummary,
+    _format_summaries,
     _parse_args,
     load_anomaly_set,
     run_harness,
@@ -315,6 +317,61 @@ async def test_unexpected_error_is_recorded_and_isolated(db_session):
     assert summaries["model-a"].completed == 0
     assert len(summaries["model-a"].errors) == 2
     assert "connection torn down" in summaries["model-a"].errors[0][1]
+
+
+# --- cost / latency accounting ---
+
+
+@pytest.mark.asyncio
+async def test_summary_accumulates_latency_and_tokens(db_session):
+    # The freeze sweep must be watchable for budget; the per-model totals are
+    # the sum of what each completed cell actually spent.
+    ids = await _seed(db_session, 2)
+
+    summaries = await run_harness(
+        db_session, ids, models=["model-a"],
+        client_factory=_scripted_factory({}, n_anomalies=2),
+    )
+    s = summaries["model-a"]
+
+    rows = (
+        await db_session.execute(
+            select(Explanation).where(Explanation.anomaly_id.in_(ids))
+        )
+    ).scalars().all()
+
+    assert s.prompt_tokens == sum(r.prompt_tokens for r in rows) > 0
+    assert s.completion_tokens == sum(r.completion_tokens for r in rows) > 0
+    assert s.total_latency_ms == pytest.approx(sum(r.latency_ms for r in rows))
+
+
+def test_format_summaries_reports_tokens_latency_and_cost(monkeypatch):
+    import app.eval.harness as harness_mod
+
+    summaries = {
+        "gpt-5.4": ModelSweepSummary(
+            completed=2,
+            total_latency_ms=43_600.0,
+            prompt_tokens=82_698,
+            completion_tokens=3_138,
+        ),
+        "llama3:8b": ModelSweepSummary(
+            completed=2,
+            total_latency_ms=108_400.0,
+            prompt_tokens=50_000,
+            completion_tokens=2_000,
+        ),
+    }
+    # A configured rate turns on the $ estimate; an unpriced (local) model
+    # shows n/a rather than a fabricated number.
+    monkeypatch.setattr(harness_mod, "USD_PER_MTOK", {"gpt-5.4": (1.25, 10.0)})
+
+    out = _format_summaries(summaries)
+
+    assert "prompt-tok" in out
+    assert "82,698" in out
+    assert "$" in out  # gpt-5.4 priced
+    assert "n/a" in out  # llama3:8b unpriced
 
 
 # --- CLI ---

@@ -32,15 +32,37 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MODELS: tuple[str, ...] = ("llama3:8b", GPT_DEFAULT, GEMINI_DEFAULT)
 
+# Published per-1M-token prices (USD): (prompt_rate, completion_rate). Fill from
+# each provider's current pricing page before the freeze to turn on the $est
+# column; empty by default so no fabricated number is ever printed. Local models
+# (Ollama) are free and intentionally absent.
+USD_PER_MTOK: dict[str, tuple[float, float]] = {}
+
 
 @dataclass
 class ModelSweepSummary:
-    """Outcome counts for one model's pass over the anomaly set."""
+    """Outcome counts plus cumulative spend for one model's pass."""
 
     completed: int = 0
     skipped: int = 0
     parse_failures: int = 0
     errors: list[tuple[uuid.UUID, str]] = field(default_factory=list)
+    # Cumulative across cells this run actually paid for (a successful generate),
+    # so the freeze sweep's cost/latency is watchable as it runs.
+    total_latency_ms: float = 0.0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+
+def _estimate_cost_usd(model: str, summary: ModelSweepSummary) -> float | None:
+    """USD estimate from configured rates, or None when the model is unpriced."""
+    rate = USD_PER_MTOK.get(model)
+    if rate is None:
+        return None
+    prompt_rate, completion_rate = rate
+    return (
+        summary.prompt_tokens * prompt_rate + summary.completion_tokens * completion_rate
+    ) / 1_000_000
 
 
 def load_anomaly_set(path: Path | str) -> list[uuid.UUID]:
@@ -106,8 +128,11 @@ async def run_harness(
                     explanation = await generate_explanation(
                         session, anomaly_id, client
                     )
-                    # persist returns False when the cell already exists (a
-                    # concurrent run raced us); that is a skip, not a completion.
+                    # Count spend as soon as the call returns: the tokens/time
+                    # were paid even if a racing run wins the persist below.
+                    summary.total_latency_ms += explanation.latency_ms or 0.0
+                    summary.prompt_tokens += explanation.prompt_tokens or 0
+                    summary.completion_tokens += explanation.completion_tokens or 0
                     # persist returns False when the cell already exists (a
                     # concurrent run raced us); that is a skip, not a completion.
                     if await persist_explanation(session, explanation):
@@ -159,12 +184,17 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def _format_summaries(summaries: dict[str, ModelSweepSummary]) -> str:
     lines = [
-        f"{'model':<26} {'done':>5} {'skip':>5} {'parse-fail':>10} {'error':>6}"
+        f"{'model':<26} {'done':>5} {'skip':>5} {'parse-fail':>10} {'error':>6} "
+        f"{'latency':>9} {'prompt-tok':>11} {'compl-tok':>10} {'$est':>8}"
     ]
     for model, s in summaries.items():
+        cost = _estimate_cost_usd(model, s)
+        cost_str = f"${cost:,.2f}" if cost is not None else "n/a"
         lines.append(
             f"{model:<26} {s.completed:>5} {s.skipped:>5} "
-            f"{s.parse_failures:>10} {len(s.errors):>6}"
+            f"{s.parse_failures:>10} {len(s.errors):>6} "
+            f"{s.total_latency_ms / 1000:>8.1f}s {s.prompt_tokens:>11,} "
+            f"{s.completion_tokens:>10,} {cost_str:>8}"
         )
     for model, s in summaries.items():
         for anomaly_id, message in s.errors:

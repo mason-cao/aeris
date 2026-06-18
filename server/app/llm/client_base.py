@@ -1,13 +1,21 @@
+import asyncio
 import logging
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Collection
 from dataclasses import dataclass
 
 import httpx
 from pydantic import BaseModel, ValidationError
 
 logger = logging.getLogger(__name__)
+
+# A freeze sweep is hundreds of sequential cloud calls; one transient blip must
+# not drop a cell. Retry only server-side transients — 4xx (bad key, bad
+# request, exhausted quota) fail identically on retry, so they propagate.
+RETRYABLE_STATUS: frozenset[int] = frozenset({500, 502, 503, 504})
+DEFAULT_MAX_HTTP_RETRIES = 2
+DEFAULT_HTTP_BACKOFF_BASE_SECONDS = 1.0
 
 
 class RawCompletion(BaseModel):
@@ -46,6 +54,8 @@ class LLMClient(ABC):
 
     model_name: str
     model_version: str | None = None
+    max_http_retries: int = DEFAULT_MAX_HTTP_RETRIES
+    http_backoff_base_seconds: float = DEFAULT_HTTP_BACKOFF_BASE_SECONDS
 
     def __init__(self, http_client: httpx.AsyncClient | None = None) -> None:
         self._client = http_client
@@ -60,6 +70,63 @@ class LLMClient(ABC):
         if self._owns_client and self._client is not None:
             await self._client.aclose()
             self._client = None
+
+    def _backoff_seconds(self, attempt: int) -> float:
+        return self.http_backoff_base_seconds * (2**attempt)
+
+    async def _send_with_retry(
+        self,
+        send: Callable[[], Awaitable[httpx.Response]],
+        *,
+        retry_statuses: Collection[int] = RETRYABLE_STATUS,
+        server_delay: Callable[[httpx.Response], float | None] | None = None,
+    ) -> httpx.Response:
+        """Send one request with bounded exponential backoff on transients.
+
+        Retries transport errors / timeouts and any response whose status is in
+        ``retry_statuses``, up to ``max_http_retries`` times. ``server_delay``,
+        if given, may return a server-advised wait (e.g. Gemini RetryInfo) that
+        overrides the backoff for a status retry. Returns the final response —
+        the caller still validates its status — or re-raises the transport
+        error once retries are exhausted.
+        """
+        for attempt in range(self.max_http_retries + 1):
+            try:
+                response = await send()
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                if attempt == self.max_http_retries:
+                    raise
+                delay = self._backoff_seconds(attempt)
+                logger.warning(
+                    "LLM request transport error, retrying",
+                    extra={
+                        "model": self.model_name,
+                        "attempt": attempt + 1,
+                        "delay_s": delay,
+                        "error": type(exc).__name__,
+                    },
+                )
+                await asyncio.sleep(delay)
+                continue
+
+            if response.status_code in retry_statuses and attempt < self.max_http_retries:
+                advised = server_delay(response) if server_delay is not None else None
+                delay = advised if advised is not None else self._backoff_seconds(attempt)
+                logger.warning(
+                    "LLM request failed, retrying",
+                    extra={
+                        "model": self.model_name,
+                        "attempt": attempt + 1,
+                        "status": response.status_code,
+                        "delay_s": delay,
+                    },
+                )
+                await asyncio.sleep(delay)
+                continue
+
+            return response
+
+        raise AssertionError("retry loop exited without returning")  # pragma: no cover
 
     @abstractmethod
     async def _complete(self, prompt: str, schema: type[BaseModel]) -> RawCompletion:

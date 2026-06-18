@@ -1,5 +1,3 @@
-import asyncio
-import logging
 import re
 
 import httpx
@@ -7,8 +5,6 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.llm.client_base import LLMClient, LLMParseError, RawCompletion
-
-logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 # The cloud baseline (spec's "Gemini 3 Thinking" has no API id). Flash
@@ -22,9 +18,11 @@ DEFAULT_MODEL = "gemini-3.5-flash"
 DEFAULT_REQUEST_TIMEOUT = 120.0
 # Free-tier Gemini quotas are per-minute, so 429s are expected during eval
 # sweeps; retried here (unlike OpenAI) because the API tells us how long to
-# wait via RetryInfo.
-MAX_429_RETRIES = 3
+# wait via RetryInfo. 5xx/timeouts are retried too (the preview model 503'd on
+# every real request; the GA model is reliable, but this is cheap insurance).
+MAX_RETRIES = 3
 BACKOFF_BASE_SECONDS = 2.0
+RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 
 _RETRY_DELAY_RE = re.compile(r"^([0-9.]+)s$")
 
@@ -58,9 +56,12 @@ class GeminiClient(LLMClient):
         self._base_url = base_url.rstrip("/")
         self._request_timeout = request_timeout
 
+    max_http_retries = MAX_RETRIES
+    http_backoff_base_seconds = BACKOFF_BASE_SECONDS
+
     @staticmethod
-    def _retry_delay(response: httpx.Response, attempt: int) -> float:
-        """Server-advised RetryInfo delay, or exponential backoff without it."""
+    def _server_advised_delay(response: httpx.Response) -> float | None:
+        """RetryInfo ``retryDelay`` in seconds if the body carries one, else None."""
         try:
             details = response.json()["error"]["details"]
             for detail in details:
@@ -69,7 +70,7 @@ class GeminiClient(LLMClient):
                     return float(match.group(1))
         except (ValueError, KeyError, TypeError):
             pass
-        return BACKOFF_BASE_SECONDS * (2**attempt)
+        return None
 
     async def _complete(self, prompt: str, schema: type[BaseModel]) -> RawCompletion:
         client = await self._get_client()
@@ -82,21 +83,16 @@ class GeminiClient(LLMClient):
                 "temperature": 0.0,
             },
         }
-        for attempt in range(MAX_429_RETRIES + 1):
-            response = await client.post(
+        response = await self._send_with_retry(
+            lambda: client.post(
                 f"{self._base_url}/models/{self.model_name}:generateContent",
                 headers={"x-goog-api-key": self._api_key},
                 json=payload,
                 timeout=self._request_timeout,
-            )
-            if response.status_code != 429 or attempt == MAX_429_RETRIES:
-                break
-            delay = self._retry_delay(response, attempt)
-            logger.warning(
-                "Gemini rate limited, retrying",
-                extra={"model": self.model_name, "attempt": attempt + 1, "delay_s": delay},
-            )
-            await asyncio.sleep(delay)
+            ),
+            retry_statuses=RETRYABLE_STATUS,
+            server_delay=self._server_advised_delay,
+        )
         response.raise_for_status()
         data = response.json()
         if data.get("modelVersion"):

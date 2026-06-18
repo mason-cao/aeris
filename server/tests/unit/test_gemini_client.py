@@ -34,7 +34,7 @@ def _no_sleep(monkeypatch) -> list[float]:
     async def fake_sleep(seconds: float) -> None:
         slept.append(seconds)
 
-    monkeypatch.setattr("app.llm.gemini_client.asyncio.sleep", fake_sleep)
+    monkeypatch.setattr("app.llm.client_base.asyncio.sleep", fake_sleep)
     return slept
 
 
@@ -225,4 +225,26 @@ class TestGeminiClient:
         client = _client_with(handler)
         with pytest.raises(httpx.HTTPStatusError):
             await client._complete("p", _Attribution)
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_retries_5xx_then_succeeds(self, monkeypatch) -> None:
+        # The preview model 503'd on every real request; the GA model is
+        # reliable, but a bounded 5xx retry is cheap insurance for the freeze.
+        slept = _no_sleep(monkeypatch)
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return httpx.Response(503, json={"error": {"message": "overloaded"}})
+            return httpx.Response(200, json=_gemini_response([{"text": "{}"}]))
+
+        client = _client_with(handler)
+        raw = await client._complete("p", _Attribution)
+
+        assert raw.text == "{}"
+        assert calls["n"] == 2
+        # 503 carries no RetryInfo, so exponential backoff (base 2.0) applies.
+        assert slept == [2.0]
         await client.close()

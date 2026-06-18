@@ -29,6 +29,16 @@ def _chat_response(content: str, **extra) -> dict:
     }
 
 
+def _no_sleep(monkeypatch) -> list[float]:
+    slept: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        slept.append(seconds)
+
+    monkeypatch.setattr("app.llm.client_base.asyncio.sleep", fake_sleep)
+    return slept
+
+
 class TestGPTClient:
     def test_is_an_llm_client(self) -> None:
         assert issubclass(GPTClient, LLMClient)
@@ -146,4 +156,91 @@ class TestGPTClient:
         client = _client_with(handler)
         with pytest.raises(httpx.HTTPStatusError):
             await client._complete("p", _Attribution)
+        await client.close()
+
+
+class TestGPTRetry:
+    """A freeze sweep is ~200 sequential calls; one transient blip must not
+    drop a cell. gpt_client had no retry — these pin the bounded backoff."""
+
+    @pytest.mark.asyncio
+    async def test_retries_5xx_then_succeeds(self, monkeypatch) -> None:
+        slept = _no_sleep(monkeypatch)
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return httpx.Response(503, json={"error": {"message": "overloaded"}})
+            return httpx.Response(
+                200, json=_chat_response('{"cause": "x", "confidence": 0.5}')
+            )
+
+        client = _client_with(handler)
+        raw = await client._complete("p", _Attribution)
+
+        assert raw.text == '{"cause": "x", "confidence": 0.5}'
+        assert calls["n"] == 2
+        assert slept == [1.0]
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_retries_on_timeout_then_succeeds(self, monkeypatch) -> None:
+        slept = _no_sleep(monkeypatch)
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise httpx.ReadTimeout("read timed out", request=request)
+            return httpx.Response(
+                200, json=_chat_response('{"cause": "x", "confidence": 0.5}')
+            )
+
+        client = _client_with(handler)
+        raw = await client._complete("p", _Attribution)
+
+        assert raw.text == '{"cause": "x", "confidence": 0.5}'
+        assert calls["n"] == 2
+        assert slept == [1.0]
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_persistent_5xx_raises_after_bounded_retries(
+        self, monkeypatch
+    ) -> None:
+        slept = _no_sleep(monkeypatch)
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["n"] += 1
+            return httpx.Response(500, json={"error": {"message": "boom"}})
+
+        client = _client_with(handler)
+        with pytest.raises(httpx.HTTPStatusError):
+            await client._complete("p", _Attribution)
+
+        assert calls["n"] == 3  # initial try + 2 retries
+        assert slept == [1.0, 2.0]
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_structural_429_is_not_retried(self, monkeypatch) -> None:
+        # The dry-run 429 was insufficient_quota (account/billing), not a rate
+        # burst — backoff cannot fix it, so gpt does not retry 429.
+        slept = _no_sleep(monkeypatch)
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["n"] += 1
+            return httpx.Response(
+                429, json={"error": {"message": "insufficient_quota"}}
+            )
+
+        client = _client_with(handler)
+        with pytest.raises(httpx.HTTPStatusError):
+            await client._complete("p", _Attribution)
+
+        assert calls["n"] == 1
+        assert slept == []
         await client.close()

@@ -154,6 +154,12 @@ class ConcentrationTolerance:
     # near-automatically corroborated by the source that triggered it.
     min_baseline_points: int = 3
     baseline_gap_h: float = 3.0
+    # S5P SO2 columns below the TROPOMI detection limit (~1 DU) are retrieval
+    # noise that scatters about zero, not a real concentration. A column below
+    # this is scored SILENT, not as a verdict, so noise cannot support or
+    # contradict an SO2 claim. 1 DU ~= 4.46e-4 mol/m^2. Draft, like every other
+    # tolerance here (pending Dr. Bracco).
+    so2_detection_limit_mol_m2: float = 4.46e-4
 
 
 DEFAULT_CONCENTRATION_TOLERANCE = ConcentrationTolerance()
@@ -283,6 +289,16 @@ def score_concentration_elevation(
             continue
 
         nearest = data["nearest_in_time"]["v"]
+        if (
+            metric == "s5p_so2_column"
+            and nearest < tolerance.so2_detection_limit_mol_m2
+        ):
+            verdicts[source] = SILENT
+            notes.append(
+                f"{source}: {metric} nearest={nearest} below detection "
+                f"limit {tolerance.so2_detection_limit_mol_m2}"
+            )
+            continue
         if threshold is not None:
             limit, kind = threshold
             if kind == "under":

@@ -221,6 +221,64 @@ def test_concentration_unmatched_pollutant_is_silent():
     assert verdicts.get("openaq", SILENT) == SILENT
 
 
+def test_concentration_so2_negative_column_is_silent_not_contradicting():
+    # S5P SO2 columns scatter symmetrically about zero at Houston background; a
+    # negative retrieval is sub-detection noise, not a real low concentration,
+    # so it must abstain rather than contradict an elevation claim.
+    summary = _summary_with(
+        {
+            "sentinel5p": {
+                "s5p_so2_column": {
+                    "unit": "mol/m^2",
+                    "nearest_in_time": {"v": -9.79e-05},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_concentration_elevation(
+        "SO2 column exceeded 0.0006 mol/m2.", summary
+    )
+    assert verdicts["sentinel5p"] == SILENT
+
+
+def test_concentration_so2_subdetection_positive_is_silent():
+    # The in-window maximum (~0.23 DU) is equally below the detection limit; a
+    # small positive column must not spuriously support a claim either.
+    summary = _summary_with(
+        {
+            "sentinel5p": {
+                "s5p_so2_column": {
+                    "unit": "mol/m^2",
+                    "nearest_in_time": {"v": 1.0e-04},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_concentration_elevation(
+        "SO2 column exceeded 0.00005 mol/m2.", summary
+    )
+    assert verdicts["sentinel5p"] == SILENT
+
+
+def test_concentration_so2_above_detection_limit_is_scored():
+    # A genuine column above the detection limit is scored normally — the gate
+    # silences noise, not real SO2 signal.
+    summary = _summary_with(
+        {
+            "sentinel5p": {
+                "s5p_so2_column": {
+                    "unit": "mol/m^2",
+                    "nearest_in_time": {"v": 6.0e-04},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_concentration_elevation(
+        "SO2 column exceeded 0.0005 mol/m2.", summary
+    )
+    assert verdicts["sentinel5p"] == SUPPORTING
+
+
 def _with_anomaly(summary: dict, timestamp: str) -> dict:
     return {**summary, "anomaly": {"timestamp": timestamp}}
 

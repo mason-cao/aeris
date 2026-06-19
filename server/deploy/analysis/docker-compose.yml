@@ -1,0 +1,31 @@
+# Local Postgres + TimescaleDB for AERIS server-side analysis (Option A).
+#
+# The Acer keeps collecting on SQLite. This stands up the engine the freeze-day
+# pipeline (detection -> enrichment -> explain -> harness) runs against, so the
+# "PostgreSQL + TimescaleDB" claim is true where it matters — the evaluation.
+#
+#   cd server/deploy/analysis
+#   docker compose up -d            # start
+#   docker compose down -v          # stop + wipe (disposable analysis DB)
+#
+# Host port is 5433 to avoid clashing with a local Postgres on 5432.
+services:
+  timescaledb:
+    image: timescale/timescaledb:2.17.2-pg16   # pin; the extension ships preloaded
+    container_name: aeris-analysis-db
+    environment:
+      POSTGRES_USER: aeris
+      POSTGRES_PASSWORD: aeris
+      POSTGRES_DB: aeris
+    ports:
+      - "5433:5432"
+    volumes:
+      - aeris_analysis_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aeris -d aeris"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  aeris_analysis_pgdata:

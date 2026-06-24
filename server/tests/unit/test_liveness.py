@@ -38,6 +38,8 @@ async def test_all_sources_fresh_is_healthy(db_session):
         _point("openweather", recent),
         _point("noaa_gfs", recent),
         _point("sentinel5p", recent),
+        _point("asos", recent),
+        _point("tceq", recent),
     )
 
     report = await check_liveness(db_session, now=NOW)
@@ -55,6 +57,8 @@ async def test_source_past_budget_is_stale(db_session):
         _point("openweather", fresh),
         _point("noaa_gfs", fresh),
         _point("sentinel5p", fresh),
+        _point("asos", fresh),
+        _point("tceq", fresh),
     )
 
     report = await check_liveness(db_session, now=NOW)

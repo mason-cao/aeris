@@ -14,10 +14,12 @@ from app.collectors.registry import (
 class TestCollectorRegistry:
     def test_registry_contains_all_collectors(self) -> None:
         assert set(COLLECTOR_REGISTRY) == {
+            "asos",
             "noaa_gfs",
             "openaq",
             "openweather",
             "sentinel5p",
+            "tceq",
         }
 
     def test_collector_names_are_sorted(self) -> None:

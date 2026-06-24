@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     # Weather
     openweather_api_key: str = ""
 
+    # EPA AQS (certified historical ground chemistry; backfill-only)
+    aqs_email: str = ""
+    aqs_api_key: str = ""
+
     # NASA / Satellite
     nasa_earthdata_token: str = ""
     cdse_username: str = ""

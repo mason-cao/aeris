@@ -43,6 +43,10 @@ DEFAULT_BUDGETS_MINUTES: dict[str, float] = {
     "openweather": 180.0,
     "noaa_gfs": 720.0,
     "sentinel5p": 4320.0,
+    # ASOS/METAR routine obs are hourly; allow a few missed cycles before alarm.
+    "asos": 180.0,
+    # TCEQ CAMS hourly data, published ~1h behind; same tolerance.
+    "tceq": 180.0,
 }
 
 # A registered source with no explicit budget above: assume hourly-ish, so a new

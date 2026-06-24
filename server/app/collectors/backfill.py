@@ -47,7 +47,23 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.collectors.asos import (
+    API_BASE as ASOS_API_BASE,
+    ASOS_LIMITER,
+    asos_request_params,
+    asos_rows_to_points,
+    fetch_target_stations,
+    parse_asos_csv,
+)
 from app.collectors.base import DataPointCreate
+from app.collectors.epa_aqs import (
+    AQS_LIMITER,
+    AQS_SAMPLE_ENDPOINT,
+    DEFAULT_AQS_PARAM_CODES,
+    SOURCE_NAME as EPA_AQS_SOURCE_NAME,
+    aqs_records_to_points,
+    aqs_year_chunks,
+)
 from app.collectors.geo import target_bounding_box, within_target_radius
 from app.collectors.openaq import (
     OPENAQ_LIMITER,
@@ -57,6 +73,15 @@ from app.collectors.openaq import (
     parse_openaq_datetime,
 )
 from app.collectors.ratelimit import AsyncRateLimiter, rate_limited_get
+from app.collectors.tceq import (
+    API_URL as TCEQ_API_URL,
+    CST as TCEQ_CST,
+    TCEQ_LIMITER,
+    TCEQ_SITES,
+    USER_AGENT as TCEQ_USER_AGENT,
+    tceq_html_to_points,
+    user_date_post_data,
+)
 from app.collectors.sentinel5p import (
     COLUMN_PRODUCTS,
     Sentinel5PCollector,
@@ -886,6 +911,311 @@ class OpenWeatherBackfill(BackfillStrategy):
         )
 
 
+# ASOS / IEM ----------------------------------------------------------
+
+
+def _chunk_windows(
+    since: datetime, until: datetime, chunk_days: int
+) -> list[tuple[datetime, datetime]]:
+    """Split ``[since, until]`` into windows of at most ``chunk_days`` each."""
+    if until <= since:
+        return []
+    step = timedelta(days=max(1, chunk_days))
+    windows: list[tuple[datetime, datetime]] = []
+    cursor = since
+    while cursor < until:
+        end = min(cursor + step, until)
+        windows.append((cursor, end))
+        cursor = end
+    return windows
+
+
+class ASOSBackfill(BackfillStrategy):
+    """Historical ASOS/METAR backfill via IEM, per station, chunked in time.
+
+    One request per (station, time-chunk) keeps each CSV small and the request
+    count low — friendly to IEM's 1 req/s/IP throttle, which the shared
+    ASOS_LIMITER already enforces. Idempotent via the data_points dedup index.
+    """
+
+    source_name = "asos"
+
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient | None = None,
+        *,
+        rate_limiter: AsyncRateLimiter | None = None,
+        chunk_days: int = 30,
+    ) -> None:
+        self._client = http_client
+        self._owns_client = http_client is None
+        self._limiter = rate_limiter or ASOS_LIMITER
+        self.chunk_days = max(1, chunk_days)
+
+    async def _client_or_default(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=60.0)
+        return self._client
+
+    async def close(self) -> None:
+        if self._owns_client and self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def backfill(
+        self,
+        session: AsyncSession,
+        *,
+        since: datetime,
+        until: datetime,
+    ) -> BackfillResult:
+        import time
+
+        start = time.monotonic()
+        total_inserted = 0
+        try:
+            client = await self._client_or_default()
+            stations = await fetch_target_stations(client, self._limiter)
+            if not stations:
+                return BackfillResult(
+                    source=self.source_name,
+                    records=0,
+                    skipped=True,
+                    notes="no online ASOS stations inside the target radius",
+                    duration_ms=(time.monotonic() - start) * 1000,
+                )
+
+            logger.info("ASOS backfill: %d stations in target radius", len(stations))
+            for station in stations:
+                for chunk_since, chunk_until in _chunk_windows(
+                    since, until, self.chunk_days
+                ):
+                    params = asos_request_params(
+                        [station["id"]], since=chunk_since, until=chunk_until
+                    )
+                    response = await rate_limited_get(
+                        client, ASOS_API_BASE, limiter=self._limiter, params=params
+                    )
+                    points = asos_rows_to_points(
+                        parse_asos_csv(response.text), source_name=self.source_name
+                    )
+                    total_inserted += await _store_points(session, points)
+        except Exception as exc:
+            return BackfillResult(
+                source=self.source_name,
+                records=total_inserted,
+                error=f"{type(exc).__name__}: {exc}",
+                duration_ms=(time.monotonic() - start) * 1000,
+            )
+        finally:
+            await self.close()
+
+        return BackfillResult(
+            source=self.source_name,
+            records=total_inserted,
+            duration_ms=(time.monotonic() - start) * 1000,
+        )
+
+
+# EPA AQS (certified historical, backfill-only) -----------------------
+
+
+class EPAAQSBackfill(BackfillStrategy):
+    """Certified NO2/SO2/CO from EPA AQS, chunked per calendar year.
+
+    Backfill-only: AQS lags 6+ months, so it never serves the live window —
+    it supplies the certified ground leg of the satellite-vs-ground
+    independence analysis on quiet historical windows. Skips cleanly when
+    credentials are unset so a default all-source run never errors.
+    Idempotent via the data_points dedup index.
+    """
+
+    source_name = EPA_AQS_SOURCE_NAME
+
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient | None = None,
+        *,
+        rate_limiter: AsyncRateLimiter | None = None,
+    ) -> None:
+        self._client = http_client
+        self._owns_client = http_client is None
+        self._limiter = rate_limiter or AQS_LIMITER
+
+    async def _client_or_default(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=60.0)
+        return self._client
+
+    async def close(self) -> None:
+        if self._owns_client and self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def backfill(
+        self,
+        session: AsyncSession,
+        *,
+        since: datetime,
+        until: datetime,
+    ) -> BackfillResult:
+        import time
+
+        start = time.monotonic()
+        if not settings.aqs_email or not settings.aqs_api_key:
+            return BackfillResult(
+                source=self.source_name,
+                records=0,
+                skipped=True,
+                notes=(
+                    "EPA AQS backfill requires AQS_EMAIL and AQS_API_KEY in "
+                    "server/.env (free signup at aqs.epa.gov/data/api/signup). "
+                    "Note: AQS data lags ~6 months, so it has no live-window rows."
+                ),
+                duration_ms=(time.monotonic() - start) * 1000,
+            )
+
+        total_inserted = 0
+        bbox = target_bounding_box()
+        try:
+            client = await self._client_or_default()
+            for bdate, edate in aqs_year_chunks(since, until):
+                params = {
+                    "email": settings.aqs_email,
+                    "key": settings.aqs_api_key,
+                    "param": ",".join(DEFAULT_AQS_PARAM_CODES),
+                    "bdate": bdate,
+                    "edate": edate,
+                    "minlat": f"{bbox.min_lat:.6f}",
+                    "maxlat": f"{bbox.max_lat:.6f}",
+                    "minlon": f"{bbox.min_lon:.6f}",
+                    "maxlon": f"{bbox.max_lon:.6f}",
+                }
+                response = await rate_limited_get(
+                    client, AQS_SAMPLE_ENDPOINT, limiter=self._limiter, params=params
+                )
+                data = response.json().get("Data") or []
+                points = aqs_records_to_points(data, source_name=self.source_name)
+                total_inserted += await _store_points(session, points)
+        except Exception as exc:
+            return BackfillResult(
+                source=self.source_name,
+                records=total_inserted,
+                error=f"{type(exc).__name__}: {exc}",
+                duration_ms=(time.monotonic() - start) * 1000,
+            )
+        finally:
+            await self.close()
+
+        return BackfillResult(
+            source=self.source_name,
+            records=total_inserted,
+            duration_ms=(time.monotonic() - start) * 1000,
+        )
+
+
+# TCEQ (preliminary near-real-time, scraped) --------------------------
+
+
+def _tceq_cst_dates(since: datetime, until: datetime) -> list[date]:
+    """Calendar dates (in CST) spanning ``[since, until]`` inclusive."""
+    start = since.astimezone(TCEQ_CST).date()
+    end = until.astimezone(TCEQ_CST).date()
+    days: list[date] = []
+    cursor = start
+    while cursor <= end:
+        days.append(cursor)
+        cursor += timedelta(days=1)
+    return days
+
+
+class TCEQBackfill(BackfillStrategy):
+    """Historical TCEQ CAMS NO2/SO2/CO via daily_summary.pl, per site per day.
+
+    Reuses the collector's verified site registry + HTML parser. Heavily
+    rate-limited and per-request isolated (the source is undocumented and
+    fragile). Idempotent via the data_points dedup index. Data is preliminary/
+    uncertified — EPA AQS is the certified counterpart.
+    """
+
+    source_name = "tceq"
+
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient | None = None,
+        *,
+        rate_limiter: AsyncRateLimiter | None = None,
+        sites: list[dict[str, Any]] | None = None,
+    ) -> None:
+        self._client = http_client
+        self._owns_client = http_client is None
+        self._limiter = rate_limiter or TCEQ_LIMITER
+        self._sites = sites if sites is not None else TCEQ_SITES
+
+    async def _client_or_default(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=60.0)
+        return self._client
+
+    async def close(self) -> None:
+        if self._owns_client and self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def backfill(
+        self,
+        session: AsyncSession,
+        *,
+        since: datetime,
+        until: datetime,
+    ) -> BackfillResult:
+        import time
+
+        start = time.monotonic()
+        total_inserted = 0
+        try:
+            client = await self._client_or_default()
+            for site in self._sites:
+                for day in _tceq_cst_dates(since, until):
+                    await self._limiter.acquire()
+                    try:
+                        response = await client.post(
+                            TCEQ_API_URL,
+                            data=user_date_post_data(site["select_site"], day),
+                            headers={"User-Agent": TCEQ_USER_AGENT},
+                        )
+                        response.raise_for_status()
+                    except Exception as exc:  # noqa: BLE001 - isolate one request
+                        logger.warning(
+                            "TCEQ backfill request failed",
+                            extra={
+                                "aqs_cd": site.get("aqs_cd"),
+                                "day": day.isoformat(),
+                                "error": str(exc),
+                            },
+                        )
+                        continue
+                    points = tceq_html_to_points(
+                        response.text, site=site, source_name=self.source_name
+                    )
+                    total_inserted += await _store_points(session, points)
+        except Exception as exc:
+            return BackfillResult(
+                source=self.source_name,
+                records=total_inserted,
+                error=f"{type(exc).__name__}: {exc}",
+                duration_ms=(time.monotonic() - start) * 1000,
+            )
+        finally:
+            await self.close()
+
+        return BackfillResult(
+            source=self.source_name,
+            records=total_inserted,
+            duration_ms=(time.monotonic() - start) * 1000,
+        )
+
+
 # Dispatcher ----------------------------------------------------------
 
 
@@ -903,6 +1233,9 @@ def available_strategies(
         Sentinel5PBackfill(),
         NOAAGFSBackfill(),
         OpenWeatherBackfill(),
+        ASOSBackfill(),
+        EPAAQSBackfill(),
+        TCEQBackfill(),
     ]
 
 
@@ -930,7 +1263,15 @@ async def run_backfill(
 # CLI ----------------------------------------------------------------
 
 
-_SOURCE_CHOICES = ("openaq", "openweather", "noaa_gfs", "sentinel5p")
+_SOURCE_CHOICES = (
+    "openaq",
+    "openweather",
+    "noaa_gfs",
+    "sentinel5p",
+    "asos",
+    "epa_aqs",
+    "tceq",
+)
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:

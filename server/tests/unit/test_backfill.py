@@ -334,9 +334,17 @@ class TestOpenAQArchiveBackfill:
 
 
 class TestAvailableStrategies:
-    def test_lists_all_four_collectors(self) -> None:
+    def test_lists_all_collectors(self) -> None:
         names = {s.source_name for s in available_strategies()}
-        assert names == {"openaq", "openweather", "noaa_gfs", "sentinel5p"}
+        assert names == {
+            "openaq",
+            "openweather",
+            "noaa_gfs",
+            "sentinel5p",
+            "asos",
+            "epa_aqs",
+            "tceq",
+        }
 
 
 class TestOpenWeatherBackfill:

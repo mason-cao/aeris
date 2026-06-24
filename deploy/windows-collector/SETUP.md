@@ -1,8 +1,8 @@
 # AERIS Windows Collector — Setup
 
 Turns the Acer (i7-4710HQ / 16 GB / Win 10 Education) into an unattended data
-collector that runs all four AERIS collectors hourly into a local SQLite
-database. Built to survive a multi-week travel gap with no one at the keyboard:
+collector that runs all seven AERIS live collectors hourly into a local SQLite
+database (EPA AQS is backfill-only — 6-mo-delayed — so it has no hourly task). Built to survive a multi-week travel gap with no one at the keyboard:
 code is deployed by `git pull`, and an independent liveness alarm pings a
 dead-man's switch so a silent stall reaches your phone.
 
@@ -117,7 +117,9 @@ copy C:\temp\aeris\aeris\server\.env.example  C:\temp\aeris\aeris\server\.env
 Edit **`C:\temp\aeris\aeris\server\.env`** in Notepad:
 
 1. [ ] Fill in your real API keys: `OPENAQ_API_KEY`, `OPENWEATHER_API_KEY`,
-       `NASA_EARTHDATA_TOKEN`, `CDSE_USERNAME`, `CDSE_PASSWORD`.
+       `NASA_EARTHDATA_TOKEN`, `CDSE_USERNAME`, `CDSE_PASSWORD`,
+       `PURPLEAIR_API_KEY`, and — for the EPA AQS historical backfill —
+       `AQS_EMAIL` + `AQS_API_KEY`. (ASOS and TCEQ need no key.)
 2. [ ] Set these two lines exactly:
        ```
        DATABASE_URL=sqlite+aiosqlite:///C:/aeris-data/aeris.db
@@ -151,8 +153,9 @@ cd C:\temp\aeris\aeris\server
 python -m app.collectors.run_all
 ```
 
-1. [ ] You see four result lines (`openaq`, `openweather`, `noaa_gfs`,
-       `sentinel5p`). At least three should say `ok`.
+1. [ ] You see seven result lines (`asos`, `noaa_gfs`, `openaq`, `openweather`,
+       `purpleair`, `sentinel5p`, `tceq`). Most should say `ok`. (`epa_aqs` is
+       backfill-only and does not appear here.)
 2. [ ] **Run it a second time.** Every line should still say `ok` — this
        confirms duplicate rows are de-duplicated, not errored, so hourly runs
        are safe.
@@ -236,8 +239,8 @@ Wait ~30 seconds, then open the log:
 notepad "C:\aeris-data\logs\collector.log"
 ```
 
-1. [ ] The log shows a `===== RUN ... =====` block, four collector lines, and
-       `exit_code=0` (or `exit_code=1` only if GFS is the lone failure).
+1. [ ] The log shows a `===== RUN ... =====` block, seven collector lines, and
+       `exit_code=0` (or `exit_code=1` only if a lone source — e.g. GFS — fails).
 
 The collector now fires at the top of every hour. Next, set up updates and the
 watchdog.
@@ -306,10 +309,11 @@ down) is the one a local emailer can never catch.
        ```
        `exit_code=1` + `LIVENESS ALARM` = working.
 
-Per-source freshness budgets: openaq/openweather 3 h, noaa_gfs 12 h, sentinel5p
-72 h (it is orbital — ~1 overpass/day, with cloud-gapped days). A `STALE`
-sentinel5p inside a couple of days is usually a real collection gap, not a false
-alarm.
+Per-source freshness budgets: openaq/openweather/asos/tceq/purpleair 3 h,
+noaa_gfs 12 h, sentinel5p 72 h (it is orbital — ~1 overpass/day, with
+cloud-gapped days). A `STALE` sentinel5p inside a couple of days is usually a
+real collection gap, not a false alarm. EPA AQS is **not** monitored (it is
+backfill-only and 6-mo-delayed, so it has no "fresh" state).
 
 ---
 
@@ -323,6 +327,31 @@ healthy `collector.log` gains one `===== RUN =====` block per hour.
 
 ---
 
+## One-time backfill — fill the freeze window (run once, before Jul 1)
+
+The hourly task only collects forward from deploy time. Run these **once** (from
+the Miniforge Prompt, `conda activate aeris`, in `...\server`) to fill the
+Jun 1 → now freeze window and the certified summer-2025 independence window.
+All are idempotent (dedup makes re-runs free):
+
+```bat
+python -m app.collectors.backfill --source asos      --since 2026-06-01
+python -m app.collectors.backfill --source tceq      --since 2026-06-01
+python -m app.collectors.backfill --source purpleair --since 2026-06-01
+python -m app.collectors.backfill --source epa_aqs    --since 2025-06-01 --until 2025-08-31
+python -m app.collectors.backfill --source sentinel5p --since 2025-06-01 --until 2025-08-31
+```
+
+- `tceq` is slow (14 sites × the range, heavily rate-limited) — let it finish.
+- `purpleair` is **paid** (~$1, hard-capped at $3 against the points balance).
+- `epa_aqs` data lags ~3 months, so it has **no** Jun–Jul 2026 rows — it fills
+  the certified 2025 window for the satellite-vs-ground independence analysis;
+  `sentinel5p` on the same window gives it something to pair against. S5P
+  granules are hundreds of MB — run on Ethernet.
+- Re-run `epa_aqs` every month or two later to pick up 2026 data as AQS ingests it.
+
+---
+
 ## Eval freeze checklist — 2026 (Jul 1–13)
 
 The unattended collection window is **Jul 1–12**; the eval set freezes **Jul 13**
@@ -333,7 +362,7 @@ from the Jun 1 → Jul 12 data. Run this on the last day you have hands on the b
 1. [ ] Run `deploy.bat` once; confirm the deployed commit is the one you intend
        to freeze on. This is the last deploy until after the freeze.
 2. [ ] `cd C:\temp\aeris\aeris\server` then `python -m app.collectors.run_all`
-       **twice** — four `ok` lines, and still all `ok` on the rerun (dedup works).
+       **twice** — seven `ok` lines, and still all `ok` on the rerun (dedup works).
 3. [ ] Healthchecks is green; the force-stale test (Step 11.6) turns it red, then
        it heals on the next healthy run.
 4. [ ] Windows Update paused through Jul 13 (re-click to extend the 7-day cap).

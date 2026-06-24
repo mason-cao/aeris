@@ -50,6 +50,13 @@ EXPECTED_SOURCES: tuple[str, ...] = (
     "openweather",
     "noaa_gfs",
     "sentinel5p",
+    # Channel-independence collectors (2026-06-24). Live sources, so coverage is
+    # reported for them too — a silent one shows as a gap. EPA AQS is omitted: it
+    # is backfill-only and 6-mo-delayed, so it is legitimately absent from a
+    # recent anomaly's window and must not be flagged as a collection gap.
+    "asos",
+    "tceq",
+    "purpleair",
 )
 
 

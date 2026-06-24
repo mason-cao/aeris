@@ -167,6 +167,10 @@ class TestCrossSourceEnrichmentSmoke:
             "openweather": True,
             "noaa_gfs": True,
             "sentinel5p": True,
+            # The channel-independence collectors aren't part of this scene.
+            "asos": False,
+            "tceq": False,
+            "purpleair": False,
         }
         assert payload["window"]["hours_before"] == 36.0
         assert payload["window"]["hours_after"] == 36.0

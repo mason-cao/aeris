@@ -325,12 +325,13 @@ class TestBuildCrossSourceSummary:
         assert summary["anomaly"]["metric"] == "pm25"
 
     def test_unexpected_source_enriched_but_absent_from_coverage(self) -> None:
-        # purpleair is a planned-but-not-yet-live source; it must still be
-        # gathered if rows exist, just not scored in the coverage card.
-        points = [_dp(ts=T0, value=12.0, source="purpleair", entity="pa-1")]
+        # epa_aqs is backfill-only and 6-mo-delayed, so it is deliberately not a
+        # coverage-scored source: its rows must still be gathered when present,
+        # just never flagged as a collection gap when (legitimately) absent.
+        points = [_dp(ts=T0, value=12.0, source="epa_aqs", entity="48-201-0029-1")]
         summary = _summary(_anomaly(), points)
-        assert "purpleair" in summary["sources"]
-        assert "purpleair" not in summary["coverage"]
+        assert "epa_aqs" in summary["sources"]
+        assert "epa_aqs" not in summary["coverage"]
 
     def test_metric_unit_captured(self) -> None:
         points = [_dp(ts=T0, value=44.0, metric="no2", unit="ppb")]

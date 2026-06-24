@@ -17,7 +17,7 @@ EPA's official pyaqsapi client):
 * ``sampleData/byBox`` params: param (<=5 codes), bdate/edate (YYYYMMDD, same
   calendar year), minlat/maxlat/minlon/maxlon
 * response ``{"Header": [...], "Data": [...]}``; records carry
-  ``sample_measurement``/``unit_of_measure``/``parameter_code``/``date_gmt``/
+  ``sample_measurement``/``units_of_measure``/``parameter_code``/``date_gmt``/
   ``time_gmt``/``latitude``/``longitude``/``state_code``/``county_code``/
   ``site_number``/``poc``
 * usage: <=10 requests/min, 5s between requests, serial
@@ -147,7 +147,7 @@ def aqs_records_to_points(
                 lon=lon,
                 metric=metric,
                 value=value,
-                unit=normalize_aqs_unit(record.get("unit_of_measure")),
+                unit=normalize_aqs_unit(record.get("units_of_measure")),
                 source=source_name,
                 source_entity_id=entity,
                 raw_json={"record": record},

@@ -18,6 +18,7 @@ class TestCollectorRegistry:
             "noaa_gfs",
             "openaq",
             "openweather",
+            "purpleair",
             "sentinel5p",
             "tceq",
         }

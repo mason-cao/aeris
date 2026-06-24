@@ -6,6 +6,7 @@ from app.collectors.base import BaseCollector
 from app.collectors.noaa_gfs import NOAAGFSCollector
 from app.collectors.openweather import OpenWeatherCollector
 from app.collectors.openaq import OpenAQCollector
+from app.collectors.purpleair import PurpleAirCollector
 from app.collectors.sentinel5p import Sentinel5PCollector
 from app.collectors.tceq import TCEQCollector
 
@@ -16,6 +17,7 @@ COLLECTOR_REGISTRY: dict[str, CollectorClass] = {
     NOAAGFSCollector.source_name: NOAAGFSCollector,
     OpenAQCollector.source_name: OpenAQCollector,
     OpenWeatherCollector.source_name: OpenWeatherCollector,
+    PurpleAirCollector.source_name: PurpleAirCollector,
     Sentinel5PCollector.source_name: Sentinel5PCollector,
     TCEQCollector.source_name: TCEQCollector,
 }

@@ -40,6 +40,7 @@ async def test_all_sources_fresh_is_healthy(db_session):
         _point("sentinel5p", recent),
         _point("asos", recent),
         _point("tceq", recent),
+        _point("purpleair", recent),
     )
 
     report = await check_liveness(db_session, now=NOW)
@@ -59,6 +60,7 @@ async def test_source_past_budget_is_stale(db_session):
         _point("sentinel5p", fresh),
         _point("asos", fresh),
         _point("tceq", fresh),
+        _point("purpleair", fresh),
     )
 
     report = await check_liveness(db_session, now=NOW)

@@ -47,6 +47,8 @@ DEFAULT_BUDGETS_MINUTES: dict[str, float] = {
     "asos": 180.0,
     # TCEQ CAMS hourly data, published ~1h behind; same tolerance.
     "tceq": 180.0,
+    # PurpleAir sensors report continuously; hourly collection cadence.
+    "purpleair": 180.0,
 }
 
 # A registered source with no explicit budget above: assume hourly-ish, so a new

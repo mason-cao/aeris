@@ -65,6 +65,16 @@ from app.collectors.epa_aqs import (
     aqs_year_chunks,
 )
 from app.collectors.geo import target_bounding_box, within_target_radius
+from app.collectors.purpleair import (
+    API_BASE as PURPLEAIR_API_BASE,
+    HISTORY_PM_FIELD,
+    ORGANIZATION_ENDPOINT,
+    PURPLEAIR_LIMITER,
+    SENSORS_ENDPOINT as PURPLEAIR_SENSORS_ENDPOINT,
+    parse_purpleair_rows,
+    purpleair_history_to_points,
+    sensors_request_params,
+)
 from app.collectors.openaq import (
     OPENAQ_LIMITER,
     PARAMETER_MAP,
@@ -1216,6 +1226,174 @@ class TCEQBackfill(BackfillStrategy):
         )
 
 
+# PurpleAir (paid; point-budget-capped) -------------------------------
+
+PURPLEAIR_DEFAULT_POINT_CAP = 300_000  # ~$3 at $1/100k points
+PURPLEAIR_DEFAULT_POINT_FLOOR = 50_000  # never spend the balance below this
+PURPLEAIR_DEFAULT_AVERAGE_MINUTES = 60
+PURPLEAIR_DEFAULT_WINDOW_DAYS = 14
+
+
+class PurpleAirBackfill(BackfillStrategy):
+    """Historical PurpleAir PM2.5, hard-capped against the points balance.
+
+    Lists in-radius sensors, then walks each sensor's history in windows. Before
+    each sensor it reads the free ``/organization`` balance and stops once spend
+    crosses ``point_cap`` or the balance falls to ``point_floor`` — so a backfill
+    can never run the account dry. Idempotent via the data_points dedup index.
+    """
+
+    source_name = "purpleair"
+
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient | None = None,
+        *,
+        rate_limiter: AsyncRateLimiter | None = None,
+        point_cap: int = PURPLEAIR_DEFAULT_POINT_CAP,
+        point_floor: int = PURPLEAIR_DEFAULT_POINT_FLOOR,
+        average_minutes: int = PURPLEAIR_DEFAULT_AVERAGE_MINUTES,
+        window_days: int = PURPLEAIR_DEFAULT_WINDOW_DAYS,
+    ) -> None:
+        self._client = http_client
+        self._owns_client = http_client is None
+        self._limiter = rate_limiter or PURPLEAIR_LIMITER
+        self.point_cap = point_cap
+        self.point_floor = point_floor
+        self.average_minutes = average_minutes
+        self.window_days = max(1, window_days)
+
+    async def _client_or_default(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=60.0)
+        return self._client
+
+    async def close(self) -> None:
+        if self._owns_client and self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def _remaining_points(
+        self, client: httpx.AsyncClient, headers: dict[str, str]
+    ) -> int | None:
+        response = await rate_limited_get(
+            client, ORGANIZATION_ENDPOINT, limiter=self._limiter, headers=headers
+        )
+        value = response.json().get("remaining_points")
+        return int(value) if isinstance(value, (int, float)) else None
+
+    async def backfill(
+        self,
+        session: AsyncSession,
+        *,
+        since: datetime,
+        until: datetime,
+    ) -> BackfillResult:
+        import time
+
+        start = time.monotonic()
+        if not settings.purpleair_api_key:
+            return BackfillResult(
+                source=self.source_name,
+                records=0,
+                skipped=True,
+                notes="PurpleAir backfill requires PURPLEAIR_API_KEY in server/.env.",
+                duration_ms=(time.monotonic() - start) * 1000,
+            )
+
+        headers = {"X-API-Key": settings.purpleair_api_key}
+        total_inserted = 0
+        capped = False
+        try:
+            client = await self._client_or_default()
+            initial_points = await self._remaining_points(client, headers)
+
+            listing = await rate_limited_get(
+                client,
+                PURPLEAIR_SENSORS_ENDPOINT,
+                limiter=self._limiter,
+                params=sensors_request_params(fields="sensor_index,latitude,longitude"),
+                headers=headers,
+            )
+            payload = listing.json()
+            sensors = [
+                row
+                for row in parse_purpleair_rows(
+                    payload.get("fields", []), payload.get("data", [])
+                )
+                if row.get("latitude") is not None
+                and row.get("longitude") is not None
+                and within_target_radius(
+                    float(row["latitude"]), float(row["longitude"])
+                )
+            ]
+            logger.info("PurpleAir backfill: %d sensors in target radius", len(sensors))
+
+            windows = _chunk_windows(since, until, self.window_days)
+            for sensor in sensors:
+                remaining = await self._remaining_points(client, headers)
+                spent = (
+                    initial_points - remaining
+                    if initial_points is not None and remaining is not None
+                    else 0
+                )
+                if (remaining is not None and remaining <= self.point_floor) or (
+                    spent >= self.point_cap
+                ):
+                    capped = True
+                    logger.warning(
+                        "PurpleAir backfill stopping at point cap "
+                        "(spent~%s, remaining~%s)",
+                        spent,
+                        remaining,
+                    )
+                    break
+
+                sensor_index = int(sensor["sensor_index"])
+                lat = float(sensor["latitude"])
+                lon = float(sensor["longitude"])
+                for window_start, window_end in windows:
+                    response = await rate_limited_get(
+                        client,
+                        f"{PURPLEAIR_API_BASE}/sensors/{sensor_index}/history",
+                        limiter=self._limiter,
+                        params={
+                            "start_timestamp": int(window_start.timestamp()),
+                            "end_timestamp": int(window_end.timestamp()),
+                            "average": self.average_minutes,
+                            "fields": HISTORY_PM_FIELD,
+                        },
+                        headers=headers,
+                    )
+                    body = response.json()
+                    points = purpleair_history_to_points(
+                        body.get("fields", []),
+                        body.get("data", []),
+                        sensor_index=sensor_index,
+                        lat=lat,
+                        lon=lon,
+                        source_name=self.source_name,
+                    )
+                    total_inserted += await _store_points(session, points)
+        except Exception as exc:
+            return BackfillResult(
+                source=self.source_name,
+                records=total_inserted,
+                error=f"{type(exc).__name__}: {exc}",
+                duration_ms=(time.monotonic() - start) * 1000,
+            )
+        finally:
+            await self.close()
+
+        notes = "stopped at point cap" if capped else None
+        return BackfillResult(
+            source=self.source_name,
+            records=total_inserted,
+            notes=notes,
+            duration_ms=(time.monotonic() - start) * 1000,
+        )
+
+
 # Dispatcher ----------------------------------------------------------
 
 
@@ -1236,6 +1414,7 @@ def available_strategies(
         ASOSBackfill(),
         EPAAQSBackfill(),
         TCEQBackfill(),
+        PurpleAirBackfill(),
     ]
 
 
@@ -1271,6 +1450,7 @@ _SOURCE_CHOICES = (
     "asos",
     "epa_aqs",
     "tceq",
+    "purpleair",
 )
 
 

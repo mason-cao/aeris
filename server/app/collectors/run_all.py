@@ -17,6 +17,7 @@ CREDENTIAL_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "openaq": ("openaq_api_key",),
     "openweather": ("openweather_api_key",),
     "sentinel5p": ("cdse_username", "cdse_password"),
+    "purpleair": ("purpleair_api_key",),
 }
 
 

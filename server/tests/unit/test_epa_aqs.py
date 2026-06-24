@@ -50,7 +50,7 @@ def aqs_record(
         "longitude": lon,
         "parameter_name": "Nitrogen dioxide (NO2)",
         "sample_measurement": sample_measurement,
-        "unit_of_measure": unit,
+        "units_of_measure": unit,
         "date_gmt": date_gmt,
         "time_gmt": time_gmt,
         "datum": "WGS84",

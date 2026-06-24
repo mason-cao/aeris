@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     # Air Quality APIs
     openaq_api_key: str = ""
+    purpleair_api_key: str = ""
     # OpenAQ /latest returns a station's most recent reading regardless of age,
     # so an offline station re-emits a stale value every hourly run. Drop any
     # reading older than this (seconds). Default 6h: well past any real station

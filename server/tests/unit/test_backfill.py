@@ -344,6 +344,7 @@ class TestAvailableStrategies:
             "asos",
             "epa_aqs",
             "tceq",
+            "purpleair",
         }
 
 

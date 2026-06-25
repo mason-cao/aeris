@@ -57,7 +57,11 @@ def test_all_contradicting_scores_minus_one():
     assert result.contradicting == 2
 
 
-def test_mixed_verdicts_average_over_evidence_n():
+def test_mixed_verdicts_aggregate_by_independent_channel():
+    # Channel-aware (2026-06-24 audit rec #3): openaq (ground) supports;
+    # sentinel5p (satellite) is silent; noaa_gfs + openweather are ONE NWP
+    # channel and disagree, netting to silent. Only the ground channel carries a
+    # verdict, so evidence_n is 1 — not the old per-source count of 3.
     result = aggregate_verdicts(
         {
             "openaq": SUPPORTING,
@@ -66,11 +70,12 @@ def test_mixed_verdicts_average_over_evidence_n():
             "openweather": SUPPORTING,
         }
     )
-    assert result.supporting == 2
-    assert result.contradicting == 1
-    assert result.evidence_n == 3
-    assert math.isclose(result.corroboration_score, 1 / 3, rel_tol=1e-9)
+    assert result.supporting == 1
+    assert result.contradicting == 0
+    assert result.evidence_n == 1
+    assert result.corroboration_score == 1.0
     assert result.unverified is False
+    assert result.per_channel_verdicts["nwp"] == SILENT
 
 
 def test_silent_sources_excluded_from_evidence_n():

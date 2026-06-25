@@ -18,7 +18,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from statistics import fmean, pstdev
@@ -30,6 +30,31 @@ from app.llm.validate import strip_locators, threshold_cues, within_tolerance
 SUPPORTING = 1
 CONTRADICTING = -1
 SILENT = 0
+
+# Each source's error-independent channel. Sources that share a measurement
+# process collapse to one channel, so corroboration counts INDEPENDENT channels,
+# not raw sources — the ">=2 error-independent channels per sub-claim" the
+# 2026-06-24 audit requires. TCEQ/EPA AQS are the same regulatory monitors as
+# OpenAQ (one ground channel); GFS/OpenWeather are both NWP-derived (one channel,
+# the audit's "common-mode"). This coarse grouping uses *known* measurement
+# structure; the measured per-pair residual error correlation refines the
+# within-vs-across-channel weighting later (and needs the backfilled quiet-window
+# data first). A source not listed here gets its own channel.
+SOURCE_CHANNELS: dict[str, str] = {
+    "openaq": "ground_insitu",       # regulatory ground monitors
+    "tceq": "ground_insitu",         # same regulatory monitors (preliminary feed)
+    "epa_aqs": "ground_insitu",      # same monitors, certified
+    "purpleair": "ground_optical",   # low-cost optical PM — different instrument physics
+    "sentinel5p": "satellite_column",
+    "noaa_gfs": "nwp",               # numerical weather prediction
+    "openweather": "nwp",            # blended NWP product (shares model heritage)
+    "asos": "met_insitu",            # raw anemometer / thermometer
+}
+
+
+def channel_of(source: str) -> str:
+    """The error-independent channel ``source`` belongs to (own name if unlisted)."""
+    return SOURCE_CHANNELS.get(source, source)
 
 # low_corroboration_flag threshold (memo: metadata signal, not a scoring gate).
 _LOW_CORROBORATION_SCORE = -0.5
@@ -52,16 +77,34 @@ class CorroborationResult:
     contradicting: int
     unverified: bool
     per_source_verdicts: dict[str, int]
+    per_channel_verdicts: dict[str, int] = field(default_factory=dict)
 
 
 def aggregate_verdicts(per_source_verdicts: Mapping[str, int]) -> CorroborationResult:
-    """Collapse per-source verdicts into a scalar score and evidence count.
+    """Collapse per-source verdicts into a channel-aware score and evidence count.
 
-    ``score = (supporting - contradicting) / evidence_n`` in [-1, +1];
-    ``None`` when ``evidence_n == 0`` (every source silent).
+    Sources are first grouped into error-independent channels
+    (:data:`SOURCE_CHANNELS`) and each channel takes the net sign of its members'
+    verdicts, so redundant sources (TCEQ+AQS, GFS+OpenWeather) count once and a
+    within-channel disagreement nets to silent. ``evidence_n`` is then the number
+    of channels carrying a verdict — *independent* evidence, not raw source
+    count — and ``score = (supporting - contradicting) / evidence_n`` in [-1, +1]
+    (``None`` when every channel is silent). Single-source and distinct-channel
+    claims are unchanged from the old per-source behaviour.
     """
-    supporting = sum(1 for v in per_source_verdicts.values() if v == SUPPORTING)
-    contradicting = sum(1 for v in per_source_verdicts.values() if v == CONTRADICTING)
+    channel_sums: dict[str, int] = {}
+    for source, verdict in per_source_verdicts.items():
+        channel = channel_of(source)
+        channel_sums[channel] = channel_sums.get(channel, 0) + verdict
+    per_channel = {
+        channel: (
+            SUPPORTING if total > 0 else CONTRADICTING if total < 0 else SILENT
+        )
+        for channel, total in channel_sums.items()
+    }
+
+    supporting = sum(1 for v in per_channel.values() if v == SUPPORTING)
+    contradicting = sum(1 for v in per_channel.values() if v == CONTRADICTING)
     evidence_n = supporting + contradicting
     verdicts = dict(per_source_verdicts)
 
@@ -73,6 +116,7 @@ def aggregate_verdicts(per_source_verdicts: Mapping[str, int]) -> CorroborationR
             contradicting=0,
             unverified=True,
             per_source_verdicts=verdicts,
+            per_channel_verdicts=per_channel,
         )
 
     return CorroborationResult(
@@ -82,6 +126,7 @@ def aggregate_verdicts(per_source_verdicts: Mapping[str, int]) -> CorroborationR
         contradicting=contradicting,
         unverified=False,
         per_source_verdicts=verdicts,
+        per_channel_verdicts=per_channel,
     )
 
 
@@ -273,7 +318,19 @@ def score_concentration_elevation(
     threshold = _threshold_value(claim_text)
     point = _point_value(claim_text)
     anomaly_ts = _anomaly_ts(summary)
-    relevant = {"openaq": openaq_metric, "sentinel5p": sentinel_metric}
+    # Ground in-situ sources (OpenAQ regulatory + TCEQ/EPA AQS — one channel) all
+    # report the claimed species; PurpleAir adds an optical PM2.5 channel; S5P the
+    # satellite column. Sources without the metric in window resolve to SILENT
+    # below, and the channel-aware aggregator collapses the redundant ground ones,
+    # so this is where TCEQ fills the in-window NO2/SO2/CO gap the audit found.
+    relevant: dict[str, str] = {}
+    if openaq_metric is not None:
+        for ground_source in ("openaq", "tceq", "epa_aqs"):
+            relevant[ground_source] = openaq_metric
+        if openaq_metric == "pm25":
+            relevant["purpleair"] = "pm25"
+    if sentinel_metric is not None:
+        relevant["sentinel5p"] = sentinel_metric
 
     sources = summary.get("sources", {})
     verdicts: dict[str, int] = {}
@@ -450,10 +507,22 @@ def score_transport_direction(
     ow_dir = ow.get("wind_direction", {}).get("nearest_in_time", {}).get("v")
     if ow_dir is not None:
         measured["openweather"] = float(ow_dir) % 360.0
+    # ASOS anemometers — the in-situ met channel, error-independent of the NWP
+    # products (GFS forecast / OpenWeather blend).
+    asos_dir = (
+        summary.get("sources", {})
+        .get("asos", {})
+        .get("metrics", {})
+        .get("wind_direction", {})
+        .get("nearest_in_time", {})
+        .get("v")
+    )
+    if asos_dir is not None:
+        measured["asos"] = float(asos_dir) % 360.0
 
     verdicts: dict[str, int] = {}
     notes: list[str] = []
-    for source in ("noaa_gfs", "openweather"):
+    for source in ("noaa_gfs", "openweather", "asos"):
         if source not in measured or claimed_from is None:
             verdicts[source] = SILENT
             notes.append(f"{source}: no comparable wind direction")
@@ -534,10 +603,15 @@ def score_meteorological_state(
     ow = summary.get("sources", {}).get("openweather", {}).get("metrics", {})
     ow_speed = ow.get("wind_speed", {}).get("nearest_in_time", {}).get("v")
     ow_temp = ow.get("temperature", {}).get("nearest_in_time", {}).get("v")
+    asos = summary.get("sources", {}).get("asos", {}).get("metrics", {})
+    asos_speed = asos.get("wind_speed", {}).get("nearest_in_time", {}).get("v")
+    asos_temp = asos.get("temperature", {}).get("nearest_in_time", {}).get("v")
 
     verdicts = {
         "noaa_gfs": _combine(wind_verdict(gfs_speed)),
         "openweather": _combine(wind_verdict(ow_speed), temp_verdict(ow_temp)),
+        # ASOS in-situ wind/temp — independent of the NWP channel.
+        "asos": _combine(wind_verdict(asos_speed), temp_verdict(asos_temp)),
     }
     return verdicts, f"wind_intent={wind} temp={temp}"
 

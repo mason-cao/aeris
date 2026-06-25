@@ -117,12 +117,17 @@ class TestPurpleAirFetch:
         monkeypatch.setattr(settings, "purpleair_api_key", "test-key")
         seen = {}
 
+        # last_seen relative to the real clock: normalize() applies its
+        # staleness guard against datetime.now(), so a fixed timestamp would go
+        # stale and drop the row once enough wall-clock passes.
+        fresh = sensor_row(
+            2386, seen=epoch(datetime.now(timezone.utc) - timedelta(minutes=1))
+        )
+
         def handler(request: httpx.Request) -> httpx.Response:
             seen["key"] = request.headers.get("X-API-Key")
             seen["params"] = dict(request.url.params)
-            return httpx.Response(
-                200, json={"fields": SENSOR_FIELDS, "data": [sensor_row(2386)]}
-            )
+            return httpx.Response(200, json={"fields": SENSOR_FIELDS, "data": [fresh]})
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         collector = PurpleAirCollector(http_client=client, rate_limiter=fast_limiter())

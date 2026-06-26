@@ -62,27 +62,37 @@ Web Application (React)
 
 ## Data Sources
 
-| Source                            | Data                                                                                                                                      | Frequency | Status |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------ |
-| NOAA Global Forecast System (GFS) | Upper-air temperature & geopotential height, 10 m winds, boundary layer height, surface pressure, precipitable water                      | 6 hours   | Live   |
-| OpenWeather                       | Surface temperature, humidity, pressure, wind speed/direction, cloud cover, precipitation                                                 | Hourly    | Live   |
-| Sentinel-5P                       | Satellite atmospheric chemistry — NO2, CO, HCHO column densities (SO2 also retrieved, but below the TROPOMI detection limit over Houston) | Daily     | Live   |
-| OpenAQ                            | Ground-station criteria pollutants — PM2.5 and ozone in the target area (no ground-level NO2/SO2/CO available here)                       | Hourly    | Live   |
+Eight sources grouped into **error-independent measurement channels** — sources
+that share a measurement process (the two NWP products; the regulatory ground
+monitors) collapse to one channel, so corroboration counts *independent*
+channels, not raw sources. The target is ≥2 independent channels per headline
+sub-claim (see [Research](#research)).
+
+| Source                            | Channel          | Data                                                                                                                  | Frequency | Status     |
+| --------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------- | --------- | ---------- |
+| OpenAQ                            | ground in-situ   | Ground-station criteria pollutants — PM2.5 and ozone in the target area                                              | Hourly    | Live       |
+| TCEQ CAMS                         | ground in-situ   | Ship-Channel ground monitors — NO2, SO2, CO (the petrochemical species OpenAQ doesn't surface in-radius)             | Hourly    | Live       |
+| EPA AQS                           | ground in-situ   | Certified ground NO2, SO2, CO — the quality-assured counterpart to TCEQ for the independence analysis                | —         | Historical |
+| PurpleAir                         | ground optical   | Low-cost optical PM2.5 — different instrument physics from the regulatory monitors                                   | Hourly    | Live       |
+| Sentinel-5P                       | satellite column | Satellite atmospheric chemistry — NO2, CO, HCHO column densities (SO2 below the TROPOMI detection limit over Houston) | Daily     | Live       |
+| NOAA Global Forecast System (GFS) | NWP              | Upper-air temperature & geopotential height, 10 m winds, boundary-layer height, surface pressure, precipitable water | 6 hours   | Live       |
+| OpenWeather                       | NWP              | Surface temperature, humidity, pressure, wind speed/direction, cloud cover, precipitation                           | Hourly    | Live       |
+| ASOS / METAR                      | met in-situ      | Airport anemometer/thermometer obs — wind direction & speed, temperature, humidity (raw, not model-blended)          | Hourly    | Live       |
 
 ## Research
 
 **Questions**:
 
-1. Can the agreement of independent physical sensors serve as a label-free evaluation signal for LLM scientific attributions — one structurally distinct from retrieval-grounded factuality checks (FActScore-style) because it leverages constraints from the underlying physical system rather than textual overlap?
+1. Can the agreement of **error-independent measurement channels** — heterogeneous instruments observing one physical state through largely independent error processes — serve as a label-free evaluation signal for LLM scientific attributions, one structurally distinct from retrieval-grounded factuality checks (FActScore-style) because it leverages constraints from the underlying physical system rather than textual overlap?
 2. When does a locally-hosted 8B model's attribution quality diverge from cloud GPT-class models, and is the local model overconfident on exactly the claims it gets wrong?
 
 Linking weather patterns to environmental events is well-established science; the open question is whether the correctness of an LLM's causal reasoning can be mechanically scored at scale, without relying entirely on expert labels.
 
 **Contributions**:
 
-1. **Four-API cross-referencing architecture** (OpenAQ, Sentinel-5P, NOAA GFS, OpenWeather) — heterogeneous physical sources normalized to a common schema, giving an 8B local model the structured context to reason about atmospheric anomalies.
+1. **Error-independent channel architecture** — eight sources (OpenAQ, TCEQ, EPA AQS, PurpleAir, Sentinel-5P, NOAA GFS, OpenWeather, ASOS) normalized to a common schema and grouped into five measurement channels whose errors arise from largely independent processes (ground in-situ, ground optical, satellite column, NWP, met in-situ). Cross-referencing across channels — not raw source count — is what gives an 8B local model structured, mutually-constraining context to reason about atmospheric anomalies.
 2. **Phase 1: retrieval-grounded factuality check** — automated hallucination detection that verifies each claim against the retrieved enrichment context the model was given (FActScore-style). Filters fabricated claims before the corroboration scorer ever sees them.
-3. **Phase 2: cross-source corroboration scorer** (the novel contribution) — per-claim agreement scoring across the four independent physical sources via a 10-type claim taxonomy (3 headline types for inferential analysis, 7 descriptive). Tested as a label-free proxy for ground-truth verification of LLM scientific reasoning.
+3. **Phase 2: cross-channel corroboration scorer** (the novel contribution) — per-claim agreement scoring across error-independent measurement channels via a 10-type claim taxonomy (3 headline types for inferential analysis, 7 descriptive). Each headline sub-claim is resolved against ≥2 independent channels where the physics allows it, and the residual cross-source error correlation is measured per pair on quiet windows rather than independence being assumed — turning "sources I assert are independent" into "channels I demonstrate are independent." Tested as a label-free proxy for ground-truth verification of LLM scientific reasoning.
 4. **Empirical local-vs-cloud comparison** on a domain where small models are widely assumed to fail, with calibration curves (does stated confidence track corroboration?) and disagreement structure (where do local + cloud diverge?).
 
 **Evaluation**:

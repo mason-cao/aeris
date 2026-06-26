@@ -731,7 +731,44 @@ def _recording_s5p_collector() -> tuple[Sentinel5PCollector, list[str]]:
     return Sentinel5PCollector(http_client=client), captured
 
 
+def _window_failing_s5p_collector(fail_on_call: int) -> Sentinel5PCollector:
+    """Catalog-only collector whose Nth catalog GET raises a transient error."""
+    state = {"n": 0}
+    response = MagicMock()
+    response.raise_for_status = MagicMock(return_value=None)
+    response.json = MagicMock(return_value={"value": _s5p_catalog_records()})
+
+    async def fake_get(url, params=None, **kwargs):
+        state["n"] += 1
+        if state["n"] == fail_on_call:
+            raise httpx.ConnectError("transient catalog blip")
+        return response
+
+    client = MagicMock()
+    client.get = fake_get
+    return Sentinel5PCollector(http_client=client)
+
+
 class TestSentinel5PBackfill:
+    @pytest.mark.asyncio
+    async def test_one_failing_window_is_isolated(
+        self, db_session, monkeypatch
+    ) -> None:
+        # A transient failure on one 48h window must not abort the whole
+        # multi-window run; the rest still loads and the gap is in notes.
+        monkeypatch.setattr(settings, "cdse_username", "")
+        monkeypatch.setattr(settings, "cdse_password", "")
+        until = datetime.now(timezone.utc)
+        since = until - timedelta(hours=120)  # three 48h windows
+
+        result = await Sentinel5PBackfill(
+            collector=_window_failing_s5p_collector(fail_on_call=2)
+        ).backfill(db_session, since=since, until=until)
+
+        assert result.error is None  # one bad window doesn't sink the run
+        assert result.notes is not None and "window" in result.notes.lower()
+        # Windows 1 and 3 processed (4 catalog records each); window 2 skipped.
+        assert result.records == 8
     @pytest.mark.asyncio
     async def test_catalog_only_without_credentials(
         self, db_session, monkeypatch

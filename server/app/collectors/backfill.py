@@ -696,6 +696,7 @@ class Sentinel5PBackfill(BackfillStrategy):
         total = 0
         columns_extracted = 0
         columns_skipped = 0
+        failed_windows: list[str] = []
         window = timedelta(hours=self.window_hours)
         cursor = until
 
@@ -713,20 +714,35 @@ class Sentinel5PBackfill(BackfillStrategy):
             while cursor > since:
                 # The collector itself calls ``odata_filter()`` with no args,
                 # so the window is anchored here and the payload is shaped to
-                # match what ``Sentinel5PCollector.normalize`` reads.
-                catalog = await self._fetch_window(cursor)
-                raw: dict[str, Any] = catalog
-                if do_columns:
-                    extracted, skipped = await self._extract_window_columns(
-                        session, catalog
-                    )
-                    columns_extracted += len(extracted)
-                    columns_skipped += skipped
-                    raw = {**catalog, "extracted_columns": extracted}
-                points = self.collector.normalize(raw)
-                inserted = await _store_points(session, points)
-                total += inserted
+                # match what ``Sentinel5PCollector.normalize`` reads. Advance the
+                # cursor before the work so a skipped window can never loop.
+                window_end = cursor
                 cursor -= window
+                # Isolate each 48h window: a transient catalog/token failure on
+                # one must not abort the multi-hour run (per-granule failures are
+                # already isolated downstream; an idempotent re-run fills gaps).
+                try:
+                    catalog = await self._fetch_window(window_end)
+                    raw: dict[str, Any] = catalog
+                    if do_columns:
+                        extracted, skipped = await self._extract_window_columns(
+                            session, catalog
+                        )
+                        columns_extracted += len(extracted)
+                        columns_skipped += skipped
+                        raw = {**catalog, "extracted_columns": extracted}
+                    points = self.collector.normalize(raw)
+                    total += await _store_points(session, points)
+                except Exception as exc:  # noqa: BLE001 - isolate one window
+                    await session.rollback()
+                    logger.warning(
+                        "Sentinel-5P window failed",
+                        extra={
+                            "window_end": window_end.isoformat(),
+                            "error": str(exc),
+                        },
+                    )
+                    failed_windows.append(window_end.isoformat())
         except Exception as exc:
             return BackfillResult(
                 source=self.source_name,
@@ -743,6 +759,12 @@ class Sentinel5PBackfill(BackfillStrategy):
                 f"columns: {columns_extracted} granules extracted, "
                 f"{columns_skipped} already in DB"
             )
+        if failed_windows:
+            suffix = (
+                f"{len(failed_windows)} window(s) skipped (re-run to fill): "
+                f"{', '.join(failed_windows)}"
+            )
+            notes = f"{notes}; {suffix}" if notes else suffix
         return BackfillResult(
             source=self.source_name,
             records=total,
@@ -1480,7 +1502,7 @@ class PurpleAirBackfill(BackfillStrategy):
 def available_strategies(
     openaq_location_ids: Sequence[int] | None = None,
 ) -> list[BackfillStrategy]:
-    """Default strategy set covering all four data sources.
+    """Default strategy set covering every backfillable source.
 
     OpenAQ history comes from the S3 archive, not the API: bulk pulls through
     the hosted API are what got the key suspended (2026-06-10). The API-based

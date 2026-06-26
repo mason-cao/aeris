@@ -1,10 +1,12 @@
 """Phase 2 — cross-source corroboration scorer.
 
 For each Phase-1-grounded claim about an atmospheric anomaly, score it against
-the agreement of the four data sources (OpenAQ, Sentinel-5P, NOAA GFS,
-OpenWeather), which sense different facets of one shared physical state through
-largely independent measurement processes. Design + claim taxonomy:
-docs/specs/2026-05-21-corroboration-scorer-design.md.
+the agreement of the data sources, grouped into error-independent measurement
+channels (ground in-situ, ground optical, satellite column, NWP, met in-situ)
+so corroboration counts independent channels rather than raw source count —
+sources that share a measurement process collapse to one channel. Design +
+claim taxonomy: docs/specs/2026-05-21-corroboration-scorer-design.md; channel
+grouping: docs/specs/2026-06-24-channel-independence-collectors.md.
 
 The module provides the shared aggregator that collapses per-source verdicts
 into the scalar ``corroboration_score`` + ``evidence_n``, plus one scorer per

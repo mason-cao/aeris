@@ -42,7 +42,11 @@ ORGANIZATION_ENDPOINT = f"{API_BASE}/organization"
 # Live PM2.5 field on /v1/sensors; the historical analogue used by the backfill.
 LIVE_PM_FIELD = "pm2.5"
 HISTORY_PM_FIELD = "pm2.5_atm"
-LIVE_FIELDS = "pm2.5,latitude,longitude,last_seen,name"
+# ``humidity`` is the sensor's onboard RH; it rides into each row's raw_json
+# (see ``raw_json=row`` below) so the post-freeze EPA Barkjohn correction
+# (0.524*pm2.5 - 0.0862*humidity + 5.75) has co-located RH. Forward-only — it
+# does not retro-fill rows already collected without it.
+LIVE_FIELDS = "pm2.5,humidity,latitude,longitude,last_seen,name"
 
 # Only return sensors that reported within the last hour (server-side), so a
 # long-offline unit doesn't re-emit a stale value every run.

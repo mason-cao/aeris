@@ -23,7 +23,7 @@ All inference runs locally, ensuring complete data privacy and independent opera
 
 ## Scope
 
-Geographic target: a 50km radius around downtown Houston, Texas. Houston was chosen for three high-contrast inputs that stress-test a 4-API attribution model: massive petrochemical emissions from the Ship Channel refinery complex, a dense government sensor network (EPA + TCEQ + harbor monitors), and dynamic Gulf-coast weather (sea-breeze fronts, hurricane corridor, frequent inversions). All collectors filter to this bounding box; the center coordinate is configurable via `AERIS_TARGET_LAT` / `AERIS_TARGET_LON` / `AERIS_TARGET_RADIUS_KM`.
+Geographic target: a 50km radius around downtown Houston, Texas. Houston was chosen for three high-contrast inputs that stress-test a multi-source attribution model: massive petrochemical emissions from the Ship Channel refinery complex, a dense government sensor network (EPA + TCEQ + harbor monitors), and dynamic Gulf-coast weather (sea-breeze fronts, hurricane corridor, frequent inversions). All collectors filter to this bounding box; the center coordinate is configurable via `AERIS_TARGET_LAT` / `AERIS_TARGET_LON` / `AERIS_TARGET_RADIUS_KM`.
 
 Temporal scope: the evaluation set is drawn from summer anomalies only, so seasonal variation doesn't confound the cross-source corroboration signal. Data collection itself runs year-round; the restriction applies to the labeled evaluation set, not to ingestion.
 
@@ -31,7 +31,7 @@ Temporal scope: the evaluation set is drawn from summer anomalies only, so seaso
 
 ```
 Home Server (Always-On)
-├── Data Collectors ──── 4 Macro APIs (NOAA GFS, OpenWeather, Sentinel-5P, OpenAQ)
+├── Data Collectors ──── 8 sources / 5 error-independent channels (ground in-situ, ground optical, satellite column, NWP, met in-situ)
 ├── PostgreSQL + TimescaleDB ──── Time-series storage
 ├── Anomaly Detection ──── Z-score | STL decomposition | Isolation Forest
 ├── Ollama (Llama 3 8B) ──── Local LLM inference
@@ -151,7 +151,7 @@ Copy `server/.env.example` and fill in:
 
 - [x] Design specification
 - [x] **Stage 1**: Server infrastructure + data pipeline (all four macro APIs live — OpenAQ, OpenWeather, Sentinel-5P column extraction, NOAA GFS analysis)
-- [ ] **Stage 2**: Anomaly detection engine + LLM explanation pipeline _(in progress — detection, explanation, validation, corroboration scorer, and the evaluation harness are built and dry-run-verified; the eval run remains)_
+- [ ] **Stage 2**: Anomaly detection engine + LLM explanation pipeline _(in progress — detection, explanation, validation, the channel-aware corroboration scorer, the four channel-independence collectors (TCEQ, EPA AQS, PurpleAir, ASOS), and the evaluation harness are built and dry-run-verified; the eval run remains)_
 - [ ] **Stage 3**: Web application (map, feed, detail, query, dashboard)
 - [ ] **Stage 4**: Research evaluation + polish
 - [ ] **Stage 5**: Paper, competition submissions, stretch goals

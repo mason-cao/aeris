@@ -13,6 +13,7 @@ from app.collectors.tceq import (
     parse_report_date,
     parse_tceq_rows,
     tceq_html_to_points,
+    user_date_post_data,
 )
 from app.db.models import DataPoint
 
@@ -186,6 +187,59 @@ class TestTCEQToPoints:
         assert PARAM_MAP["Carbon Monoxide"] == ("co", "ppm")
 
 
+class TestUserDatePostData:
+    """The daily_summary.pl CGI indexes months 0-based (its own page embeds
+    month[0]="January" ... month[5]="June"). Sending the 1-based month requests
+    the NEXT month — for a backfill of June that means future July dates, which
+    return "no data available" and silently zero records. Verified live."""
+
+    def test_month_is_zero_based(self) -> None:
+        d = user_date_post_data(SITE["select_site"], date(2026, 6, 23))
+        assert d["user_month"] == "5"  # June -> index 5, not 6
+        assert d["user_day"] == "23"
+        assert d["user_year"] == "2026"
+        assert d["select_date"] == "user"
+
+    def test_january_is_index_zero(self) -> None:
+        assert user_date_post_data("s", date(2026, 1, 15))["user_month"] == "0"
+
+    def test_december_is_index_eleven(self) -> None:
+        assert user_date_post_data("s", date(2026, 12, 5))["user_month"] == "11"
+
+
+class TestTCEQDateGuard:
+    """Defense-in-depth: when the caller knows the requested date, a report whose
+    heading is a DIFFERENT date must not be ingested (it would store the wrong
+    day's data, or — with the old month bug — silently nothing)."""
+
+    def test_rejects_when_report_date_differs_from_expected(self) -> None:
+        vals = blanks()
+        vals[0] = "7.5"
+        html = make_html([("Nitrogen Dioxide", vals)], heading="Tuesday, June 23, 2026")
+        assert (
+            tceq_html_to_points(
+                html, site=SITE, source_name="tceq", expected_date=date(2026, 6, 1)
+            )
+            == []
+        )
+
+    def test_accepts_when_report_date_matches_expected(self) -> None:
+        vals = blanks()
+        vals[0] = "7.5"
+        html = make_html([("Nitrogen Dioxide", vals)], heading="Tuesday, June 23, 2026")
+        points = tceq_html_to_points(
+            html, site=SITE, source_name="tceq", expected_date=date(2026, 6, 23)
+        )
+        assert len(points) == 1
+
+    def test_no_expected_date_skips_the_check(self) -> None:
+        # Live path (today/yesterday) passes no expected_date and is unaffected.
+        vals = blanks()
+        vals[0] = "7.5"
+        html = make_html([("Nitrogen Dioxide", vals)])
+        assert len(tceq_html_to_points(html, site=SITE, source_name="tceq")) == 1
+
+
 class TestTCEQFetch:
     @pytest.mark.asyncio
     async def test_posts_per_site_and_returns_html(self) -> None:
@@ -278,16 +332,43 @@ async def _count(session) -> int:
     return await session.scalar(select(func.count()).select_from(DataPoint))
 
 
+def _echo_date_handler(vals: list[str]):
+    """Mock that decodes the posted user-date and heads the report with it.
+
+    Mirrors the live CGI (0-based user_month) so the backfill's date-match guard
+    is exercised: a request for day D returns a report whose heading is day D.
+    """
+    from urllib.parse import unquote_plus
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        fields = {
+            k: unquote_plus(v)
+            for pair in request.content.decode().split("&")
+            if "=" in pair
+            for k, v in [pair.split("=", 1)]
+        }
+        day = date(
+            int(fields["user_year"]),
+            int(fields["user_month"]) + 1,  # CGI is 0-based; decode back
+            int(fields["user_day"]),
+        )
+        heading = day.strftime("%A, %B %d, %Y")
+        return httpx.Response(
+            200, text=make_html([("Nitrogen Dioxide", vals)], heading=heading)
+        )
+
+    return handler
+
+
 class TestTCEQBackfill:
     @pytest.mark.asyncio
     async def test_stores_points_per_day(self, db_session) -> None:
         vals = blanks()
         vals[0] = "7.5"
 
-        def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, text=make_html([("Nitrogen Dioxide", vals)]))
-
-        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        client = httpx.AsyncClient(
+            transport=httpx.MockTransport(_echo_date_handler(vals))
+        )
         strategy = TCEQBackfill(
             http_client=client, rate_limiter=fast_limiter(), sites=[SITE]
         )
@@ -300,18 +381,18 @@ class TestTCEQBackfill:
 
         assert result.source == "tceq"
         assert result.error is None
-        assert result.records >= 1
-        assert await _count(db_session) >= 1
+        # Two days requested -> two distinct hourly timestamps stored.
+        assert result.records == 2
+        assert await _count(db_session) == 2
 
     @pytest.mark.asyncio
     async def test_idempotent_rerun(self, db_session) -> None:
         vals = blanks()
         vals[0] = "7.5"
 
-        def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, text=make_html([("Nitrogen Dioxide", vals)]))
-
-        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        client = httpx.AsyncClient(
+            transport=httpx.MockTransport(_echo_date_handler(vals))
+        )
         strategy = TCEQBackfill(
             http_client=client, rate_limiter=fast_limiter(), sites=[SITE]
         )
@@ -322,3 +403,58 @@ class TestTCEQBackfill:
             await client.aclose()
 
         assert await _count(db_session) == 1
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_trips_on_consecutive_failures(self, db_session) -> None:
+        # The undocumented service must not be hammered for 14 sites x ~85 days
+        # when it is down; abort after a streak, like the live collector.
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["n"] += 1
+            return httpx.Response(500)
+
+        sites = [dict(SITE, aqs_cd=str(i)) for i in range(10)]
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        strategy = TCEQBackfill(
+            http_client=client,
+            rate_limiter=fast_limiter(),
+            sites=sites,
+            breaker_threshold=3,
+        )
+        try:
+            result = await strategy.backfill(
+                db_session, since=T0, until=T0 + timedelta(days=4)
+            )
+        finally:
+            await client.aclose()
+
+        assert calls["n"] == 3  # stops after 3 straight failures, not ~50
+        assert result.notes is not None and "breaker" in result.notes.lower()
+
+    @pytest.mark.asyncio
+    async def test_backfill_retries_transient_post_error(self, db_session) -> None:
+        # TCEQ POSTs go through the retry path: a transient blip is recovered,
+        # not dropped as a silent missing day.
+        vals = blanks()
+        vals[0] = "7.5"
+        base = _echo_date_handler(vals)
+        state = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            state["n"] += 1
+            if state["n"] == 1:
+                raise httpx.ReadError("transient blip")
+            return base(request)
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        strategy = TCEQBackfill(
+            http_client=client, rate_limiter=fast_limiter(), sites=[SITE]
+        )
+        try:
+            result = await strategy.backfill(db_session, since=T0, until=T0)
+        finally:
+            await client.aclose()
+
+        assert state["n"] == 2  # retried after the transient error
+        assert result.records == 1  # the day's data was recovered

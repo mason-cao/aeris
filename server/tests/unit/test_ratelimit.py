@@ -5,6 +5,7 @@ from app.collectors.ratelimit import (
     MAX_RETRY_WAIT_S,
     AsyncRateLimiter,
     rate_limited_get,
+    rate_limited_post,
 )
 
 
@@ -125,6 +126,107 @@ class TestRateLimitedGet:
 
         assert response.status_code == 200
         assert 60.0 in sleeper.calls
+
+
+class TestTransientRetry:
+    """A single transient blip must not abort a weeks-long unattended backfill:
+    transport errors (ReadError/ReadTimeout/...) and transient 5xx are retried;
+    4xx is not."""
+
+    @pytest.mark.asyncio
+    async def test_retries_transient_transport_error(self) -> None:
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise httpx.ReadError("connection reset")
+            return httpx.Response(200, json={"ok": True})
+
+        sleeper = SleepRecorder()
+        limiter = AsyncRateLimiter(6000, clock=FakeClock(), sleeper=sleeper)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            resp = await rate_limited_get(
+                client, "https://api.example.org/x", limiter=limiter, sleeper=sleeper
+            )
+
+        assert resp.status_code == 200
+        assert calls["n"] == 2
+        assert sleeper.calls  # backed off before retrying
+
+    @pytest.mark.asyncio
+    async def test_persistent_transport_error_raises(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ReadError("endpoint down")
+
+        sleeper = SleepRecorder()
+        limiter = AsyncRateLimiter(6000, clock=FakeClock(), sleeper=sleeper)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            with pytest.raises(httpx.ReadError):
+                await rate_limited_get(
+                    client, "https://api.example.org/x", limiter=limiter,
+                    sleeper=sleeper, max_attempts=3,
+                )
+
+    @pytest.mark.asyncio
+    async def test_retries_transient_5xx(self) -> None:
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return httpx.Response(503)  # IEM under load
+            return httpx.Response(200, json={})
+
+        sleeper = SleepRecorder()
+        limiter = AsyncRateLimiter(6000, clock=FakeClock(), sleeper=sleeper)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            resp = await rate_limited_get(
+                client, "https://api.example.org/x", limiter=limiter, sleeper=sleeper
+            )
+
+        assert resp.status_code == 200
+        assert calls["n"] == 2
+
+    @pytest.mark.asyncio
+    async def test_client_error_4xx_not_retried(self) -> None:
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["n"] += 1
+            return httpx.Response(400)
+
+        sleeper = SleepRecorder()
+        limiter = AsyncRateLimiter(6000, clock=FakeClock(), sleeper=sleeper)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            with pytest.raises(httpx.HTTPStatusError):
+                await rate_limited_get(
+                    client, "https://api.example.org/x", limiter=limiter, sleeper=sleeper
+                )
+
+        assert calls["n"] == 1  # a 4xx is deterministic; retrying is pointless
+
+    @pytest.mark.asyncio
+    async def test_rate_limited_post_sends_post_and_retries(self) -> None:
+        seen = {"methods": [], "n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen["n"] += 1
+            seen["methods"].append(request.method)
+            if seen["n"] == 1:
+                raise httpx.ReadError("blip")
+            return httpx.Response(200, text="ok")
+
+        sleeper = SleepRecorder()
+        limiter = AsyncRateLimiter(6000, clock=FakeClock(), sleeper=sleeper)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            resp = await rate_limited_post(
+                client, "https://api.example.org/x", limiter=limiter,
+                sleeper=sleeper, data={"a": "b"},
+            )
+
+        assert resp.status_code == 200
+        assert seen["methods"] == ["POST", "POST"]
 
 
 class TestOpenAQRateLimitHeaders:

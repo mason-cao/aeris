@@ -58,11 +58,12 @@ from app.collectors.asos import (
 from app.collectors.base import DataPointCreate
 from app.collectors.epa_aqs import (
     AQS_LIMITER,
+    AQS_REQUEST_TIMEOUT_S,
     AQS_SAMPLE_ENDPOINT,
     DEFAULT_AQS_PARAM_CODES,
     SOURCE_NAME as EPA_AQS_SOURCE_NAME,
+    aqs_month_chunks,
     aqs_records_to_points,
-    aqs_year_chunks,
 )
 from app.collectors.geo import target_bounding_box, within_target_radius
 from app.collectors.purpleair import (
@@ -82,10 +83,15 @@ from app.collectors.openaq import (
     normalize_openaq_unit,
     parse_openaq_datetime,
 )
-from app.collectors.ratelimit import AsyncRateLimiter, rate_limited_get
+from app.collectors.ratelimit import (
+    AsyncRateLimiter,
+    rate_limited_get,
+    rate_limited_post,
+)
 from app.collectors.tceq import (
     API_URL as TCEQ_API_URL,
     CST as TCEQ_CST,
+    DEFAULT_BREAKER_THRESHOLD as TCEQ_BREAKER_THRESHOLD,
     TCEQ_LIMITER,
     TCEQ_SITES,
     USER_AGENT as TCEQ_USER_AGENT,
@@ -983,6 +989,7 @@ class ASOSBackfill(BackfillStrategy):
 
         start = time.monotonic()
         total_inserted = 0
+        failed: list[str] = []
         try:
             client = await self._client_or_default()
             stations = await fetch_target_stations(client, self._limiter)
@@ -1003,13 +1010,28 @@ class ASOSBackfill(BackfillStrategy):
                     params = asos_request_params(
                         [station["id"]], since=chunk_since, until=chunk_until
                     )
-                    response = await rate_limited_get(
-                        client, ASOS_API_BASE, limiter=self._limiter, params=params
-                    )
-                    points = asos_rows_to_points(
-                        parse_asos_csv(response.text), source_name=self.source_name
-                    )
-                    total_inserted += await _store_points(session, points)
+                    # Isolate each (station, chunk): a persistent failure on one
+                    # must not abort the rest (transient blips already retry in
+                    # rate_limited_get; an idempotent re-run fills any gap).
+                    try:
+                        response = await rate_limited_get(
+                            client, ASOS_API_BASE, limiter=self._limiter, params=params
+                        )
+                        points = asos_rows_to_points(
+                            parse_asos_csv(response.text), source_name=self.source_name
+                        )
+                        total_inserted += await _store_points(session, points)
+                    except Exception as exc:  # noqa: BLE001 - isolate one request
+                        await session.rollback()
+                        logger.warning(
+                            "ASOS chunk failed",
+                            extra={
+                                "station": station["id"],
+                                "since": chunk_since.isoformat(),
+                                "error": str(exc),
+                            },
+                        )
+                        failed.append(station["id"])
         except Exception as exc:
             return BackfillResult(
                 source=self.source_name,
@@ -1020,9 +1042,16 @@ class ASOSBackfill(BackfillStrategy):
         finally:
             await self.close()
 
+        notes = None
+        if failed:
+            notes = (
+                f"{len(failed)} station-chunk(s) failed and were skipped "
+                f"(re-run to fill): {', '.join(sorted(set(failed)))}"
+            )
         return BackfillResult(
             source=self.source_name,
             records=total_inserted,
+            notes=notes,
             duration_ms=(time.monotonic() - start) * 1000,
         )
 
@@ -1054,7 +1083,7 @@ class EPAAQSBackfill(BackfillStrategy):
 
     async def _client_or_default(self) -> httpx.AsyncClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=60.0)
+            self._client = httpx.AsyncClient(timeout=AQS_REQUEST_TIMEOUT_S)
         return self._client
 
     async def close(self) -> None:
@@ -1086,10 +1115,11 @@ class EPAAQSBackfill(BackfillStrategy):
             )
 
         total_inserted = 0
+        failed_chunks: list[str] = []
         bbox = target_bounding_box()
         try:
             client = await self._client_or_default()
-            for bdate, edate in aqs_year_chunks(since, until):
+            for bdate, edate in aqs_month_chunks(since, until):
                 params = {
                     "email": settings.aqs_email,
                     "key": settings.aqs_api_key,
@@ -1101,12 +1131,23 @@ class EPAAQSBackfill(BackfillStrategy):
                     "minlon": f"{bbox.min_lon:.6f}",
                     "maxlon": f"{bbox.max_lon:.6f}",
                 }
-                response = await rate_limited_get(
-                    client, AQS_SAMPLE_ENDPOINT, limiter=self._limiter, params=params
-                )
-                data = response.json().get("Data") or []
-                points = aqs_records_to_points(data, source_name=self.source_name)
-                total_inserted += await _store_points(session, points)
+                # Isolate each month: a transient failure or a bad body on one
+                # chunk must not abandon the remaining months (idempotent re-run
+                # fills the gap). The failed window is surfaced in notes.
+                try:
+                    response = await rate_limited_get(
+                        client, AQS_SAMPLE_ENDPOINT, limiter=self._limiter, params=params
+                    )
+                    data = response.json().get("Data") or []
+                    points = aqs_records_to_points(data, source_name=self.source_name)
+                    total_inserted += await _store_points(session, points)
+                except Exception as exc:  # noqa: BLE001 - isolate one month
+                    await session.rollback()
+                    logger.warning(
+                        "EPA AQS chunk failed",
+                        extra={"bdate": bdate, "edate": edate, "error": str(exc)},
+                    )
+                    failed_chunks.append(bdate)
         except Exception as exc:
             return BackfillResult(
                 source=self.source_name,
@@ -1117,9 +1158,16 @@ class EPAAQSBackfill(BackfillStrategy):
         finally:
             await self.close()
 
+        notes = None
+        if failed_chunks:
+            notes = (
+                f"{len(failed_chunks)} month-chunk(s) failed and were skipped "
+                f"(re-run to fill): {', '.join(failed_chunks)}"
+            )
         return BackfillResult(
             source=self.source_name,
             records=total_inserted,
+            notes=notes,
             duration_ms=(time.monotonic() - start) * 1000,
         )
 
@@ -1143,9 +1191,12 @@ class TCEQBackfill(BackfillStrategy):
     """Historical TCEQ CAMS NO2/SO2/CO via daily_summary.pl, per site per day.
 
     Reuses the collector's verified site registry + HTML parser. Heavily
-    rate-limited and per-request isolated (the source is undocumented and
-    fragile). Idempotent via the data_points dedup index. Data is preliminary/
-    uncertified — EPA AQS is the certified counterpart.
+    rate-limited, per-request isolated, and circuit-broken — the source is
+    undocumented and fragile, so a sustained outage stops the run instead of
+    hammering ~1190 (site, day) POSTs and risking a ban. POSTs go through
+    ``rate_limited_post`` for 429 + transient-error retry. Idempotent via the
+    data_points dedup index. Data is preliminary/uncertified — EPA AQS is the
+    certified counterpart.
     """
 
     source_name = "tceq"
@@ -1156,11 +1207,13 @@ class TCEQBackfill(BackfillStrategy):
         *,
         rate_limiter: AsyncRateLimiter | None = None,
         sites: list[dict[str, Any]] | None = None,
+        breaker_threshold: int = TCEQ_BREAKER_THRESHOLD,
     ) -> None:
         self._client = http_client
         self._owns_client = http_client is None
         self._limiter = rate_limiter or TCEQ_LIMITER
         self._sites = sites if sites is not None else TCEQ_SITES
+        self._breaker_threshold = breaker_threshold
 
     async def _client_or_default(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -1183,19 +1236,27 @@ class TCEQBackfill(BackfillStrategy):
 
         start = time.monotonic()
         total_inserted = 0
+        consecutive_failures = 0
+        tripped = False
         try:
             client = await self._client_or_default()
             for site in self._sites:
+                if tripped:
+                    break
                 for day in _tceq_cst_dates(since, until):
-                    await self._limiter.acquire()
+                    # rate_limited_post owns the limiter acquire + 429/transient
+                    # retry. Isolate per request, but trip a breaker on a sustained
+                    # streak so a down undocumented service is not hammered.
                     try:
-                        response = await client.post(
+                        response = await rate_limited_post(
+                            client,
                             TCEQ_API_URL,
+                            limiter=self._limiter,
                             data=user_date_post_data(site["select_site"], day),
                             headers={"User-Agent": TCEQ_USER_AGENT},
                         )
-                        response.raise_for_status()
                     except Exception as exc:  # noqa: BLE001 - isolate one request
+                        consecutive_failures += 1
                         logger.warning(
                             "TCEQ backfill request failed",
                             extra={
@@ -1204,9 +1265,21 @@ class TCEQBackfill(BackfillStrategy):
                                 "error": str(exc),
                             },
                         )
+                        if consecutive_failures >= self._breaker_threshold:
+                            tripped = True
+                            logger.error(
+                                "TCEQ backfill circuit breaker tripped after %d "
+                                "consecutive failures; stopping",
+                                consecutive_failures,
+                            )
+                            break
                         continue
+                    consecutive_failures = 0
                     points = tceq_html_to_points(
-                        response.text, site=site, source_name=self.source_name
+                        response.text,
+                        site=site,
+                        source_name=self.source_name,
+                        expected_date=day,
                     )
                     total_inserted += await _store_points(session, points)
         except Exception as exc:
@@ -1219,9 +1292,16 @@ class TCEQBackfill(BackfillStrategy):
         finally:
             await self.close()
 
+        notes = None
+        if tripped:
+            notes = (
+                f"circuit breaker tripped after {consecutive_failures} consecutive "
+                "failures; run incomplete (re-run to continue)"
+            )
         return BackfillResult(
             source=self.source_name,
             records=total_inserted,
+            notes=notes,
             duration_ms=(time.monotonic() - start) * 1000,
         )
 

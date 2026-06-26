@@ -406,6 +406,46 @@ class TestASOSBackfill:
         assert data_requests["n"] == 3
 
     @pytest.mark.asyncio
+    async def test_one_failing_chunk_is_isolated(self, db_session) -> None:
+        # A persistent failure on one (station, chunk) must not abort the whole
+        # multi-chunk run; the rest still loads and the gap is surfaced in notes.
+        state = {"i": 0}
+        row1 = T0.strftime("%Y-%m-%d 00:53")
+        row3 = (T0 + timedelta(days=61)).strftime("%Y-%m-%d 00:53")
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith(".geojson"):
+                return httpx.Response(
+                    200, json=_geojson([_feature("IAH", IAH_LAT, IAH_LON)])
+                )
+            state["i"] += 1
+            if state["i"] == 2:  # middle 30-day chunk fails persistently
+                return httpx.Response(500)
+            ts = row1 if state["i"] == 1 else row3
+            return httpx.Response(
+                200,
+                text=csv_text(
+                    [wind_row(ts, drct="170.00", sknt="9.00", tmpf="87.00", relh="70.00")]
+                ),
+            )
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        strategy = ASOSBackfill(
+            http_client=client, rate_limiter=fast_limiter(), chunk_days=30
+        )
+        try:
+            result = await strategy.backfill(
+                db_session, since=T0, until=T0 + timedelta(days=65)
+            )
+        finally:
+            await client.aclose()
+
+        assert result.error is None  # one bad chunk doesn't sink the run
+        assert result.notes is not None and "IAH" in result.notes
+        assert result.records == 8  # chunks 1 & 3: 1 obs x 4 metrics each
+        assert await _count_points(db_session) == 8
+
+    @pytest.mark.asyncio
     async def test_no_stations_returns_skipped(self, db_session) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             if request.url.path.endswith(".geojson"):

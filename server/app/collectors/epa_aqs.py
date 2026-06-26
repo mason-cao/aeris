@@ -55,6 +55,16 @@ DEFAULT_AQS_PARAM_CODES: tuple[str, ...] = tuple(AQS_PARAM_TO_METRIC)
 AQS_MAX_REQUESTS_PER_MINUTE = 10
 AQS_LIMITER = AsyncRateLimiter(AQS_MAX_REQUESTS_PER_MINUTE)
 
+# sampleData/byBox returns every averaging duration; keep only the 1-HOUR
+# sample (code "1"). The others (e.g. CO "8-HR RUN AVG", code "Z") share the
+# (source,metric,entity,timestamp) dedup key, so admitting them would silently
+# drop all-but-one AND risk scoring a running average as an instantaneous value.
+AQS_CANONICAL_DURATION_CODE = "1"
+
+# A full Houston-bbox month is ~16MB/~30s; a 3-month span is ~48MB/~98s and
+# overran the old 60s timeout. Give one slow month generous network margin.
+AQS_REQUEST_TIMEOUT_S = 180.0
+
 _UNIT_MAP: dict[str, str] = {
     "parts per billion": "ppb",
     "parts per million": "ppm",
@@ -85,20 +95,28 @@ def parse_aqs_datetime(date_gmt: str | None, time_gmt: str | None) -> datetime |
         return None
 
 
-def aqs_year_chunks(since: datetime, until: datetime) -> list[tuple[str, str]]:
-    """Split ``[since, until]`` into per-calendar-year ``(bdate, edate)`` strings.
+def aqs_month_chunks(since: datetime, until: datetime) -> list[tuple[str, str]]:
+    """Split ``[since, until]`` into per-calendar-month ``(bdate, edate)`` strings.
 
-    AQS requires ``edate`` to be in the same calendar year as ``bdate``.
+    Finer than a per-year split so each sampleData/byBox request stays small: a
+    full Houston-bbox month is ~16MB/~30s, where a multi-month span (~48MB/~98s)
+    overruns the request timeout. Each chunk lies within one month — hence one
+    calendar year — satisfying AQS's same-year ``edate`` rule.
     """
     if until < since:
         return []
     chunks: list[tuple[str, str]] = []
-    for year in range(since.year, until.year + 1):
-        year_start = datetime(year, 1, 1, tzinfo=timezone.utc)
-        year_end = datetime(year, 12, 31, tzinfo=timezone.utc)
-        bdate = max(since, year_start)
-        edate = min(until, year_end)
+    cursor = datetime(since.year, since.month, 1, tzinfo=timezone.utc)
+    last_month = datetime(until.year, until.month, 1, tzinfo=timezone.utc)
+    while cursor <= last_month:
+        if cursor.month == 12:
+            nxt = datetime(cursor.year + 1, 1, 1, tzinfo=timezone.utc)
+        else:
+            nxt = datetime(cursor.year, cursor.month + 1, 1, tzinfo=timezone.utc)
+        bdate = max(since, cursor)
+        edate = min(until, nxt - timedelta(days=1))
         chunks.append((bdate.strftime("%Y%m%d"), edate.strftime("%Y%m%d")))
+        cursor = nxt
     return chunks
 
 
@@ -110,6 +128,10 @@ def aqs_records_to_points(
     for record in records:
         metric = AQS_PARAM_TO_METRIC.get(str(record.get("parameter_code")))
         if metric is None:
+            continue
+        # Keep only the 1-HOUR sample; other durations collide on the dedup key
+        # and must not be scored as instantaneous readings.
+        if str(record.get("sample_duration_code")) != AQS_CANONICAL_DURATION_CODE:
             continue
         measurement = record.get("sample_measurement")
         if measurement is None:

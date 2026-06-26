@@ -15,6 +15,13 @@ DEFAULT_RETRY_AFTER_S = 60.0
 # expected, which would otherwise park the client for years.
 MAX_RETRY_WAIT_S = 300.0
 
+# Transient (retry-worthy) failures: connection-level transport errors and the
+# explicitly-temporary server statuses. A single blip must not abort a weeks-long
+# unattended backfill. 4xx is deterministic and never retried.
+TRANSIENT_STATUS = frozenset({502, 503, 504})
+TRANSIENT_BACKOFF_BASE_S = 1.0
+TRANSIENT_BACKOFF_CAP_S = 30.0
+
 Clock = Callable[[], float]
 Sleeper = Callable[[float], Awaitable[None]]
 
@@ -88,8 +95,22 @@ async def _defer_if_budget_spent(
             await limiter.defer(min(reset, MAX_RETRY_WAIT_S))
 
 
-async def rate_limited_get(
+async def _backoff(sleeper: Sleeper, attempt: int, url: str, reason: str) -> None:
+    wait = min(
+        TRANSIENT_BACKOFF_BASE_S * 2 ** (attempt - 1), TRANSIENT_BACKOFF_CAP_S
+    )
+    logger.warning(
+        "transient failure (%s); backing off %.0fs before retry",
+        reason,
+        wait,
+        extra={"url": url, "attempt": attempt},
+    )
+    await sleeper(wait)
+
+
+async def rate_limited_request(
     client: httpx.AsyncClient,
+    method: str,
     url: str,
     *,
     limiter: AsyncRateLimiter,
@@ -97,17 +118,27 @@ async def rate_limited_get(
     sleeper: Sleeper = asyncio.sleep,
     **request_kwargs,
 ) -> httpx.Response:
-    """GET through the limiter, honoring Retry-After on 429 responses."""
+    """Request through the limiter, retrying 429s and transient failures.
+
+    Retries: HTTP 429 (honoring Retry-After / x-ratelimit-reset), transient
+    transport errors (``httpx.TransportError`` — ReadError/ReadTimeout/
+    ConnectError/...), and transient server statuses (502/503/504). A 4xx or any
+    other status is returned to ``raise_for_status`` immediately — retrying a
+    deterministic client error is pointless. The exception/status from the final
+    attempt propagates so the caller still sees the failure.
+    """
     response: httpx.Response | None = None
     for attempt in range(1, max_attempts + 1):
         await limiter.acquire()
-        response = await client.get(url, **request_kwargs)
-        if response.status_code != 429:
-            await _defer_if_budget_spent(response, limiter)
-            response.raise_for_status()
-            return response
+        try:
+            response = await client.request(method, url, **request_kwargs)
+        except httpx.TransportError as exc:
+            if attempt >= max_attempts:
+                raise
+            await _backoff(sleeper, attempt, url, type(exc).__name__)
+            continue
 
-        if attempt < max_attempts:
+        if response.status_code == 429 and attempt < max_attempts:
             wait = _retry_wait_seconds(response)
             # Push the shared budget so concurrent callers back off too, not
             # just this one.
@@ -118,7 +149,49 @@ async def rate_limited_get(
                 extra={"url": url, "attempt": attempt},
             )
             await sleeper(wait)
+            continue
+        if response.status_code in TRANSIENT_STATUS and attempt < max_attempts:
+            await _backoff(sleeper, attempt, url, f"HTTP {response.status_code}")
+            continue
 
-    assert response is not None
+        # Success, a non-retryable status, or the last attempt: let
+        # raise_for_status surface any 429/5xx that exhausted its retries.
+        await _defer_if_budget_spent(response, limiter)
+        response.raise_for_status()
+        return response
+
+    assert response is not None  # max_attempts >= 1, so the loop ran
     response.raise_for_status()
     return response
+
+
+async def rate_limited_get(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    limiter: AsyncRateLimiter,
+    max_attempts: int = 3,
+    sleeper: Sleeper = asyncio.sleep,
+    **request_kwargs,
+) -> httpx.Response:
+    """GET through the limiter, with 429 + transient-failure retry."""
+    return await rate_limited_request(
+        client, "GET", url, limiter=limiter, max_attempts=max_attempts,
+        sleeper=sleeper, **request_kwargs,
+    )
+
+
+async def rate_limited_post(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    limiter: AsyncRateLimiter,
+    max_attempts: int = 3,
+    sleeper: Sleeper = asyncio.sleep,
+    **request_kwargs,
+) -> httpx.Response:
+    """POST through the limiter, with 429 + transient-failure retry."""
+    return await rate_limited_request(
+        client, "POST", url, limiter=limiter, max_attempts=max_attempts,
+        sleeper=sleeper, **request_kwargs,
+    )

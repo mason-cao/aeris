@@ -181,16 +181,34 @@ def parse_tceq_rows(html: str) -> list[tuple[str, dict[int, str], str]]:
 
 
 def tceq_html_to_points(
-    html: str, *, site: dict[str, Any], source_name: str
+    html: str,
+    *,
+    site: dict[str, Any],
+    source_name: str,
+    expected_date: date | None = None,
 ) -> list[DataPointCreate]:
     """Parse one site's daily_summary HTML into DataPointCreate, CST -> UTC.
 
     Returns ``[]`` (never raises) when the date heading or table can't be read,
     so a layout change degrades to zero rows instead of corrupt data.
+
+    When ``expected_date`` is given (the backfill knows exactly which day it
+    requested), a report whose heading is a *different* date is rejected to
+    ``[]`` rather than ingested — defense-in-depth against a request landing on
+    the wrong day (the class of bug the 0-based-month error caused). The live
+    collector passes no ``expected_date`` (today/yesterday are trusted).
     """
     report_date = parse_report_date(html)
     if report_date is None:
         logger.warning("TCEQ: no report date in response for %s", site.get("aqs_cd"))
+        return []
+    if expected_date is not None and report_date != expected_date:
+        logger.warning(
+            "TCEQ: report date %s != requested %s for %s; dropping",
+            report_date.isoformat(),
+            expected_date.isoformat(),
+            site.get("aqs_cd"),
+        )
         return []
 
     points: list[DataPointCreate] = []
@@ -239,11 +257,17 @@ def site_post_data(select_site: str, *, select_date: str = "today") -> dict[str,
 
 
 def user_date_post_data(select_site: str, day: date) -> dict[str, str]:
-    """Form body for a daily_summary.pl POST for a specific CST date."""
+    """Form body for a daily_summary.pl POST for a specific CST date.
+
+    ``user_month`` is **0-based**: the CGI indexes its own month array
+    ``month[0]="January" ... month[11]="December"``, so June (calendar month 6)
+    must be sent as ``5``. Sending the 1-based value silently requests the next
+    month. Verified live 2026-06-25.
+    """
     return {
         "first_look": "no",
         "select_date": "user",
-        "user_month": str(day.month),
+        "user_month": str(day.month - 1),
         "user_day": str(day.day),
         "user_year": str(day.year),
         "select_site": select_site,

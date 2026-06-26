@@ -7,9 +7,10 @@ from sqlalchemy import func, select
 from app.collectors.backfill import EPAAQSBackfill
 from app.collectors.epa_aqs import (
     AQS_PARAM_TO_METRIC,
+    AQS_REQUEST_TIMEOUT_S,
     SOURCE_NAME,
+    aqs_month_chunks,
     aqs_records_to_points,
-    aqs_year_chunks,
     normalize_aqs_unit,
     parse_aqs_datetime,
 )
@@ -39,6 +40,7 @@ def aqs_record(
     county: str = "201",
     site: str = "0057",
     poc: float = 1.0,
+    sample_duration_code: str = "1",
 ) -> dict:
     return {
         "state_code": state,
@@ -51,6 +53,7 @@ def aqs_record(
         "parameter_name": "Nitrogen dioxide (NO2)",
         "sample_measurement": sample_measurement,
         "units_of_measure": unit,
+        "sample_duration_code": sample_duration_code,
         "date_gmt": date_gmt,
         "time_gmt": time_gmt,
         "datum": "WGS84",
@@ -76,24 +79,35 @@ class TestAQSHelpers:
         assert normalize_aqs_unit("Parts per million") == "ppm"
         assert normalize_aqs_unit("Micrograms/cubic meter (LC)") == "ug/m3"
 
-    def test_year_chunks_splits_on_calendar_year(self) -> None:
-        # AQS requires edate in the same year as bdate.
-        since = datetime(2024, 6, 1, tzinfo=timezone.utc)
-        until = datetime(2025, 2, 1, tzinfo=timezone.utc)
-        assert aqs_year_chunks(since, until) == [
-            ("20240601", "20241231"),
-            ("20250101", "20250201"),
+    def test_month_chunks_splits_per_calendar_month(self) -> None:
+        # One byBox request for the whole summer is ~98s/48MB and times out;
+        # monthly chunks keep each request small. Each chunk is within one month
+        # (hence one year, satisfying AQS's same-calendar-year rule).
+        since = datetime(2025, 6, 1, tzinfo=timezone.utc)
+        until = datetime(2025, 8, 31, tzinfo=timezone.utc)
+        assert aqs_month_chunks(since, until) == [
+            ("20250601", "20250630"),
+            ("20250701", "20250731"),
+            ("20250801", "20250831"),
         ]
 
-    def test_year_chunks_single_year(self) -> None:
-        since = datetime(2024, 3, 1, tzinfo=timezone.utc)
-        until = datetime(2024, 9, 1, tzinfo=timezone.utc)
-        assert aqs_year_chunks(since, until) == [("20240301", "20240901")]
+    def test_month_chunks_partial_month(self) -> None:
+        since = datetime(2025, 6, 10, tzinfo=timezone.utc)
+        until = datetime(2025, 6, 20, tzinfo=timezone.utc)
+        assert aqs_month_chunks(since, until) == [("20250610", "20250620")]
 
-    def test_year_chunks_empty_when_reversed(self) -> None:
+    def test_month_chunks_crosses_year_boundary(self) -> None:
+        since = datetime(2024, 12, 15, tzinfo=timezone.utc)
+        until = datetime(2025, 1, 10, tzinfo=timezone.utc)
+        assert aqs_month_chunks(since, until) == [
+            ("20241215", "20241231"),
+            ("20250101", "20250110"),
+        ]
+
+    def test_month_chunks_empty_when_reversed(self) -> None:
         since = datetime(2024, 9, 1, tzinfo=timezone.utc)
         until = datetime(2024, 3, 1, tzinfo=timezone.utc)
-        assert aqs_year_chunks(since, until) == []
+        assert aqs_month_chunks(since, until) == []
 
 
 class TestAQSRecordsToPoints:
@@ -131,6 +145,20 @@ class TestAQSRecordsToPoints:
         assert aqs_records_to_points(
             [aqs_record(lat=FAR_LAT, lon=FAR_LON)], source_name=SOURCE_NAME
         ) == []
+
+    def test_keeps_only_one_hour_samples(self) -> None:
+        # sampleData/byBox can return several averaging durations for one
+        # site/poc/hour (e.g. CO 1-HOUR + 8-HR RUN AVG). They share the dedup key
+        # (source,metric,source_entity_id,timestamp), so all but one would be
+        # silently dropped — and an 8-hour running average must never be scored
+        # as an instantaneous hourly value. Keep only the 1-HOUR sample.
+        records = [
+            aqs_record(parameter_code="42101", sample_duration_code="1", sample_measurement=0.4),
+            aqs_record(parameter_code="42101", sample_duration_code="Z", sample_measurement=0.3),
+        ]
+        points = aqs_records_to_points(records, source_name=SOURCE_NAME)
+        assert len(points) == 1
+        assert points[0].value == pytest.approx(0.4)  # the 1-HOUR sample
 
     def test_empty(self) -> None:
         assert aqs_records_to_points([], source_name=SOURCE_NAME) == []
@@ -221,7 +249,7 @@ class TestEPAAQSBackfill:
         assert result.notes is not None
 
     @pytest.mark.asyncio
-    async def test_one_request_per_calendar_year(self, db_session, monkeypatch) -> None:
+    async def test_one_request_per_calendar_month(self, db_session, monkeypatch) -> None:
         monkeypatch.setattr(settings, "aqs_email", "me@example.org")
         monkeypatch.setattr(settings, "aqs_api_key", "k")
         requests = {"n": 0}
@@ -235,10 +263,60 @@ class TestEPAAQSBackfill:
         try:
             await strategy.backfill(
                 db_session,
-                since=datetime(2023, 6, 1, tzinfo=timezone.utc),
-                until=datetime(2025, 2, 1, tzinfo=timezone.utc),
+                since=datetime(2025, 6, 1, tzinfo=timezone.utc),
+                until=datetime(2025, 8, 15, tzinfo=timezone.utc),
             )
         finally:
             await client.aclose()
 
-        assert requests["n"] == 3  # 2023, 2024, 2025
+        assert requests["n"] == 3  # June, July, August
+
+    @pytest.mark.asyncio
+    async def test_one_bad_month_does_not_abort_the_rest(self, db_session, monkeypatch) -> None:
+        monkeypatch.setattr(settings, "aqs_email", "me@example.org")
+        monkeypatch.setattr(settings, "aqs_api_key", "k")
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["n"] += 1
+            if calls["n"] == 2:  # July fails mid-run
+                return httpx.Response(500)
+            # Distinct timestamp per month so June and August don't dedup-collapse.
+            bdate = request.url.params.get("bdate", "20250101")
+            date_gmt = f"{bdate[:4]}-{bdate[4:6]}-15"
+            return httpx.Response(
+                200,
+                json={
+                    "Header": [{"status": "Success"}],
+                    "Data": [aqs_record(date_gmt=date_gmt)],
+                },
+            )
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        strategy = EPAAQSBackfill(http_client=client, rate_limiter=fast_limiter())
+        try:
+            result = await strategy.backfill(
+                db_session,
+                since=datetime(2025, 6, 1, tzinfo=timezone.utc),
+                until=datetime(2025, 8, 31, tzinfo=timezone.utc),
+            )
+        finally:
+            await client.aclose()
+
+        # All three months attempted; June + August stored despite July's 500.
+        assert calls["n"] == 3
+        assert result.error is None
+        assert result.notes is not None and "20250701" in result.notes
+        assert await _count(db_session) == 2
+
+    @pytest.mark.asyncio
+    async def test_default_client_timeout_has_headroom(self, monkeypatch) -> None:
+        # A full-bbox month is ~30s; the read timeout must clear it with margin
+        # (a 3-month request at ~98s is what blew the old 60s timeout).
+        strategy = EPAAQSBackfill(rate_limiter=fast_limiter())
+        client = await strategy._client_or_default()
+        try:
+            assert client.timeout.read is not None and client.timeout.read >= 120.0
+            assert client.timeout.read == AQS_REQUEST_TIMEOUT_S
+        finally:
+            await strategy.close()

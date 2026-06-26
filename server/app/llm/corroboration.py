@@ -207,6 +207,15 @@ class ConcentrationTolerance:
     # contradict an SO2 claim. 1 DU ~= 4.46e-4 mol/m^2. Draft, like every other
     # tolerance here (pending Dr. Bracco).
     so2_detection_limit_mol_m2: float = 4.46e-4
+    # Ground SO2 (TCEQ/EPA AQS, ppb) sits in an even wider noise band than the
+    # satellite column: in-window, 54-62% of ground SO2 reads negative — the
+    # UV-fluorescence monitors scatter about zero below their ~0.5 ppb hourly
+    # method detection limit. A ground SO2 reading below this floor (and any
+    # non-physical negative ground concentration, for every species) is scored
+    # SILENT, the ground analogue of the satellite gate above, so detection-limit
+    # noise neither votes nor poisons the pre-anomaly baseline. Draft, pending
+    # Dr. Bracco.
+    so2_ground_detection_limit_ppb: float = 0.5
 
 
 DEFAULT_CONCENTRATION_TOLERANCE = ConcentrationTolerance()
@@ -230,12 +239,22 @@ def _pre_anomaly_baseline(
     *,
     gap_h: float,
     min_points: int,
+    floor: float | None = None,
 ) -> float | None:
-    """Mean of in-window values ending ``gap_h`` before the anomaly, or None."""
+    """Mean of in-window values ending ``gap_h`` before the anomaly, or None.
+
+    When ``floor`` is set, sub-floor values (detection-limit / non-physical
+    noise the nearest-in-time gate already discards) are dropped before
+    averaging, so a baseline of regulatory zero-scatter is not pulled negative.
+    """
     if anomaly_ts is None:
         return None
     cutoff = anomaly_ts - timedelta(hours=gap_h)
-    values = [v for ts, v in _pooled_series(block) if ts <= cutoff]
+    values = [
+        v
+        for ts, v in _pooled_series(block)
+        if ts <= cutoff and (floor is None or v >= floor)
+    ]
     if len(values) < min_points:
         return None
     return fmean(values)
@@ -330,6 +349,14 @@ def score_concentration_elevation(
         for ground_source in ("openaq", "tceq", "epa_aqs"):
             relevant[ground_source] = openaq_metric
         if openaq_metric == "pm25":
+            # PurpleAir PM2.5 is stored raw (uncorrected): the optical Plantower
+            # reads ~4-5x regulatory mass in humid Houston (hygroscopic growth).
+            # For qualitative elevation the multiplicative bias largely cancels
+            # against its own pre-anomaly baseline; for absolute threshold/point
+            # claims it can over-support — a known limitation pending the
+            # RH-resolved EPA Barkjohn correction (0.524*PA - 0.0862*RH + 5.75),
+            # which needs co-located humidity not yet collected and lands
+            # post-freeze as the optical-channel upgrade (audit 2026-06-24).
             relevant["purpleair"] = "pm25"
     if sentinel_metric is not None:
         relevant["sentinel5p"] = sentinel_metric
@@ -358,6 +385,23 @@ def score_concentration_elevation(
                 f"limit {tolerance.so2_detection_limit_mol_m2}"
             )
             continue
+        # Ground in-situ concentrations that are non-physical (<0) or, for SO2,
+        # below the monitor's ~0.5 ppb detection floor are instrument noise that
+        # scatters about zero, not a measurement. Gate them SILENT — the ground
+        # analogue of the satellite SO2 gate above — so they neither cast a
+        # verdict nor poison the pre-anomaly baseline below.
+        ground_floor: float | None = None
+        if channel_of(source) == "ground_insitu":
+            ground_floor = (
+                tolerance.so2_ground_detection_limit_ppb if metric == "so2" else 0.0
+            )
+            if nearest < ground_floor:
+                verdicts[source] = SILENT
+                notes.append(
+                    f"{source}: {metric} nearest={nearest} below ground "
+                    f"detection floor {ground_floor}"
+                )
+                continue
         if threshold is not None:
             limit, kind = threshold
             if kind == "under":
@@ -379,6 +423,7 @@ def score_concentration_elevation(
                 anomaly_ts,
                 gap_h=tolerance.baseline_gap_h,
                 min_points=tolerance.min_baseline_points,
+                floor=ground_floor,
             )
             if baseline is None:
                 verdicts[source] = SILENT

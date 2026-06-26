@@ -284,6 +284,48 @@ def test_concentration_so2_above_detection_limit_is_scored():
     assert verdicts["sentinel5p"] == SUPPORTING
 
 
+def test_concentration_ground_so2_negative_is_silent():
+    # Ground SO2 (TCEQ/EPA AQS, ppb) scatters about zero below the monitor's
+    # detection limit — 54-62% of in-window ground SO2 reads negative. A negative
+    # reading is non-physical noise and must abstain, not contradict, mirroring
+    # the satellite-column gate.
+    summary = _summary_with(
+        {"tceq": {"so2": {"unit": "ppb", "nearest_in_time": {"v": -1.6}}}}
+    )
+    verdicts, _ = score_concentration_elevation("SO2 exceeded 1 ppb.", summary)
+    assert verdicts["tceq"] == SILENT
+
+
+def test_concentration_ground_so2_below_ppb_floor_is_silent():
+    # A small positive reading under the ~0.5 ppb floor is equally sub-detection
+    # noise and must not spuriously support an elevation claim.
+    summary = _summary_with(
+        {"tceq": {"so2": {"unit": "ppb", "nearest_in_time": {"v": 0.3}}}}
+    )
+    verdicts, _ = score_concentration_elevation("SO2 exceeded 0.2 ppb.", summary)
+    assert verdicts["tceq"] == SILENT
+
+
+def test_concentration_ground_so2_above_floor_is_scored():
+    # Real ground SO2 above the detection floor is scored normally — the gate
+    # silences noise, not signal.
+    summary = _summary_with(
+        {"tceq": {"so2": {"unit": "ppb", "nearest_in_time": {"v": 5.0}}}}
+    )
+    verdicts, _ = score_concentration_elevation("SO2 exceeded 1 ppb.", summary)
+    assert verdicts["tceq"] == SUPPORTING
+
+
+def test_concentration_negative_ground_no2_is_silent():
+    # The non-physical floor is species-agnostic: a negative ground NO2 reading
+    # is instrument noise about zero and abstains rather than contradicting.
+    summary = _summary_with(
+        {"tceq": {"no2": {"unit": "ppb", "nearest_in_time": {"v": -2.7}}}}
+    )
+    verdicts, _ = score_concentration_elevation("NO2 exceeded 10 ppb.", summary)
+    assert verdicts["tceq"] == SILENT
+
+
 def _with_anomaly(summary: dict, timestamp: str) -> dict:
     return {**summary, "anomaly": {"timestamp": timestamp}}
 

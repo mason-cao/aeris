@@ -1,9 +1,26 @@
 import asyncio
+from collections.abc import Coroutine
 from unittest.mock import AsyncMock
 
 import pytest
 
 from app.db import session as session_module
+
+
+def _run(coro: Coroutine):
+    """Run ``coro`` on a fresh loop, like the CLIs' ``asyncio.run`` — minus
+    the policy side effect.
+
+    ``asyncio.run`` registers its loop with the event-loop policy and, on
+    close, calls ``set_event_loop(None)`` — clobbering the policy's pointer to
+    the session-scoped loop pytest-asyncio installed for the wider suite. Any
+    later ``loop_scope="session"`` test (the asyncpg-pinned integration tests)
+    then dies with 'There is no current event loop'. Supplying a
+    ``loop_factory`` gives the identical fresh-loop-per-call lifecycle these
+    tests exercise while leaving the policy untouched.
+    """
+    with asyncio.Runner(loop_factory=asyncio.new_event_loop) as runner:
+        return runner.run(coro)
 
 
 class TestEngineLifecycle:
@@ -21,7 +38,7 @@ class TestEngineLifecycle:
             async with session_module.engine_lifecycle():
                 pass
 
-        asyncio.run(run())
+        _run(run())
         fake.dispose.assert_awaited_once()
 
     def test_disposes_engine_when_body_raises(self, monkeypatch) -> None:
@@ -33,7 +50,7 @@ class TestEngineLifecycle:
                 raise RuntimeError("boom")
 
         with pytest.raises(RuntimeError):
-            asyncio.run(run())
+            _run(run())
         fake.dispose.assert_awaited_once()
 
     def test_yields_the_engine(self, monkeypatch) -> None:
@@ -44,4 +61,4 @@ class TestEngineLifecycle:
             async with session_module.engine_lifecycle() as eng:
                 return eng
 
-        assert asyncio.run(run()) is fake
+        assert _run(run()) is fake

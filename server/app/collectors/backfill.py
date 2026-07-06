@@ -68,7 +68,7 @@ from app.collectors.epa_aqs import (
 from app.collectors.geo import target_bounding_box, within_target_radius
 from app.collectors.purpleair import (
     API_BASE as PURPLEAIR_API_BASE,
-    HISTORY_PM_FIELD,
+    HISTORY_FIELDS,
     ORGANIZATION_ENDPOINT,
     PURPLEAIR_LIMITER,
     SENSORS_ENDPOINT as PURPLEAIR_SENSORS_ENDPOINT,
@@ -1463,7 +1463,9 @@ class PurpleAirBackfill(BackfillStrategy):
                             "start_timestamp": int(window_start.timestamp()),
                             "end_timestamp": int(window_end.timestamp()),
                             "average": self.average_minutes,
-                            "fields": HISTORY_PM_FIELD,
+                            # ATM value + cf_1/RH extras for the Barkjohn
+                            # correction (see purpleair.HISTORY_FIELDS).
+                            "fields": HISTORY_FIELDS,
                         },
                         headers=headers,
                     )

@@ -42,11 +42,17 @@ ORGANIZATION_ENDPOINT = f"{API_BASE}/organization"
 # Live PM2.5 field on /v1/sensors; the historical analogue used by the backfill.
 LIVE_PM_FIELD = "pm2.5"
 HISTORY_PM_FIELD = "pm2.5_atm"
-# ``humidity`` is the sensor's onboard RH; it rides into each row's raw_json
-# (see ``raw_json=row`` below) so the post-freeze EPA Barkjohn correction
-# (0.524*pm2.5 - 0.0862*humidity + 5.75) has co-located RH. Forward-only — it
-# does not retro-fill rows already collected without it.
-LIVE_FIELDS = "pm2.5,humidity,latitude,longitude,last_seen,name"
+# ``humidity`` is the sensor's onboard RH and ``pm2.5_cf_1`` the CF=1 estimate;
+# both ride into each row's raw_json (see ``raw_json=row`` below) because the
+# post-freeze EPA Barkjohn correction (0.524*PA_cf1 - 0.0862*RH + 5.75) is
+# defined on the CF=1 field with co-located RH — the stored ``pm2.5`` (ATM)
+# value diverges from CF=1 above ~25-30 ug/m3, exactly the anomaly regime, so
+# correcting ATM would mis-correct the readings that matter. Forward-only —
+# neither retro-fills rows already collected without them.
+LIVE_FIELDS = "pm2.5,pm2.5_cf_1,humidity,latitude,longitude,last_seen,name"
+# Backfill analogue: the stored value stays pm2.5_atm (consistency with the
+# live rows); cf_1 + humidity land in raw_json for the same correction.
+HISTORY_FIELDS = f"time_stamp,{HISTORY_PM_FIELD},pm2.5_cf_1,humidity"
 
 # Only return sensors that reported within the last hour (server-side), so a
 # long-offline unit doesn't re-emit a stale value every run.
@@ -151,6 +157,13 @@ def purpleair_history_to_points(
             value = float(raw_pm)
         except (TypeError, ValueError):
             continue
+        # Every requested column rides into raw_json so the post-freeze
+        # Barkjohn correction has cf_1 + RH next to the stored ATM value.
+        extras = {
+            name: row[i]
+            for name, i in index.items()
+            if i < len(row) and name not in ("time_stamp", pm_field)
+        }
         points.append(
             DataPointCreate(
                 timestamp=timestamp,
@@ -161,7 +174,12 @@ def purpleair_history_to_points(
                 unit="ug/m3",
                 source=source_name,
                 source_entity_id=str(sensor_index),
-                raw_json={"sensor_index": sensor_index, "time_stamp": raw_ts, pm_field: value},
+                raw_json={
+                    "sensor_index": sensor_index,
+                    "time_stamp": raw_ts,
+                    pm_field: value,
+                    **extras,
+                },
             )
         )
     return points

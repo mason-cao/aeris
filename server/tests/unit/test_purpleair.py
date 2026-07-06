@@ -89,6 +89,17 @@ class TestSensorsToPoints:
 HISTORY_FIELDS = ["time_stamp", "pm2.5_alt", "pm2.5_atm"]
 
 
+def test_field_lists_carry_the_barkjohn_inputs() -> None:
+    # Both collection paths must request pm2.5_cf_1 + humidity so the
+    # post-freeze correction has its defined inputs (forward-only otherwise).
+    from app.collectors.purpleair import HISTORY_FIELDS as HISTORY_REQUEST
+    from app.collectors.purpleair import LIVE_FIELDS
+
+    for field in ("pm2.5_cf_1", "humidity"):
+        assert field in LIVE_FIELDS.split(",")
+        assert field in HISTORY_REQUEST.split(",")
+
+
 class TestHistoryToPoints:
     def test_maps_history_rows(self) -> None:
         ts = epoch(datetime(2026, 6, 20, 5, 0, tzinfo=timezone.utc))
@@ -109,6 +120,21 @@ class TestHistoryToPoints:
             ["time_stamp", "humidity"], [[123, 50]], sensor_index=1, lat=IN_LAT,
             lon=IN_LON, source_name="purpleair",
         ) == []
+
+    def test_extra_columns_ride_into_raw_json(self) -> None:
+        # cf_1 + RH must land next to the stored ATM value: the EPA Barkjohn
+        # correction is defined on pm2.5_cf_1 with co-located humidity, and
+        # ATM diverges from CF=1 above ~25-30 ug/m3 — the anomaly regime.
+        ts = epoch(datetime(2026, 6, 20, 5, 0, tzinfo=timezone.utc))
+        pts = purpleair_history_to_points(
+            ["time_stamp", "pm2.5_atm", "pm2.5_cf_1", "humidity"],
+            [[ts, 38.0, 52.0, 61.0]],
+            sensor_index=2386, lat=IN_LAT, lon=IN_LON, source_name="purpleair",
+        )
+        assert len(pts) == 1
+        assert pts[0].value == pytest.approx(38.0)  # stored value stays ATM
+        assert pts[0].raw_json["pm2.5_cf_1"] == pytest.approx(52.0)
+        assert pts[0].raw_json["humidity"] == pytest.approx(61.0)
 
 
 class TestPurpleAirFetch:

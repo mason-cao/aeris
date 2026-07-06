@@ -4,7 +4,11 @@ One cell = one (anomaly, model) pair run through the full explain pipeline
 and persisted as an Explanation + Claim rows. The sweep is resumable: cells
 that already have an Explanation are skipped before any LLM call, so a
 crashed or partial run is finished by re-running the same command. Parse
-failures are counted per model — that rate is a reported result, not noise.
+failures are counted per model — that rate is a reported result, not noise —
+and every failure event is appended to ``<anomaly-set>.parse_failures.jsonl``
+so the reported rate survives resumed runs (the in-memory counter resets each
+run and a resumed run retries failed cells; the log records events, and a
+cell's final outcome is "explained" iff an Explanation row exists).
 
 CLI: ``python -m app.eval.harness --anomaly-set fixtures/eval50.json``
 """
@@ -13,10 +17,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import select
@@ -65,6 +71,27 @@ def _estimate_cost_usd(model: str, summary: ModelSweepSummary) -> float | None:
     ) / 1_000_000
 
 
+def failure_log_path(anomaly_set: Path | str) -> Path:
+    """The parse-failure JSONL sidecar for an anomaly-set fixture."""
+    return Path(f"{anomaly_set}.parse_failures.jsonl")
+
+
+def _log_parse_failure(
+    log_path: Path | None, model: str, anomaly_id: uuid.UUID, error: str
+) -> None:
+    """Append one failure event; the persisted record the reported rate reads."""
+    if log_path is None:
+        return
+    record = {
+        "at": datetime.now(timezone.utc).isoformat(),
+        "model": model,
+        "anomaly_id": str(anomaly_id),
+        "error": error,
+    }
+    with log_path.open("a") as handle:
+        handle.write(json.dumps(record) + "\n")
+
+
 def load_anomaly_set(path: Path | str) -> list[uuid.UUID]:
     """Read the frozen anomaly-id fixture.
 
@@ -72,8 +99,6 @@ def load_anomaly_set(path: Path | str) -> list[uuid.UUID]:
     ``anomaly_ids`` key (the frozen-set format, which carries metadata like
     ``frozen_at`` alongside).
     """
-    import json
-
     data = json.loads(Path(path).read_text())
     if isinstance(data, dict):
         if "anomaly_ids" not in data:
@@ -108,6 +133,7 @@ async def run_harness(
     anomaly_ids: list[uuid.UUID],
     models: list[str],
     client_factory: Callable[[str], LLMClient] = make_client,
+    failure_log: Path | None = None,
 ) -> dict[str, ModelSweepSummary]:
     """Fill every missing (anomaly, model) cell; never let one cell kill the sweep."""
     summaries: dict[str, ModelSweepSummary] = {}
@@ -139,9 +165,10 @@ async def run_harness(
                         summary.completed += 1
                     else:
                         summary.skipped += 1
-                except LLMParseError:
+                except LLMParseError as exc:
                     await session.rollback()
                     summary.parse_failures += 1
+                    _log_parse_failure(failure_log, model, anomaly_id, str(exc))
                     logger.warning(
                         "parse failure",
                         extra={"model": model, "anomaly_id": str(anomaly_id)},
@@ -209,7 +236,12 @@ async def _amain(argv: list[str] | None = None) -> int:
         args = _parse_args(argv)
         anomaly_ids = load_anomaly_set(args.anomaly_set)
         async with async_session() as session:
-            summaries = await run_harness(session, anomaly_ids, models=args.models)
+            summaries = await run_harness(
+                session,
+                anomaly_ids,
+                models=args.models,
+                failure_log=failure_log_path(args.anomaly_set),
+            )
         print(_format_summaries(summaries))
         failed = sum(len(s.errors) + s.parse_failures for s in summaries.values())
         return 1 if failed else 0

@@ -14,12 +14,18 @@ from sqlalchemy import select
 
 from app.db.models import Anomaly, Claim, EnrichmentRecord, ExpertLabel, Explanation
 from app.eval.label_cli import (
+    ClaimGroup,
     _parse_args,
     collect_claim_groups,
+    presentation_order,
     run_label_session,
 )
 
 ANOMALY_TS = datetime(2026, 6, 5, 18, 0, tzinfo=UTC)
+
+# Pinned so the per-(anomaly, labeler) presentation shuffle is deterministic
+# across test runs — the scripted answers below are positional.
+ANOMALY_ID = uuid.UUID(int=1)
 
 
 class ScriptedIO:
@@ -43,7 +49,7 @@ class ScriptedIO:
 
 def _anomaly() -> Anomaly:
     return Anomaly(
-        id=uuid.uuid4(),
+        id=ANOMALY_ID,
         timestamp=ANOMALY_TS,
         lat=29.76,
         lon=-95.37,
@@ -163,6 +169,57 @@ async def test_collect_claim_groups_can_filter_by_model(db_session):
     groups = await collect_claim_groups(db_session, anomaly.id, model="model-b")
     assert [g.claim_text for g in groups] == ["shared claim"]
     assert len(groups[0].claim_ids) == 1
+
+
+# --- presentation order ---
+
+
+def _groups(n: int) -> list[ClaimGroup]:
+    return [
+        ClaimGroup(claim_text=f"claim {i}", claim_ids=(uuid.uuid4(),))
+        for i in range(n)
+    ]
+
+
+def test_presentation_order_is_deterministic_per_anomaly_and_labeler():
+    groups = _groups(8)
+    first = presentation_order(groups, ANOMALY_ID, "bracco")
+    second = presentation_order(groups, ANOMALY_ID, "bracco")
+    assert [g.claim_text for g in first] == [g.claim_text for g in second]
+
+
+def test_presentation_order_decorrelates_from_model_block_order():
+    # The raw query order blocks claims by model name; the shuffle must not
+    # preserve it (fatigue/anchoring would correlate with model identity).
+    # With 8 groups a seed-preserved identity order would be a 1/40320 fluke;
+    # both labelers seeing the input order would prove the shuffle inert.
+    groups = _groups(8)
+    input_order = [g.claim_text for g in groups]
+    orders = {
+        labeler: [g.claim_text for g in presentation_order(groups, ANOMALY_ID, labeler)]
+        for labeler in ("bracco", "mason")
+    }
+    assert any(order != input_order for order in orders.values())
+
+
+@pytest.mark.asyncio
+async def test_presentation_index_records_shown_order(db_session):
+    anomaly = await _seed(db_session)
+    io = ScriptedIO(["v", "", "i", "", "cause"])
+
+    label = await run_label_session(
+        db_session, anomaly.id, labeler="bracco",
+        input_fn=io.input_fn, echo=io.echo,
+    )
+
+    assert label is not None
+    by_index: dict[int, set[str]] = {}
+    for v in label.claim_validations_json:
+        by_index.setdefault(v["presentation_index"], set()).add(v["verdict"])
+    # Two groups shown as 1 and 2; each group's fanned-out ids share one
+    # verdict, so the order effects stay analyzable per shown position.
+    assert set(by_index) == {1, 2}
+    assert all(len(verdicts) == 1 for verdicts in by_index.values())
 
 
 # --- labeling session ---

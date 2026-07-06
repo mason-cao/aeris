@@ -39,7 +39,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.collectors.geo import distance_km
 from app.db.models import Anomaly
 
-MERGE_WINDOW = timedelta(minutes=30)
+# 90 min, not 30: the ground sources report hourly, so consecutive-hour flags
+# at one station are 60 min apart — a 30 min window could never chain them and
+# a 4-hour ozone afternoon at one station would fill four top-N slots, exactly
+# the duplication the dedup exists to prevent. 90 min chains consecutive
+# hourly flags with slack for reporting jitter while staying well under the
+# ~6 h gap that separates genuinely distinct events.
+MERGE_WINDOW = timedelta(minutes=90)
 MERGE_RADIUS_KM = 10.0
 DEFAULT_TOP_N = 50
 
@@ -175,6 +181,22 @@ async def freeze_eval_set(
     )
 
 
+def selection_composition(selected: Sequence[Anomaly]) -> dict[str, int]:
+    """Selected-anomaly counts per ``source/metric/severity``.
+
+    Recorded with the fixture (and printed at freeze time) because the rank
+    key's reach differs by source — attainable consensus depends on cadence
+    (STL) and aux availability (IF), and raw PurpleAir series are spikier than
+    regulatory ones — so a skewed composition must be visible on freeze day,
+    not discovered post hoc.
+    """
+    composition: dict[str, int] = {}
+    for anomaly in selected:
+        key = f"{anomaly.source}/{anomaly.metric}/{anomaly.severity}"
+        composition[key] = composition.get(key, 0) + 1
+    return dict(sorted(composition.items()))
+
+
 def fixture_payload(result: FreezeResult) -> dict:
     """The frozen-set JSON, in the shape ``harness.load_anomaly_set`` reads."""
     return {
@@ -194,6 +216,7 @@ def fixture_payload(result: FreezeResult) -> dict:
         },
         "n_window_anomalies": result.n_anomalies,
         "n_events": result.n_events,
+        "composition": selection_composition(result.selected),
         "anomaly_ids": [str(a.id) for a in result.selected],
     }
 
@@ -211,6 +234,11 @@ def _format_result(result: FreezeResult) -> str:
             f"WARNING: {len(result.missing_enrichment)} selected anomalies "
             "have no EnrichmentRecord — run python -m app.detection.enrichment"
         )
+    composition = selection_composition(result.selected)
+    if composition:
+        lines.append("")
+        lines.append("Selected composition (source/metric/severity):")
+        lines += [f"  {key:<40} {n:>4}" for key, n in composition.items()]
     lines += [
         "",
         f"{'rank':<5} {'anomaly':<10} {'timestamp':<22} {'metric':<14} "

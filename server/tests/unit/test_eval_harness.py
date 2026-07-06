@@ -306,6 +306,46 @@ async def test_parse_failure_is_counted_and_sweep_continues(db_session):
 
 
 @pytest.mark.asyncio
+async def test_parse_failures_are_persisted_to_the_sidecar_log(
+    db_session, tmp_path
+):
+    # The in-memory counter resets on every (resumed) run, so the reported
+    # parse-failure rate must come from the persisted event log, not from
+    # whichever run's stdout finished last.
+    import json as jsonlib
+
+    ids = await _seed(db_session, 2)
+    log = tmp_path / "eval.json.parse_failures.jsonl"
+
+    def factory(model: str) -> LLMClient:
+        return ScriptedClient(
+            model, ["not json", "still not json"] + _chain_script()
+        )
+
+    await run_harness(
+        db_session, ids, models=["model-a"],
+        client_factory=factory, failure_log=log,
+    )
+
+    records = [jsonlib.loads(line) for line in log.read_text().splitlines()]
+    assert len(records) == 1
+    assert records[0]["model"] == "model-a"
+    assert records[0]["anomaly_id"] in {str(i) for i in ids}
+    assert records[0]["at"]  # timestamped event
+    assert "error" in records[0]
+
+    # A resumed run appends rather than clobbering the event history.
+    def failing_factory(model: str) -> LLMClient:
+        return ScriptedClient(model, ["nope", "still nope"])
+
+    await run_harness(
+        db_session, ids, models=["model-a"],
+        client_factory=failing_factory, failure_log=log,
+    )
+    assert len(log.read_text().splitlines()) == 2
+
+
+@pytest.mark.asyncio
 async def test_unexpected_error_is_recorded_and_isolated(db_session):
     ids = await _seed(db_session, 2)
 

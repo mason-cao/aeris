@@ -151,34 +151,21 @@ class TestGroupPointsBySeries:
         groups = group_points_by_series(pts)
         assert GroupKey("openaq", "ozone", "A") in groups
 
-    def test_includes_sentinel5p_column_metrics(self) -> None:
-        # The Sentinel-5P collector emits column densities s5p_-prefixed.
+    def test_excludes_sentinel5p_entirely(self) -> None:
+        # Satellite columns are corroboration evidence, not detection targets:
+        # each granule mean carries a unique product-id entity, so per-entity
+        # grouping yields 1-point series that can never reach the detector
+        # floors — listing them as detection targets misreported them as
+        # covered. Granule metadata flags stay excluded too.
         pts = [
             _dp(ts=T0, value=4.1e-5, source="sentinel5p",
                 metric="s5p_no2_column", entity="g1"),
             _dp(ts=T0, value=2.0e-5, source="sentinel5p",
-                metric="s5p_so2_column", entity="g1"),
-            _dp(ts=T0, value=3.0e-2, source="sentinel5p",
-                metric="s5p_co_column", entity="g1"),
-            _dp(ts=T0, value=1.1e-4, source="sentinel5p",
-                metric="s5p_hcho_column", entity="g1"),
-        ]
-        groups = group_points_by_series(pts)
-        assert {key.metric for key in groups} == {
-            "s5p_no2_column",
-            "s5p_so2_column",
-            "s5p_co_column",
-            "s5p_hcho_column",
-        }
-
-    def test_excludes_sentinel5p_granule_metadata(self) -> None:
-        # granule_available / cloud_cover are metadata flags, not pollutant
-        # time-series — they must not be treated as detection targets.
-        pts = [
+                metric="s5p_so2_column", entity="g2"),
             _dp(ts=T0, value=1.0, source="sentinel5p",
-                metric="s5p_no2_granule_available", entity="g1"),
+                metric="s5p_no2_granule_available", entity="g3"),
             _dp(ts=T0, value=18.0, source="sentinel5p",
-                metric="s5p_no2_cloud_cover", entity="g1"),
+                metric="s5p_no2_cloud_cover", entity="g4"),
         ]
         assert group_points_by_series(pts) == {}
 

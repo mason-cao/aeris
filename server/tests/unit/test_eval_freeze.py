@@ -119,6 +119,17 @@ class TestGroupEvents:
         assert len(events) == 1
         assert len(events[0]) == 3
 
+    def test_consecutive_hourly_flags_chain_into_one_event(self) -> None:
+        # The ground sources report hourly, so a 4-hour ozone afternoon at one
+        # station flags at 60-minute spacing. The old 30-minute merge window
+        # could never chain those — one physical event would occupy four top-N
+        # slots. The window must exceed the coarsest live cadence.
+        events = group_events(
+            [_anomaly(ts=T0 + timedelta(hours=h)) for h in range(4)]
+        )
+        assert len(events) == 1
+        assert len(events[0]) == 4
+
 
 class TestFreezeEvalSet:
     @pytest.mark.asyncio
@@ -257,3 +268,9 @@ class TestFixturePayload:
         assert load_anomaly_set(path) == [a.id for a in selected]
         assert payload["criteria"]["top"] == 50
         assert payload["n_events"] == 2
+        # Composition is recorded with the fixture so a source/metric skew in
+        # the frozen set is visible on freeze day, not discovered post hoc.
+        assert payload["composition"] == {
+            "openaq/ozone/moderate": 1,
+            "openaq/pm25/moderate": 1,
+        }

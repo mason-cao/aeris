@@ -6,9 +6,13 @@ the Phase 2 analysis depends on:
 
 - **Blinding.** The labeler never sees the pipeline's own judgments
   (grounding verdict, corroboration score) or which model made a claim —
-  those are exactly what the labels get correlated against.
+  those are exactly what the labels get correlated against. Presentation
+  order is a deterministic per-(anomaly, labeler) shuffle: the raw query
+  order blocks claims by model name, so labeler fatigue/anchoring would
+  correlate with model identity even with the text blinded.
 - **Text-level deduplication.** Identical claim texts from different models
-  are asked once; the verdict fans out to every matching claim id.
+  are asked once; the verdict fans out to every matching claim id, each
+  carrying its ``presentation_index`` so order effects stay analyzable.
 
 One ExpertLabel per (anomaly, labeler), insert-only; relabeling means
 deleting the existing row first. The Mason/Bracco overlap for inter-rater
@@ -22,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import random
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -67,6 +72,22 @@ async def collect_claim_groups(
         ClaimGroup(claim_text=text, claim_ids=tuple(ids))
         for text, ids in by_text.items()
     ]
+
+
+def presentation_order(
+    groups: list[ClaimGroup], anomaly_id: uuid.UUID, labeler: str
+) -> list[ClaimGroup]:
+    """Deterministic per-(anomaly, labeler) shuffle of the claim groups.
+
+    The query orders claims by model name, so unshuffled the alphabetically-
+    first model's claims are always labeled freshest — a position/fatigue
+    confound correlated with model identity even though the text is blinded.
+    Seeding on (anomaly, labeler) keeps a re-run session identical for the
+    same labeler while decorrelating presentation order from model.
+    """
+    ordered = list(groups)
+    random.Random(f"{anomaly_id}:{labeler}").shuffle(ordered)
+    return ordered
 
 
 def _ask_verdict(
@@ -120,7 +141,11 @@ async def run_label_session(
         )
     ).scalar_one_or_none()
 
-    groups = await collect_claim_groups(session, anomaly_id, model=model)
+    groups = presentation_order(
+        await collect_claim_groups(session, anomaly_id, model=model),
+        anomaly_id,
+        labeler,
+    )
     if not groups:
         raise ValueError(
             f"anomaly {anomaly_id} has no claims to label; "
@@ -146,7 +171,12 @@ async def run_label_session(
             return None
         note = input_fn("  note (enter to skip): ").strip() or None
         validations.extend(
-            {"claim_id": str(claim_id), "verdict": verdict, "note": note}
+            {
+                "claim_id": str(claim_id),
+                "verdict": verdict,
+                "note": note,
+                "presentation_index": i,
+            }
             for claim_id in group.claim_ids
         )
 

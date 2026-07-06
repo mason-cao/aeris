@@ -1,12 +1,16 @@
 """Phase 2 — cross-source corroboration scorer.
 
 For each Phase-1-grounded claim about an atmospheric anomaly, score it against
-the agreement of the data sources, grouped into error-independent measurement
+the agreement of the data sources, grouped into process-independent measurement
 channels (ground in-situ, ground optical, satellite column, NWP, met in-situ)
 so corroboration counts independent channels rather than raw source count —
-sources that share a measurement process collapse to one channel. Design +
-claim taxonomy: docs/specs/2026-05-21-corroboration-scorer-design.md; channel
-grouping: docs/specs/2026-06-24-channel-independence-collectors.md.
+sources that share a measurement process collapse to one channel. "Independent"
+is an instrument/process-level claim, not full error independence: the NWP
+analyses assimilate the surface obs the met-insitu channel reports, so residual
+errors are only partially independent (state this in the methods; the measured
+residual-error correlation quantifies it). Design + claim taxonomy:
+docs/specs/2026-05-21-corroboration-scorer-design.md; channel grouping:
+docs/specs/2026-06-24-channel-independence-collectors.md.
 
 The module provides the shared aggregator that collapses per-source verdicts
 into the scalar ``corroboration_score`` + ``evidence_n``, plus one scorer per
@@ -33,15 +37,16 @@ SUPPORTING = 1
 CONTRADICTING = -1
 SILENT = 0
 
-# Each source's error-independent channel. Sources that share a measurement
-# process collapse to one channel, so corroboration counts INDEPENDENT channels,
-# not raw sources — the ">=2 error-independent channels per sub-claim" the
-# 2026-06-24 audit requires. TCEQ/EPA AQS are the same regulatory monitors as
-# OpenAQ (one ground channel); GFS/OpenWeather are both NWP-derived (one channel,
-# the audit's "common-mode"). This coarse grouping uses *known* measurement
-# structure; the measured per-pair residual error correlation refines the
-# within-vs-across-channel weighting later (and needs the backfilled quiet-window
-# data first). A source not listed here gets its own channel.
+# Each source's measurement channel. Sources that share a measurement process
+# collapse to one channel, so corroboration counts process-INDEPENDENT channels,
+# not raw sources — the ">=2 independent channels per sub-claim" the 2026-06-24
+# audit requires. TCEQ/EPA AQS are the same regulatory monitors as OpenAQ (one
+# ground channel); GFS/OpenWeather are both NWP-derived (one channel, the
+# audit's "common-mode"). Channel independence is instrument/process-level, not
+# full error independence — GFS analyses assimilate ASOS/METAR obs — which is
+# why the measured per-pair residual error correlation refines the within-vs-
+# across-channel weighting later (and needs the backfilled quiet-window data
+# first). A source not listed here gets its own channel.
 SOURCE_CHANNELS: dict[str, str] = {
     "openaq": "ground_insitu",       # regulatory ground monitors
     "tceq": "ground_insitu",         # same regulatory monitors (preliminary feed)
@@ -193,8 +198,14 @@ class ConcentrationTolerance:
     # measured nearest-in-time value (memo: ±25% of measured value).
     value_pct: float = 0.25
     # Qualitative "elevated": the value nearest the anomaly must exceed the
-    # pre-anomaly baseline by at least this ratio.
-    elevated_ratio: float = 1.0
+    # pre-anomaly baseline mean by this many baseline standard deviations.
+    # A bare mean-exceedance criterion (the old ratio 1.0) is a coin flip
+    # under noise — any value a hair above the mean "supported". Requiring
+    # mean + k*sigma makes support an exceedance call scaled to the series'
+    # own variability; values between the mean and the sigma band are SILENT
+    # (can't call it either way), mirroring the chemistry noise buffer.
+    # Draft, pending Dr. Bracco.
+    elevated_sigma: float = 1.0
     # The baseline needs this many points, all ending this many hours before
     # the anomaly. The spike must not sit inside its own baseline — against
     # the in-window mean, any restatement of the detection event would be
@@ -233,31 +244,31 @@ def _anomaly_ts(summary: Mapping) -> datetime | None:
     return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
 
 
-def _pre_anomaly_baseline(
+def _pre_anomaly_values(
     block: Mapping | None,
     anomaly_ts: datetime | None,
     *,
     gap_h: float,
     min_points: int,
     floor: float | None = None,
-) -> float | None:
-    """Mean of in-window values ending ``gap_h`` before the anomaly, or None.
+) -> list[float]:
+    """In-window values ending ``gap_h`` before the anomaly; [] when too few.
 
     When ``floor`` is set, sub-floor values (detection-limit / non-physical
-    noise the nearest-in-time gate already discards) are dropped before
-    averaging, so a baseline of regulatory zero-scatter is not pulled negative.
+    noise the nearest-in-time gate already discards) are dropped first, so a
+    baseline of regulatory zero-scatter is not pulled negative. Returns the
+    values (not just their mean) so the caller can scale its exceedance call
+    to the baseline's own spread.
     """
     if anomaly_ts is None:
-        return None
+        return []
     cutoff = anomaly_ts - timedelta(hours=gap_h)
     values = [
         v
         for ts, v in _pooled_series(block)
         if ts <= cutoff and (floor is None or v >= floor)
     ]
-    if len(values) < min_points:
-        return None
-    return fmean(values)
+    return values if len(values) >= min_points else []
 
 
 def _resolve_pollutant(claim_text: str) -> tuple[str | None, str | None]:
@@ -317,28 +328,60 @@ def _point_value(claim_text: str) -> float | None:
     return float(match.group()) if match else None
 
 
+# A claim about a satellite column density, not a surface concentration.
+# Absolute (threshold / point) claims are only comparable to a source whose
+# stored quantity matches the claim's: "exceeded 80 ppb" against a column in
+# mol/m^2 (~1e-4) is a guaranteed spurious contradiction, and "column exceeded
+# 5e-4 mol/m2" against a ppb surface reading is a guaranteed spurious support.
+_COLUMN_CLAIM_RE = re.compile(r"\bcolumn\b|mol/m")
+
+
+def _is_column_claim(claim_text: str) -> bool:
+    return _COLUMN_CLAIM_RE.search(claim_text.lower()) is not None
+
+
 def score_concentration_elevation(
     claim_text: str,
     summary: Mapping,
     *,
     tolerance: ConcentrationTolerance = DEFAULT_CONCENTRATION_TOLERANCE,
 ) -> tuple[dict[str, int], str]:
-    """Score a 'pollutant was elevated' claim against OpenAQ + Sentinel-5P.
+    """Score a 'pollutant was elevated' claim against the ground + satellite sources.
 
     Three claim shapes (memo type 1):
     - threshold ("exceeded 80"): the value nearest the anomaly meets the
       threshold;
     - point value ("was 80 ppb"): nearest value within ``value_pct``;
-    - qualitative ("elevated"): nearest value above the pre-anomaly baseline,
-      silent when too few pre-anomaly points exist to call one.
+    - qualitative ("elevated"): nearest value above the pre-anomaly baseline
+      by ``elevated_sigma`` baseline standard deviations, silent when too few
+      pre-anomaly points exist to call one.
 
-    v1 assumes the claim's unit matches the stored metric's unit (no
+    Absolute (threshold/point) claims are unit-scoped: surface-worded claims
+    are judged by surface sources only and column-worded claims by the
+    satellite column only (``_is_column_claim``) — cross-quantity comparisons
+    produce verdicts by unit accident, not measurement. The qualitative shape
+    is direction-only against each source's own baseline, so every source
+    participates regardless of units.
+
+    The anomaly's own triggering channel is handled asymmetrically: its
+    SUPPORTING vote on a claim about the anomaly metric is demoted to SILENT
+    (detection selected on that source being elevated, so support is
+    tautological), while a CONTRADICTING vote is kept (the model misstating
+    the very data that triggered detection is the most informative negative
+    signal Phase 2 has).
+
+    v1 otherwise assumes the claim's unit matches the stored metric's unit (no
     ppb<->ug/m^3 conversion). Returns ``(per_source_verdicts, evidence_summary)``.
     """
     openaq_metric, sentinel_metric = _resolve_pollutant(claim_text)
     threshold = _threshold_value(claim_text)
     point = _point_value(claim_text)
     anomaly_ts = _anomaly_ts(summary)
+    column_claim = _is_column_claim(claim_text)
+    anomaly_info = summary.get("anomaly") or {}
+    trigger_metric = anomaly_info.get("metric")
+    trigger_source = anomaly_info.get("source")
+    trigger_channel = channel_of(trigger_source) if trigger_source else None
     # Ground in-situ sources (OpenAQ regulatory + TCEQ/EPA AQS — one channel) all
     # report the claimed species; PurpleAir adds an optical PM2.5 channel; S5P the
     # satellite column. Sources without the metric in window resolve to SILENT
@@ -402,6 +445,22 @@ def score_concentration_elevation(
                     f"detection floor {ground_floor}"
                 )
                 continue
+        if threshold is not None or point is not None:
+            # Unit scoping: absolute claims only compare like quantities.
+            if column_claim and source != "sentinel5p":
+                verdicts[source] = SILENT
+                notes.append(
+                    f"{source}: column-worded absolute claim not comparable "
+                    f"to surface {metric}"
+                )
+                continue
+            if not column_claim and source == "sentinel5p":
+                verdicts[source] = SILENT
+                notes.append(
+                    f"{source}: surface-worded absolute claim not comparable "
+                    f"to {metric} column"
+                )
+                continue
         if threshold is not None:
             limit, kind = threshold
             if kind == "under":
@@ -418,26 +477,53 @@ def score_concentration_elevation(
                 f"{source}: {metric} nearest={nearest} vs claimed={point}"
             )
         else:
-            baseline = _pre_anomaly_baseline(
+            baseline_values = _pre_anomaly_values(
                 data,
                 anomaly_ts,
                 gap_h=tolerance.baseline_gap_h,
                 min_points=tolerance.min_baseline_points,
                 floor=ground_floor,
             )
-            if baseline is None:
+            if not baseline_values:
                 verdicts[source] = SILENT
                 notes.append(f"{source}: {metric} no pre-anomaly baseline")
                 continue
-            verdict = (
-                SUPPORTING
-                if nearest > baseline * tolerance.elevated_ratio
-                else CONTRADICTING
-            )
+            baseline = fmean(baseline_values)
+            spread = pstdev(baseline_values)
+            support_floor = baseline + tolerance.elevated_sigma * spread
+            if nearest > support_floor:
+                verdict = SUPPORTING
+            elif nearest <= baseline:
+                verdict = CONTRADICTING
+            else:
+                # Above the mean but inside the sigma band: too close to call.
+                verdicts[source] = SILENT
+                notes.append(
+                    f"{source}: {metric} nearest={nearest} within noise band "
+                    f"of pre-anomaly baseline={round(baseline, 4)} "
+                    f"(+{tolerance.elevated_sigma} sigma={round(spread, 4)})"
+                )
+                continue
             notes.append(
                 f"{source}: {metric} nearest={nearest} "
-                f"vs pre-anomaly baseline={round(baseline, 4)}"
+                f"vs pre-anomaly baseline={round(baseline, 4)} "
+                f"(+{tolerance.elevated_sigma} sigma={round(spread, 4)})"
             )
+        # Trigger-channel asymmetry: detection already selected on the trigger
+        # channel reading elevated, so its support is tautological (demoted to
+        # SILENT); its contradiction is not (kept).
+        if (
+            verdict == SUPPORTING
+            and trigger_channel is not None
+            and metric == trigger_metric
+            and channel_of(source) == trigger_channel
+        ):
+            verdicts[source] = SILENT
+            notes.append(
+                f"{source}: trigger-channel support demoted to silent "
+                "(circular with detection)"
+            )
+            continue
         verdicts[source] = verdict
 
     if openaq_metric is None and sentinel_metric is None:
@@ -673,6 +759,22 @@ def _metric_block(summary: Mapping, source: str, metric: str) -> Mapping | None:
     return block or None
 
 
+# The redundant regulatory ground sources (one channel; the aggregator
+# collapses their agreement) and the per-metric candidates the descriptive
+# scorers consult. The May-June coverage audit found OpenAQ carries zero
+# in-window NO2/SO2/CO for Houston, so scorers hardcoded to OpenAQ were
+# structurally silent for exactly the petrochemical species TCEQ was added
+# to supply.
+_GROUND_INSITU_SOURCES: tuple[str, ...] = ("openaq", "tceq", "epa_aqs")
+
+
+def _ground_sources_for(metric: str | None) -> tuple[str, ...]:
+    """Ground-station sources that can carry ``metric``, optical included."""
+    if metric == "pm25":
+        return _GROUND_INSITU_SOURCES + ("purpleair",)
+    return _GROUND_INSITU_SOURCES
+
+
 def _nearest(block: Mapping | None) -> float | None:
     if not block:
         return None
@@ -749,13 +851,32 @@ def _earliest_keyword(text: str, groups: Mapping[str, tuple[str, ...]]) -> str |
 class TrapTolerance:
     """Draft tolerances for atmospheric_trap (pending Dr. Bracco)."""
 
-    pbl_m: float = 200.0  # numeric PBL-height claim within this of GFS
+    pbl_m: float = 200.0    # numeric PBL-height claim within this of GFS
+    # Qualitative suppression: nearest PBL must sit this many same-hour
+    # standard deviations below the same-hour-of-day mean. Between the mean
+    # and the sigma band the verdict is silent (too close to call).
+    suppression_sigma: float = 1.0
+    # Same-hour comparison points required (besides the nearest cycle itself)
+    # before a suppression call is made; a 72 h window carries ~2 other days
+    # per cycle hour per grid cell.
+    min_same_hour_points: int = 2
 
 
 DEFAULT_TRAP_TOLERANCE = TrapTolerance()
 
 _PBL_WORDS = ("pbl", "boundary layer")
 _LOW_PBL_WORDS = ("low", "shallow")
+# Qualitative trap vocabulary. Inversion/capping claims are verified via PBL
+# suppression too: the T850-vs-2m criterion this replaces is physically
+# unreachable in a Houston summer (0 of 100 paired June hours had t_850 >
+# surface; mean gap +9.3 C) because the relevant inversions sit *below*
+# 850 hPa — every inversion claim was auto-contradicted regardless of truth.
+# A trapping inversion expresses itself in the GFS fields as a suppressed
+# mixing height, which pbl_height measures directly. Criterion pending
+# Dr. Bracco.
+_TRAP_QUAL_WORDS = _LOW_PBL_WORDS + (
+    "inversion", "trapped", "trapping", "capping", "capped",
+)
 
 
 def _claimed_pbl_height(text: str) -> float | None:
@@ -765,54 +886,84 @@ def _claimed_pbl_height(text: str) -> float | None:
     return float(m.group(1)) if m else None
 
 
+def _same_hour_values(
+    block: Mapping | None, nearest_iso: str | None
+) -> tuple[float | None, list[float]]:
+    """(nearest value's hour-of-day peers, excluding the nearest timestamp).
+
+    Returns ``(nearest_hour, values)`` where values are every pooled reading
+    at the same UTC hour-of-day on *other* timestamps — the diurnal-cycle
+    control. Comparing a nocturnal PBL against the 72 h all-hours mean reads
+    "night", not "suppressed"; same-hour peers isolate the anomaly-day
+    departure.
+    """
+    if not nearest_iso:
+        return None, []
+    try:
+        nearest_ts = datetime.fromisoformat(nearest_iso)
+    except (TypeError, ValueError):
+        return None, []
+    if nearest_ts.tzinfo is None:
+        nearest_ts = nearest_ts.replace(tzinfo=timezone.utc)
+    values = [
+        v
+        for ts, v in _pooled_series(block)
+        if ts.hour == nearest_ts.hour and ts != nearest_ts
+    ]
+    return nearest_ts.hour, values
+
+
 def score_atmospheric_trap(
     claim_text: str,
     summary: Mapping,
     *,
     tolerance: TrapTolerance = DEFAULT_TRAP_TOLERANCE,
 ) -> tuple[dict[str, int], str]:
-    """Score a PBL / inversion trapping claim.
+    """Score a PBL / inversion / trapping claim against GFS mixing height.
 
-    Inversion = air aloft (GFS 850 hPa) warmer than the surface (OpenWeather);
-    the verdict lands on both sources because each contributes one leg.
-    A numeric PBL claim is checked within ``pbl_m`` of GFS; a qualitative
-    "low/shallow" PBL is checked against the in-window mean.
+    A numeric PBL claim is checked within ``pbl_m`` of the GFS value nearest
+    the anomaly. Qualitative trap wording (shallow/low PBL, inversion,
+    capping, trapped) is checked as *suppression*: the nearest PBL must sit
+    ``suppression_sigma`` standard deviations below the mean of same-hour-of-
+    day readings elsewhere in the window, so the diurnal PBL cycle cannot
+    masquerade as a verdict (a nocturnal claim is compared against other
+    nights, not against afternoon mixing heights).
     """
     text = claim_text.lower()
-    wants_inversion = "inversion" in text
-
     pbl_block = _metric_block(summary, "noaa_gfs", "pbl_height")
-    t_850 = _nearest(_metric_block(summary, "noaa_gfs", "t_850"))
-    surface_t = _nearest(_metric_block(summary, "openweather", "temperature"))
+    pbl_nearest = _nearest(pbl_block)
 
     pbl_verdict: int | None = None
-    pbl_nearest = _nearest(pbl_block)
-    if pbl_nearest is not None and any(word in text for word in _PBL_WORDS):
-        claimed = _claimed_pbl_height(text)
-        if claimed is not None:
-            pbl_verdict = (
-                SUPPORTING
-                if abs(pbl_nearest - claimed) <= tolerance.pbl_m
-                else CONTRADICTING
+    note = f"pbl_nearest={pbl_nearest}"
+    claimed = _claimed_pbl_height(text)
+    if pbl_nearest is not None and claimed is not None:
+        pbl_verdict = (
+            SUPPORTING
+            if abs(pbl_nearest - claimed) <= tolerance.pbl_m
+            else CONTRADICTING
+        )
+        note += f" claimed={claimed}"
+    elif pbl_nearest is not None and any(w in text for w in _TRAP_QUAL_WORDS):
+        nearest_iso = (pbl_block or {}).get("nearest_in_time", {}).get("t")
+        hour, peers = _same_hour_values(pbl_block, nearest_iso)
+        if len(peers) >= tolerance.min_same_hour_points:
+            peer_mean = fmean(peers)
+            peer_spread = pstdev(peers)
+            suppression_floor = (
+                peer_mean - tolerance.suppression_sigma * peer_spread
             )
-        elif any(word in text for word in _LOW_PBL_WORDS):
-            mean = _window_mean(pbl_block)
-            if mean is not None:
-                pbl_verdict = SUPPORTING if pbl_nearest < mean else CONTRADICTING
+            if pbl_nearest < suppression_floor:
+                pbl_verdict = SUPPORTING
+            elif pbl_nearest >= peer_mean:
+                pbl_verdict = CONTRADICTING
+            note += (
+                f" same-hour({hour:02d}Z) mean={round(peer_mean, 1)} "
+                f"sigma={round(peer_spread, 1)} n={len(peers)}"
+            )
+        else:
+            note += f" insufficient same-hour history (n={len(peers)})"
 
-    inversion_verdict: int | None = None
-    if wants_inversion and t_850 is not None and surface_t is not None:
-        inversion_verdict = SUPPORTING if t_850 > surface_t else CONTRADICTING
-
-    verdicts = {
-        "noaa_gfs": _combine(pbl_verdict, inversion_verdict),
-        "openweather": _combine(inversion_verdict),
-    }
-    note = (
-        f"pbl_nearest={pbl_nearest} t_850={t_850} surface_t={surface_t} "
-        f"inversion_claimed={wants_inversion}"
-    )
-    return verdicts, note
+    return {"noaa_gfs": _combine(pbl_verdict)}, note
 
 
 # ---------------------------------------------------------------------------
@@ -892,7 +1043,14 @@ def score_temporal_pattern(
     anomaly_ts = _anomaly_ts(summary)
     verdicts: dict[str, int] = {}
     notes: list[str] = []
-    for source, metric in (("openaq", openaq_metric), ("sentinel5p", sentinel_metric)):
+    # Every ground source that can carry the species trends independently
+    # (trend direction is invariant under PurpleAir's multiplicative bias);
+    # the channel aggregator collapses the redundant regulatory ones.
+    candidates = [
+        (source, openaq_metric) for source in _ground_sources_for(openaq_metric)
+    ]
+    candidates.append(("sentinel5p", sentinel_metric))
+    for source, metric in candidates:
         if metric is None:
             continue
         series = _claim_trend_window(
@@ -1006,16 +1164,23 @@ def score_chemistry(
             else f"sentinel5p: hcho {directions['hcho']} vs window mean"
         )
 
-    openaq_species = [s for s in ("ozone", "no2") if s in directions]
-    if openaq_species:
-        legs = []
-        for species in openaq_species:
-            block = _metric_block(summary, "openaq", species)
-            legs.append(
-                _direction_verdict(_nearest(block), _window_mean(block), directions[species])
-            )
-            notes.append(f"openaq: {species} {directions[species]} checked")
-        verdicts["openaq"] = _combine(*legs)
+    ground_species = [s for s in ("ozone", "no2") if s in directions]
+    if ground_species:
+        # Each ground in-situ source checks its own readings (OpenAQ carries
+        # no in-window NO2 for Houston; TCEQ does), one verdict per source —
+        # the channel aggregator collapses their redundancy.
+        for source in _GROUND_INSITU_SOURCES:
+            legs = []
+            for species in ground_species:
+                block = _metric_block(summary, source, species)
+                legs.append(
+                    _direction_verdict(
+                        _nearest(block), _window_mean(block), directions[species]
+                    )
+                )
+                if block is not None:
+                    notes.append(f"{source}: {species} {directions[species]} checked")
+            verdicts[source] = _combine(*legs)
 
     if not directions:
         notes.append("no species direction recognized in claim")
@@ -1132,12 +1297,16 @@ def score_emissions_source_type(
     *,
     tolerance: SourceTypeTolerance = DEFAULT_SOURCE_TYPE_TOLERANCE,
 ) -> tuple[dict[str, int], str]:
-    """Score a mobile / point / area source-type claim against OpenAQ patterns.
+    """Score a mobile / point / area source-type claim against station patterns.
 
     mobile: pooled series peaks in the local morning-rush window.
     point: high spatial CV across stations (one dominates).
     area: low spatial CV (uniform field).
-    Sentinel-5P spatial pattern and wind legs are deferred (granule-mean v1).
+    Each ground source is scored on its own station field — CV is never mixed
+    across instruments with different response scales (PurpleAir's
+    multiplicative bias cancels within its own CV, not against regulatory
+    mass). Sentinel-5P spatial pattern and wind legs are deferred
+    (granule-mean v1).
     """
     text = claim_text.lower()
     intent = _earliest_keyword(text, _SOURCE_TYPE_KEYWORDS)
@@ -1149,48 +1318,60 @@ def score_emissions_source_type(
     # no2 default would leave every unnamed-pollutant claim silent.
     metric, _sentinel = _resolve_pollutant(text)
     metric = metric or "pm25"
-    block = _metric_block(summary, "openaq", metric)
 
-    if intent == "mobile":
-        series = _pooled_series(block)
-        if len(series) < tolerance.min_points:
-            return {"openaq": SILENT}, f"openaq: {len(series)} points, need {tolerance.min_points}"
-        peak_ts, _peak_v = max(series, key=lambda pair: pair[1])
-        local_hour = (peak_ts.hour + _LOCAL_UTC_OFFSET_H) % 24
-        in_rush = tolerance.morning_start_h <= local_hour < tolerance.morning_end_h
-        return (
-            {"openaq": SUPPORTING if in_rush else CONTRADICTING},
-            f"openaq: {metric} peak at {local_hour:02d}:00 local",
-        )
+    verdicts: dict[str, int] = {}
+    notes: list[str] = []
+    for source in _ground_sources_for(metric):
+        block = _metric_block(summary, source, metric)
 
-    means = _station_means(block, min_obs=tolerance.min_obs_per_station)
-    if len(means) < tolerance.min_stations:
-        return (
-            {"openaq": SILENT},
-            (
-                f"openaq: {len(means)} stations with >= "
+        if intent == "mobile":
+            series = _pooled_series(block)
+            if len(series) < tolerance.min_points:
+                verdicts[source] = SILENT
+                notes.append(
+                    f"{source}: {len(series)} points, need {tolerance.min_points}"
+                )
+                continue
+            peak_ts, _peak_v = max(series, key=lambda pair: pair[1])
+            local_hour = (peak_ts.hour + _LOCAL_UTC_OFFSET_H) % 24
+            in_rush = (
+                tolerance.morning_start_h <= local_hour < tolerance.morning_end_h
+            )
+            verdicts[source] = SUPPORTING if in_rush else CONTRADICTING
+            notes.append(f"{source}: {metric} peak at {local_hour:02d}:00 local")
+            continue
+
+        means = _station_means(block, min_obs=tolerance.min_obs_per_station)
+        if len(means) < tolerance.min_stations:
+            verdicts[source] = SILENT
+            notes.append(
+                f"{source}: {len(means)} stations with >= "
                 f"{tolerance.min_obs_per_station} obs, need {tolerance.min_stations}"
-            ),
-        )
-    cv = _spatial_cv(means)
-    if cv is None:
-        return {"openaq": SILENT}, "openaq: spatial CV undefined"
+            )
+            continue
+        cv = _spatial_cv(means)
+        if cv is None:
+            verdicts[source] = SILENT
+            notes.append(f"{source}: spatial CV undefined")
+            continue
 
-    if intent == "point":
-        if cv >= tolerance.cv_localized:
-            verdict = SUPPORTING
-        elif cv <= tolerance.cv_uniform:
-            verdict = CONTRADICTING
-        else:
-            verdict = SILENT
-    else:  # area
-        if cv <= tolerance.cv_uniform:
-            verdict = SUPPORTING
-        elif cv >= tolerance.cv_localized:
-            verdict = CONTRADICTING
-        else:
-            verdict = SILENT
-    return {"openaq": verdict}, f"openaq: {metric} spatial_cv={cv:.2f} intent={intent}"
+        if intent == "point":
+            if cv >= tolerance.cv_localized:
+                verdict = SUPPORTING
+            elif cv <= tolerance.cv_uniform:
+                verdict = CONTRADICTING
+            else:
+                verdict = SILENT
+        else:  # area
+            if cv <= tolerance.cv_uniform:
+                verdict = SUPPORTING
+            elif cv >= tolerance.cv_localized:
+                verdict = CONTRADICTING
+            else:
+                verdict = SILENT
+        verdicts[source] = verdict
+        notes.append(f"{source}: {metric} spatial_cv={cv:.2f} intent={intent}")
+    return verdicts, "; ".join(notes)
 
 
 # ---------------------------------------------------------------------------
@@ -1233,34 +1414,48 @@ def score_secondary_formation(
     tolerance: SecondaryTolerance = DEFAULT_SECONDARY_TOLERANCE,
 ) -> tuple[dict[str, int], str]:
     """Score a photochemical-formation claim: O3 peak lags NO2 peak by >= 2 h
-    (OpenAQ) on a day with sufficient insolation (OpenWeather cloud cover).
+    (pooled ground in-situ) on a day with sufficient insolation (OpenWeather
+    cloud cover).
 
-    Both legs are restricted to the anomaly's local calendar day — the 72 h
-    window spans three days, and an O3 peak on day 2 vs an NO2 peak on day 3
-    says nothing about this day's photochemistry.
+    NO2 and O3 are pooled across the ground in-situ sources (OpenAQ carries
+    ozone but no in-window NO2 for Houston; TCEQ carries the NO2) and the lag
+    verdict lands on every source that contributed points — they share one
+    channel, so the aggregator counts the pooled check once. Both legs are
+    restricted to the anomaly's local calendar day — the 72 h window spans
+    three days, and an O3 peak on day 2 vs an NO2 peak on day 3 says nothing
+    about this day's photochemistry.
     """
     anomaly_ts = _anomaly_ts(summary)
-    ozone = _local_day_slice(
-        _pooled_series(_metric_block(summary, "openaq", "ozone")), anomaly_ts
-    )
-    no2 = _local_day_slice(
-        _pooled_series(_metric_block(summary, "openaq", "no2")), anomaly_ts
-    )
 
-    verdicts: dict[str, int] = {}
+    def _pooled_ground(metric: str) -> tuple[list[tuple[datetime, float]], set[str]]:
+        pairs: list[tuple[datetime, float]] = []
+        contributing: set[str] = set()
+        for source in _GROUND_INSITU_SOURCES:
+            series = _pooled_series(_metric_block(summary, source, metric))
+            if series:
+                contributing.add(source)
+                pairs.extend(series)
+        return _local_day_slice(sorted(pairs), anomaly_ts), contributing
+
+    ozone, o3_sources = _pooled_ground("ozone")
+    no2, no2_sources = _pooled_ground("no2")
+
+    verdicts: dict[str, int] = {source: SILENT for source in _GROUND_INSITU_SOURCES}
     notes: list[str] = []
 
     if len(ozone) >= tolerance.min_points and len(no2) >= tolerance.min_points:
         o3_peak = max(ozone, key=lambda pair: pair[1])[0]
         no2_peak = max(no2, key=lambda pair: pair[1])[0]
         lag_h = (o3_peak - no2_peak).total_seconds() / 3600.0
-        verdicts["openaq"] = (
-            SUPPORTING if lag_h >= tolerance.min_lag_h else CONTRADICTING
+        lag_verdict = SUPPORTING if lag_h >= tolerance.min_lag_h else CONTRADICTING
+        for source in o3_sources | no2_sources:
+            verdicts[source] = lag_verdict
+        notes.append(
+            f"{'/'.join(sorted(o3_sources | no2_sources))}: o3 peak lags no2 "
+            f"by {lag_h:.1f} h (anomaly day)"
         )
-        notes.append(f"openaq: o3 peak lags no2 by {lag_h:.1f} h (anomaly day)")
     else:
-        verdicts["openaq"] = SILENT
-        notes.append("openaq: insufficient o3/no2 series on anomaly day")
+        notes.append("ground in-situ: insufficient o3/no2 series on anomaly day")
 
     cloud_block = _metric_block(summary, "openweather", "cloud_cover")
     cloud_day = _local_day_slice(_pooled_series(cloud_block), anomaly_ts)
@@ -1323,7 +1518,13 @@ def score_background_vs_event(
     *,
     tolerance: BackgroundTolerance = DEFAULT_BACKGROUND_TOLERANCE,
 ) -> tuple[dict[str, int], str]:
-    """Score a regional-vs-local claim by spatial CV across OpenAQ stations."""
+    """Score a regional-vs-local claim by spatial CV across each source's stations.
+
+    Per-source CV, never mixed across instruments: PurpleAir's dense sensor
+    field (70+ Houston units) answers the uniformity question for PM2.5 where
+    OpenAQ's sparser regulatory network cannot, and its multiplicative bias
+    cancels within its own CV.
+    """
     text = claim_text.lower()
     intent = _earliest_keyword(text, _BACKGROUND_KEYWORDS)
     if intent is None:
@@ -1331,41 +1532,48 @@ def score_background_vs_event(
 
     metric, _sentinel = _resolve_pollutant(text)
     metric = metric or "pm25"
-    block = _metric_block(summary, "openaq", metric)
-    means = _station_means(block, min_obs=tolerance.min_obs_per_station)
 
-    if len(means) < tolerance.min_stations:
-        return (
-            {"openaq": SILENT},
-            (
-                f"openaq: data-quality precondition unmet — {len(means)} stations "
-                f"with >= {tolerance.min_obs_per_station} obs, need "
+    verdicts: dict[str, int] = {}
+    notes: list[str] = []
+    for source in _ground_sources_for(metric):
+        block = _metric_block(summary, source, metric)
+        means = _station_means(block, min_obs=tolerance.min_obs_per_station)
+
+        if len(means) < tolerance.min_stations:
+            verdicts[source] = SILENT
+            notes.append(
+                f"{source}: data-quality precondition unmet — {len(means)} "
+                f"stations with >= {tolerance.min_obs_per_station} obs, need "
                 f"{tolerance.min_stations}"
-            ),
+            )
+            continue
+
+        cv = _spatial_cv(means)
+        if cv is None:
+            verdicts[source] = SILENT
+            notes.append(f"{source}: spatial CV undefined")
+            continue
+
+        if intent == "regional":
+            if cv <= tolerance.cv_regional:
+                verdict = SUPPORTING
+            elif cv >= tolerance.cv_local:
+                verdict = CONTRADICTING
+            else:
+                verdict = SILENT
+        else:  # local
+            if cv >= tolerance.cv_local:
+                verdict = SUPPORTING
+            elif cv <= tolerance.cv_regional:
+                verdict = CONTRADICTING
+            else:
+                verdict = SILENT
+        verdicts[source] = verdict
+        notes.append(
+            f"{source}: {metric} spatial_cv={cv:.2f} over {len(means)} "
+            f"stations intent={intent}"
         )
-
-    cv = _spatial_cv(means)
-    if cv is None:
-        return {"openaq": SILENT}, "openaq: spatial CV undefined"
-
-    if intent == "regional":
-        if cv <= tolerance.cv_regional:
-            verdict = SUPPORTING
-        elif cv >= tolerance.cv_local:
-            verdict = CONTRADICTING
-        else:
-            verdict = SILENT
-    else:  # local
-        if cv >= tolerance.cv_local:
-            verdict = SUPPORTING
-        elif cv <= tolerance.cv_regional:
-            verdict = CONTRADICTING
-        else:
-            verdict = SILENT
-    return (
-        {"openaq": verdict},
-        f"openaq: {metric} spatial_cv={cv:.2f} over {len(means)} stations intent={intent}",
-    )
+    return verdicts, "; ".join(notes)
 
 
 # ---------------------------------------------------------------------------

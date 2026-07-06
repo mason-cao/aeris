@@ -161,11 +161,33 @@ class TestScorerChannelInclusion:
         assert result.per_channel_verdicts.get("ground_insitu") == SUPPORTING
 
     def test_no2_ground_vs_satellite_is_two_channels(self) -> None:
-        # TCEQ ground + S5P column = the genuine satellite-vs-ground pair.
-        summary = _summary(
-            {"tceq": {"no2": 60.0}, "openaq": {"no2": 58.0}, "sentinel5p": {"s5p_no2_column": 99.0}}
-        )
-        verdicts, _ = score_concentration_elevation("NO2 exceeded 50 ppb", summary)
+        # TCEQ ground + S5P column = the genuine satellite-vs-ground pair. The
+        # claim is qualitative ("elevated") so each source votes against its
+        # own pre-anomaly baseline in its own units — a surface-ppb threshold
+        # can never be judged by a mol/m^2 column.
+        def _elevated(baseline: list[float], nearest: float) -> dict:
+            series = [
+                [f"2026-06-15T{h:02d}:00:00+00:00", v]
+                for h, v in enumerate(baseline)
+            ]
+            return {
+                "nearest_in_time": {"v": nearest},
+                "entities": [{"entity_id": "e", "series": series}],
+            }
+
+        summary = _summary({})
+        summary["sources"] = {
+            "tceq": {"metrics": {"no2": _elevated([10.0, 11.0, 10.0, 10.5], 60.0)}},
+            "openaq": {"metrics": {"no2": _elevated([9.0, 10.0, 9.5, 10.0], 58.0)}},
+            "sentinel5p": {
+                "metrics": {
+                    "s5p_no2_column": _elevated(
+                        [5.0e-5, 5.5e-5, 5.2e-5, 5.1e-5], 2.1e-4
+                    )
+                }
+            },
+        }
+        verdicts, _ = score_concentration_elevation("NO2 was elevated", summary)
         result = aggregate_verdicts(verdicts)
         # openaq+tceq collapse to one ground channel; s5p is the second channel.
         assert result.evidence_n == 2

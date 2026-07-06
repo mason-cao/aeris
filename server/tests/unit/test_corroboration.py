@@ -485,6 +485,193 @@ def test_concentration_sentinel_column_supports_no2_claim():
     assert verdicts["sentinel5p"] == SUPPORTING
 
 
+def test_concentration_qualitative_within_sigma_band_is_silent():
+    # Baseline 12 +/- ~0.82 (sigma); nearest 12.5 sits above the mean but
+    # inside the sigma band — too close to call either way. The old bare
+    # mean-exceedance rule scored this a coin-flip "support".
+    summary = _with_anomaly(
+        _summary_with(
+            {
+                "openaq": {
+                    "pm25": {
+                        "unit": "ug/m3",
+                        "value_range": {"min": 10.0, "max": 55.0, "mean": 20.0},
+                        "nearest_in_time": {"v": 12.5},
+                        "entities": [
+                            {
+                                "entity_id": "s1",
+                                "series": _hourly_series(
+                                    0, [12.0, 11.0, 13.0, 12.0, 12.0, 12.5]
+                                ),
+                            }
+                        ],
+                    }
+                }
+            }
+        ),
+        "2026-06-05T05:00:00+00:00",
+    )
+    verdicts, note = score_concentration_elevation(
+        "PM2.5 was elevated across the area.", summary
+    )
+    assert verdicts["openaq"] == SILENT
+    assert "noise band" in note
+
+
+def test_concentration_qualitative_below_baseline_contradicts():
+    summary = _with_anomaly(
+        _summary_with(
+            {
+                "openaq": {
+                    "pm25": {
+                        "unit": "ug/m3",
+                        "value_range": {"min": 8.0, "max": 14.0, "mean": 11.0},
+                        "nearest_in_time": {"v": 9.0},
+                        "entities": [
+                            {
+                                "entity_id": "s1",
+                                "series": _hourly_series(
+                                    0, [12.0, 11.0, 13.0, 12.0, 12.0, 9.0]
+                                ),
+                            }
+                        ],
+                    }
+                }
+            }
+        ),
+        "2026-06-05T05:00:00+00:00",
+    )
+    verdicts, _ = score_concentration_elevation(
+        "PM2.5 was elevated across the area.", summary
+    )
+    assert verdicts["openaq"] == CONTRADICTING
+
+
+def _trigger_summary() -> dict:
+    """An openaq pm25 anomaly whose own channel would otherwise vote on it."""
+    return {
+        "schema_version": 1,
+        "anomaly": {
+            "timestamp": "2026-06-05T05:00:00+00:00",
+            "source": "openaq",
+            "metric": "pm25",
+        },
+        "sources": {
+            "openaq": {
+                "metrics": {
+                    "pm25": {
+                        "unit": "ug/m3",
+                        "nearest_in_time": {"v": 52.0},
+                        "entities": [
+                            {
+                                "entity_id": "s1",
+                                "series": _hourly_series(
+                                    0, [12.0, 11.0, 13.0, 12.0, 12.0, 52.0]
+                                ),
+                            }
+                        ],
+                    }
+                }
+            },
+            "purpleair": {
+                "metrics": {
+                    "pm25": {
+                        "unit": "ug/m3",
+                        "nearest_in_time": {"v": 180.0},
+                        "entities": [
+                            {
+                                "entity_id": "sensor-1",
+                                "series": _hourly_series(
+                                    0, [40.0, 42.0, 41.0, 40.0, 41.0, 180.0]
+                                ),
+                            }
+                        ],
+                    }
+                }
+            },
+        },
+    }
+
+
+def test_concentration_trigger_channel_support_is_demoted_to_silent():
+    # Detection selected on openaq pm25 being elevated, so openaq's support of
+    # "pm25 was elevated" is tautological — the independent optical channel
+    # (PurpleAir vs its own baseline) carries the real corroboration.
+    verdicts, note = score_concentration_elevation(
+        "PM2.5 was elevated near the anomaly.", _trigger_summary()
+    )
+    assert verdicts["openaq"] == SILENT
+    assert verdicts["purpleair"] == SUPPORTING
+    assert "trigger-channel support demoted" in note
+
+
+def test_concentration_trigger_channel_contradiction_is_kept():
+    # The asymmetry: the trigger source misreading is tautology-free evidence.
+    # A claim misstating the very data that triggered detection (threshold 500
+    # vs nearest 52) must keep the contradiction.
+    verdicts, _ = score_concentration_elevation(
+        "PM2.5 exceeded 500 ug/m3.", _trigger_summary()
+    )
+    assert verdicts["openaq"] == CONTRADICTING
+
+
+def test_concentration_no_anomaly_metadata_skips_trigger_demotion():
+    # Summaries without anomaly source/metric (synthetic fixtures) behave as
+    # before — the demotion needs to know what triggered detection.
+    summary = _trigger_summary()
+    summary["anomaly"] = {"timestamp": "2026-06-05T05:00:00+00:00"}
+    verdicts, _ = score_concentration_elevation(
+        "PM2.5 was elevated near the anomaly.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+
+
+def test_concentration_surface_threshold_not_judged_by_column():
+    # "exceeded 80 ppb" vs a column density in mol/m^2 (~1e-4) is a guaranteed
+    # spurious contradiction by unit accident; the satellite must abstain from
+    # surface-worded absolute claims.
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": {"unit": "ppb", "nearest_in_time": {"v": 82.0}}
+            },
+            "sentinel5p": {
+                "s5p_no2_column": {
+                    "unit": "mol/m^2",
+                    "nearest_in_time": {"v": 8.5e-5},
+                }
+            },
+        }
+    )
+    verdicts, note = score_concentration_elevation("NO2 exceeded 80 ppb.", summary)
+    assert verdicts["openaq"] == SUPPORTING
+    assert verdicts["sentinel5p"] == SILENT
+    assert "not comparable" in note
+
+
+def test_concentration_column_threshold_not_judged_by_surface():
+    # The mirror: a column-worded threshold must not be "supported" by a ppb
+    # surface reading that dwarfs it numerically.
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": {"unit": "ppb", "nearest_in_time": {"v": 82.0}}
+            },
+            "sentinel5p": {
+                "s5p_no2_column": {
+                    "unit": "mol/m^2",
+                    "nearest_in_time": {"v": 2.1e-4},
+                }
+            },
+        }
+    )
+    verdicts, _ = score_concentration_elevation(
+        "The NO2 column exceeded 0.0002 mol/m2.", summary
+    )
+    assert verdicts["sentinel5p"] == SUPPORTING
+    assert verdicts["openaq"] == SILENT
+
+
 # --- transport_direction (headline type 2: NOAA GFS 10m wind + OpenWeather) ---
 
 
@@ -654,39 +841,116 @@ def _metric_from_entities(entities: list[dict]) -> dict:
 # --- atmospheric_trap (type 4) ---
 
 
-def test_trap_inversion_supported_when_aloft_warmer_than_surface():
+def _pbl_block(nearest_v: float, nearest_iso: str, series: list[list]) -> dict:
+    """A pbl_height metric block with an explicit nearest and pooled series."""
+    return {
+        "nearest_in_time": {"v": nearest_v, "t": nearest_iso},
+        "value_range": {"mean": sum(v for _, v in series) / len(series)},
+        "entities": [{"entity_id": "cell", "series": series}],
+    }
+
+
+def _pbl_cycles(by_day_hour: dict[tuple[int, int], float]) -> list[list]:
+    """[iso, value] rows for {(june_day, utc_hour): pbl_m} GFS cycles."""
+    return [
+        [f"2026-06-{day:02d}T{hour:02d}:00:00+00:00", v]
+        for (day, hour), v in sorted(by_day_hour.items())
+    ]
+
+
+def test_trap_suppressed_pbl_supports_inversion_claim():
+    # Nearest 18Z PBL (300 m) sits far below the other days' 18Z values
+    # (~1400 m): genuinely suppressed mixing, whatever the wording (inversion,
+    # capping, shallow PBL) — the T850-vs-surface criterion this replaces was
+    # unreachable in a Houston summer (0/100 June hours) and auto-contradicted
+    # every inversion claim.
+    series = _pbl_cycles(
+        {
+            (3, 18): 1350.0,
+            (4, 18): 1450.0,
+            (5, 18): 300.0,
+            (4, 6): 250.0,
+            (5, 6): 260.0,
+        }
+    )
     summary = _summary_with(
         {
             "noaa_gfs": {
-                "t_850": {"nearest_in_time": {"v": 24.0}},
-                "pbl_height": {
-                    "nearest_in_time": {"v": 300.0},
-                    "value_range": {"mean": 700.0},
-                },
-            },
-            "openweather": {"temperature": {"nearest_in_time": {"v": 20.0}}},
+                "pbl_height": _pbl_block(300.0, "2026-06-05T18:00:00+00:00", series)
+            }
         }
     )
-    verdicts, _ = score_atmospheric_trap(
-        "A low boundary layer and a thermal inversion trapped emissions near the surface.",
-        summary,
+    verdicts, note = score_atmospheric_trap(
+        "A thermal inversion trapped emissions near the surface.", summary
     )
     assert verdicts["noaa_gfs"] == SUPPORTING
-    assert verdicts["openweather"] == SUPPORTING
+    assert "same-hour" in note
 
 
-def test_trap_inversion_contradicted_when_surface_warmer():
+def test_trap_normal_pbl_contradicts_inversion_claim():
+    series = _pbl_cycles(
+        {
+            (3, 18): 1350.0,
+            (4, 18): 1450.0,
+            (5, 18): 1500.0,
+            (4, 6): 250.0,
+            (5, 6): 260.0,
+        }
+    )
     summary = _summary_with(
         {
-            "noaa_gfs": {"t_850": {"nearest_in_time": {"v": 15.0}}},
-            "openweather": {"temperature": {"nearest_in_time": {"v": 30.0}}},
+            "noaa_gfs": {
+                "pbl_height": _pbl_block(1500.0, "2026-06-05T18:00:00+00:00", series)
+            }
         }
     )
     verdicts, _ = score_atmospheric_trap(
         "An inversion kept the pollution near the ground.", summary
     )
     assert verdicts["noaa_gfs"] == CONTRADICTING
-    assert verdicts["openweather"] == CONTRADICTING
+
+
+def test_trap_nocturnal_low_pbl_is_not_auto_support():
+    # A 250 m PBL at 06Z is a normal night, not suppression: the same-hour
+    # comparison must read it against other nights (~250 m), not against the
+    # 72 h all-hours mean the old check used (which any nocturnal claim beat).
+    series = _pbl_cycles(
+        {
+            (3, 6): 240.0,
+            (4, 6): 260.0,
+            (5, 6): 250.0,
+            (4, 18): 1400.0,
+            (5, 18): 1500.0,
+        }
+    )
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "pbl_height": _pbl_block(250.0, "2026-06-05T06:00:00+00:00", series)
+            }
+        }
+    )
+    verdicts, _ = score_atmospheric_trap(
+        "A shallow boundary layer trapped emissions overnight.", summary
+    )
+    assert verdicts["noaa_gfs"] == CONTRADICTING
+
+
+def test_trap_insufficient_same_hour_history_is_silent():
+    # One same-hour peer is not a diurnal baseline; abstain rather than guess.
+    series = _pbl_cycles({(4, 18): 1400.0, (5, 18): 300.0})
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "pbl_height": _pbl_block(300.0, "2026-06-05T18:00:00+00:00", series)
+            }
+        }
+    )
+    verdicts, note = score_atmospheric_trap(
+        "An inversion trapped the pollution.", summary
+    )
+    assert verdicts["noaa_gfs"] == SILENT
+    assert "insufficient same-hour" in note
 
 
 def test_trap_numeric_pbl_checked_within_tolerance():
@@ -710,8 +974,7 @@ def test_trap_no_data_is_silent():
     verdicts, _ = score_atmospheric_trap(
         "An inversion trapped pollution.", _summary_with({})
     )
-    assert verdicts["noaa_gfs"] == SILENT
-    assert verdicts["openweather"] == SILENT
+    assert verdicts == {"noaa_gfs": SILENT}
 
 
 # --- temporal_pattern (type 5) ---
@@ -1102,6 +1365,90 @@ def test_background_sparse_stations_do_not_count_toward_precondition():
     )
     assert verdicts["openaq"] == SILENT
     assert "precondition" in note.lower()
+
+
+# --- new-channel integration for the descriptive types ---
+# The May-June coverage audit found OpenAQ carries zero in-window NO2/SO2/CO
+# for Houston; scorers hardcoded to OpenAQ were structurally silent for the
+# petrochemical species TCEQ supplies, and ignored PurpleAir's 70-sensor
+# PM2.5 field for the spatial checks.
+
+
+def test_temporal_trend_scored_from_tceq_no2():
+    entities = [_entity("cams-1", _series(10, [10, 12, 15, 18, 22, 26]))]
+    summary = _summary_with({"tceq": {"no2": _metric_from_entities(entities)}})
+    verdicts, _ = score_temporal_pattern(
+        "NO2 concentrations climbed steadily through the afternoon.", summary
+    )
+    assert verdicts["tceq"] == SUPPORTING
+
+
+def test_temporal_trend_scored_from_purpleair_pm25():
+    # Trend direction is invariant under PurpleAir's multiplicative bias.
+    entities = [_entity("pa-1", _series(10, [30, 26, 22, 15, 12, 8]))]
+    summary = _summary_with({"purpleair": {"pm25": _metric_from_entities(entities)}})
+    verdicts, _ = score_temporal_pattern("PM2.5 dropped through the day.", summary)
+    assert verdicts["purpleair"] == SUPPORTING
+
+
+def test_chemistry_no2_leg_scored_from_tceq():
+    summary = _summary_with(
+        {
+            "tceq": {
+                "no2": {
+                    "nearest_in_time": {"v": 60.0},
+                    "value_range": {"mean": 20.0},
+                }
+            }
+        }
+    )
+    verdicts, _ = score_chemistry(
+        "Elevated NO2 alongside elevated HCHO points to fresh emissions.", summary
+    )
+    assert verdicts["tceq"] == SUPPORTING
+
+
+def test_secondary_formation_uses_tceq_no2_with_openaq_ozone():
+    # The realistic Houston pairing: ozone from OpenAQ, NO2 from TCEQ. The
+    # pooled ground check assigns the lag verdict to both contributors, and
+    # the aggregator counts their shared channel once.
+    no2 = _entity("cams", _series(10, [40, 55, 30, 20, 15, 12]))  # peak 11:00
+    o3 = _entity("aq", _series(10, [20, 25, 30, 45, 60, 72]))  # peak 15:00
+    summary = _summary_with(
+        {
+            "tceq": {"no2": _metric_from_entities([no2])},
+            "openaq": {"ozone": _metric_from_entities([o3])},
+        }
+    )
+    verdicts, _ = score_secondary_formation(
+        "Afternoon ozone peak consistent with photochemical formation.", summary
+    )
+    assert verdicts["openaq"] == SUPPORTING
+    assert verdicts["tceq"] == SUPPORTING
+    assert aggregate_verdicts(verdicts).evidence_n == 1  # one shared channel
+
+
+def test_background_spatial_cv_scored_from_purpleair():
+    entities = _stations([20, 21, 19, 22, 20])
+    summary = _summary_with({"purpleair": {"pm25": _metric_from_entities(entities)}})
+    verdicts, _ = score_background_vs_event(
+        "Elevated PM2.5 across all monitors suggests regional transport.", summary
+    )
+    assert verdicts["purpleair"] == SUPPORTING
+    assert verdicts["openaq"] == SILENT
+
+
+def test_source_type_spatial_cv_scored_from_purpleair():
+    entities = [
+        _entity("pa-a", _series(10, [80, 85, 82, 88])),
+        _entity("pa-b", _series(10, [10, 11, 9, 12])),
+        _entity("pa-c", _series(10, [11, 10, 12, 9])),
+    ]
+    summary = _summary_with({"purpleair": {"pm25": _metric_from_entities(entities)}})
+    verdicts, _ = score_emissions_source_type(
+        "PM2.5 pattern consistent with a point source facility.", summary
+    )
+    assert verdicts["purpleair"] == SUPPORTING
 
 
 # --- dispatch: under-cued primary masks a contradicted secondary ---

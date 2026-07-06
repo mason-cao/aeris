@@ -16,6 +16,7 @@ from sqlalchemy import select
 
 from app.db.models import Anomaly, Claim, EnrichmentRecord, Explanation
 from app.eval.ablation import (
+    TRIGGER_CONDITION_LABEL,
     ClaimContext,
     Condition,
     Outcome,
@@ -23,6 +24,7 @@ from app.eval.ablation import (
     exclude_sources,
     load_claim_contexts,
     rescore,
+    resolve_excluded,
     run_ablation,
     run_conditions,
     summarize,
@@ -32,36 +34,55 @@ from app.llm.validate import GROUNDED
 ANOMALY_TS = "2026-06-15T12:00:00+00:00"
 
 
+def _elevated_metric(baseline: list[float], nearest: float) -> dict:
+    """A metric block whose nearest value sits far above its pre-anomaly baseline."""
+    series = [
+        [f"2026-06-15T{h:02d}:00:00+00:00", v] for h, v in enumerate(baseline)
+    ]
+    return {
+        "nearest_in_time": {"v": nearest},
+        "entities": [{"entity_id": "e", "series": series}],
+    }
+
+
 def _summary(sources_metrics: dict, anomaly_ts: str = ANOMALY_TS) -> dict:
-    """Minimal enrichment summary: {source: {metric: nearest_value}}."""
+    """Minimal enrichment summary: {source: {metric: metric_block}}."""
     return {
         "anomaly": {"timestamp": anomaly_ts, "lat": 29.76, "lon": -95.37},
         "sources": {
-            source: {
-                "metrics": {
-                    metric: {"nearest_in_time": {"v": value}}
-                    for metric, value in metrics.items()
-                }
-            }
+            source: {"metrics": dict(metrics)}
             for source, metrics in sources_metrics.items()
         },
     }
 
 
-# Ground (tceq) + satellite (s5p) = two independent channels agreeing.
+# Ground (tceq) + satellite (s5p) = two independent channels agreeing on a
+# qualitative elevation, each against its own baseline in its own units — a
+# surface-ppb threshold can never legitimately engage a mol/m^2 column.
 GROUND_PLUS_SAT = _summary(
-    {"tceq": {"no2": 60.0}, "sentinel5p": {"s5p_no2_column": 99.0}}
+    {
+        "tceq": {"no2": _elevated_metric([10.0, 11.0, 10.0, 10.5], 60.0)},
+        "sentinel5p": {
+            "s5p_no2_column": _elevated_metric(
+                [5.0e-5, 5.5e-5, 5.2e-5, 5.1e-5], 2.1e-4
+            )
+        },
+    }
 )
 # Two redundant ground sources + satellite: dropping one ground source must not
 # change evidence (the channel survives); dropping both must.
 TWO_GROUND_PLUS_SAT = _summary(
     {
-        "openaq": {"no2": 60.0},
-        "tceq": {"no2": 61.0},
-        "sentinel5p": {"s5p_no2_column": 99.0},
+        "openaq": {"no2": _elevated_metric([9.0, 10.0, 9.5, 10.0], 58.0)},
+        "tceq": {"no2": _elevated_metric([10.0, 11.0, 10.0, 10.5], 61.0)},
+        "sentinel5p": {
+            "s5p_no2_column": _elevated_metric(
+                [5.0e-5, 5.5e-5, 5.2e-5, 5.1e-5], 2.1e-4
+            )
+        },
     }
 )
-NO2_CLAIM = "NO2 exceeded 50 ppb"
+NO2_CLAIM = "NO2 was elevated"
 
 
 class TestExcludeSources:
@@ -145,6 +166,56 @@ class TestBuildConditions:
 
     def test_empty_sources_yields_only_full(self) -> None:
         assert build_conditions(set()) == [Condition(label="full", excluded=frozenset())]
+
+    def test_trigger_condition_included_when_sources_present(self) -> None:
+        labels = {c.label for c in build_conditions({"tceq", "sentinel5p"})}
+        assert TRIGGER_CONDITION_LABEL in labels
+
+
+class TestTriggerCondition:
+    """The per-claim circularity check: drop the channel detection selected on."""
+
+    def _triggered(self) -> dict:
+        summary = _summary(
+            {
+                "tceq": {"no2": _elevated_metric([10.0, 11.0, 10.0, 10.5], 52.0)},
+                "openaq": {"no2": _elevated_metric([9.0, 10.0, 9.5, 10.0], 50.0)},
+                "sentinel5p": {
+                    "s5p_no2_column": _elevated_metric(
+                        [5.0e-5, 5.5e-5, 5.2e-5, 5.1e-5], 2.1e-4
+                    )
+                },
+            }
+        )
+        summary["anomaly"].update({"source": "tceq", "metric": "no2"})
+        return summary
+
+    def test_resolves_to_every_trigger_channel_member(self) -> None:
+        condition = Condition(label=TRIGGER_CONDITION_LABEL, excluded=frozenset())
+        excluded = resolve_excluded(condition, self._triggered())
+        assert excluded == frozenset({"tceq", "openaq"})
+
+    def test_resolves_to_nothing_without_anomaly_source(self) -> None:
+        condition = Condition(label=TRIGGER_CONDITION_LABEL, excluded=frozenset())
+        assert resolve_excluded(condition, GROUND_PLUS_SAT) == frozenset()
+
+    def test_static_conditions_resolve_to_their_own_exclusions(self) -> None:
+        condition = Condition(label="drop-source:tceq", excluded=frozenset({"tceq"}))
+        assert resolve_excluded(condition, self._triggered()) == frozenset({"tceq"})
+
+    def test_trigger_drop_removes_the_kept_contradiction(self) -> None:
+        # In the full condition the trigger channel's contradiction of a
+        # misstated threshold is kept (the asymmetric demotion silences only
+        # its tautological support). Dropping the trigger channel removes that
+        # contradiction too — the difference is exactly what this condition
+        # measures.
+        summary = self._triggered()
+        claim = "NO2 exceeded 500 ppb"
+        full = rescore(claim, summary)
+        assert full.result.corroboration_score == -1.0
+        condition = Condition(label=TRIGGER_CONDITION_LABEL, excluded=frozenset())
+        dropped = rescore(claim, summary, resolve_excluded(condition, summary))
+        assert dropped.result.unverified is True
 
 
 def _scored(claim_text: str, summary: dict, excluded=()):
@@ -326,7 +397,9 @@ async def test_run_ablation_uses_latest_enrichment_record(db_session) -> None:
             anomaly_id=anomaly_id,
             context_window_start=datetime(2026, 6, 15, 1, 0, tzinfo=UTC),
             context_window_end=datetime(2026, 6, 16, 1, 0, tzinfo=UTC),
-            cross_source_summary_json=_summary({"tceq": {"no2": 60.0}}),
+            cross_source_summary_json=_summary(
+                {"tceq": {"no2": _elevated_metric([10.0, 11.0, 10.0, 10.5], 60.0)}}
+            ),
             created_at=datetime(2030, 1, 1, tzinfo=UTC),
         )
     )

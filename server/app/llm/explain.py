@@ -48,7 +48,12 @@ def _with_unit(value: object, unit: str | None) -> str:
 # range/mean/nearest aggregates while the Phase 2 scorers judged trend and
 # spatial-CV claim types against the full series — claims the model had no
 # data to make.
-_SERIES_BUCKET_H = 3
+# 6 h, not 3 h: at 3 h the bucket lines dominated a ~24k-char rendered context
+# (measured on live June data), pushing the step prompts past what llama3 8B's
+# 8192-token window holds with generation headroom. 6 h halves the dominant
+# lines while keeping 12 in-window points per metric — enough resolution for
+# the trend and diurnal claims the scorers verify.
+_SERIES_BUCKET_H = 6
 _MAX_STATION_MEANS = 8
 
 
@@ -193,32 +198,39 @@ def _claim_row(
         return Claim(
             step_index=draft.step_index,
             claim_type=scored.claim_type.value,
+            matched_types=[t.value for t in scored.matched_types],
             claim_text=draft.claim_text,
             cited_sources=draft.cited_sources,
             grounding_verdict=grounding.verdict,
             grounding_evidence_ref=grounding.evidence_ref,
+            causal=grounding.causal,
             skipped_phase2=False,
             corroboration_score=scored.result.corroboration_score,
             evidence_n=scored.result.evidence_n,
             per_source_verdicts=scored.result.per_source_verdicts,
+            per_channel_verdicts=scored.result.per_channel_verdicts,
             partial_verifiability=scored.partial_verifiability,
             low_corroboration_flag=low_corroboration_flag(
                 scored.result.corroboration_score,
                 evidence_n=scored.result.evidence_n,
             ),
         )
-    primary = classify_claim(draft.claim_text)[0]
+    matched = classify_claim(draft.claim_text)
+    primary = matched[0]
     return Claim(
         step_index=draft.step_index,
         claim_type=primary.value,
+        matched_types=[t.value for t in matched],
         claim_text=draft.claim_text,
         cited_sources=draft.cited_sources,
         grounding_verdict=grounding.verdict,
         grounding_evidence_ref=None,
+        causal=grounding.causal,
         skipped_phase2=True,
         corroboration_score=None,
         evidence_n=0,
         per_source_verdicts=None,
+        per_channel_verdicts=None,
         partial_verifiability=primary in PARTIALLY_VERIFIABLE_TYPES,
         low_corroboration_flag=False,
     )
@@ -253,14 +265,19 @@ async def generate_explanation(
         )
 
     summary = record.cross_source_summary_json
+    anomaly_text = render_anomaly_text(anomaly)
     enrichment_text = render_enrichment_text(summary)
     chain = await run_reasoning_chain(
         client,
-        anomaly_text=render_anomaly_text(anomaly),
+        anomaly_text=anomaly_text,
         enrichment_text=enrichment_text,
     )
     drafts = extract_claim_drafts([step.response for step in chain.steps])
-    groundings = ground_claim_drafts(drafts, enrichment_text)
+    # Ground against everything the model saw: the ANOMALY block carries
+    # numbers (value, expected, z-score) a faithful step-1 restatement cites
+    # that appear nowhere in the enrichment lines — grounding against the
+    # enrichment text alone scored faithfulness as hallucination.
+    groundings = ground_claim_drafts(drafts, f"{anomaly_text}\n{enrichment_text}")
 
     return Explanation(
         anomaly_id=anomaly.id,

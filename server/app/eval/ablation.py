@@ -6,7 +6,7 @@ model produced are held fixed — no LLM re-runs — and each grounded claim is
 re-scored under source/channel exclusion. Comparing a drop condition against the
 ``full`` baseline gives that channel's marginal contribution.
 
-Two granularities, both reported:
+Three granularities, all reported:
 - ``drop-source:<source>`` — withhold one source. Within a redundant channel
   (OpenAQ/TCEQ/EPA-AQS, or GFS/OpenWeather) this typically moves nothing, which
   is the point: it quantifies the redundancy the channel grouping assumes.
@@ -14,6 +14,10 @@ Two granularities, both reported:
   for channels with >= 2 present sources, else it duplicates the source drop).
   This is the genuine independence test: removing a whole channel should be the
   thing that lowers the multi-channel corroboration rate.
+- ``drop-trigger-channel`` — per claim, withhold the channel whose source
+  triggered that claim's anomaly (read from the summary's ``anomaly.source``).
+  Quantifies how much of the proxy rests on the channel detection already
+  selected on — the circularity check.
 
 The headline metric is ``n_multi_channel`` — claims that keep >= 2 independent
 channels (``evidence_n >= 2``). The audit's failure mode was the proxy resolving
@@ -77,8 +81,38 @@ class Condition:
     excluded: frozenset[str]
 
 
+# Per-claim condition: withhold every source in the channel that *triggered*
+# the claim's anomaly (read from each summary's ``anomaly.source`` at rescore
+# time, so the excluded set varies per claim). The type-1 scorer already
+# demotes the trigger channel's tautological support in the headline score;
+# this condition quantifies the remaining dependence — including the trigger
+# channel's contradiction power and its votes on other claim types.
+TRIGGER_CONDITION_LABEL = "drop-trigger-channel"
+
+
+def _trigger_channel_sources(summary: Mapping) -> frozenset[str]:
+    """Sources sharing the channel of the anomaly's triggering source."""
+    trigger = (summary.get("anomaly") or {}).get("source")
+    if not trigger:
+        return frozenset()
+    channel = channel_of(trigger)
+    return frozenset(
+        source
+        for source in summary.get("sources", {})
+        if channel_of(source) == channel
+    )
+
+
+def resolve_excluded(condition: Condition, summary: Mapping) -> frozenset[str]:
+    """The sources a condition withholds for one claim's summary."""
+    if condition.label == TRIGGER_CONDITION_LABEL:
+        return _trigger_channel_sources(summary)
+    return condition.excluded
+
+
 def build_conditions(present_sources: Iterable[str]) -> list[Condition]:
-    """The ``full`` baseline, one source drop each, and per multi-member channel.
+    """The ``full`` baseline, one source drop each, per multi-member channel,
+    and the per-claim trigger-channel drop.
 
     A channel with a single present source gets no ``drop-channel`` condition —
     it would be identical to that source's ``drop-source`` condition.
@@ -100,6 +134,10 @@ def build_conditions(present_sources: Iterable[str]) -> list[Condition]:
                     label=f"drop-channel:{channel}", excluded=frozenset(members)
                 )
             )
+    if present:
+        conditions.append(
+            Condition(label=TRIGGER_CONDITION_LABEL, excluded=frozenset())
+        )
     return conditions
 
 
@@ -162,7 +200,11 @@ def run_conditions(
         per_label: dict[str, Outcome] = {}
         for condition in conditions:
             scored = [
-                rescore(c.claim_text, c.summary, condition.excluded)
+                rescore(
+                    c.claim_text,
+                    c.summary,
+                    resolve_excluded(condition, c.summary),
+                )
                 for c in model_contexts
             ]
             per_label[condition.label] = summarize(scored, condition.label)

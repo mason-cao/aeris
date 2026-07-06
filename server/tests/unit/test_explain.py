@@ -199,8 +199,11 @@ def test_render_enrichment_text_includes_series_and_station_means():
         },
     ]
     text = render_enrichment_text(summary)
-    assert "3h means:" in text
-    assert "06-05 06Z 60" in text
+    # 6 h buckets: hours 8+11 pool into 06Z (mean 62), 14+17 into 12Z. The
+    # 3 h width made the bucket lines dominate a ~24k-char rendered context,
+    # past what llama3 8B's 8192-token window holds.
+    assert "6h means:" in text
+    assert "06-05 06Z 62" in text
     assert "station means:" in text
     assert "st-2 (6.4 km) 66" in text
 
@@ -208,7 +211,7 @@ def test_render_enrichment_text_includes_series_and_station_means():
 def test_render_enrichment_text_omits_series_lines_when_sparse():
     # Aggregate-only summaries (one point, one station) stay as they were.
     text = render_enrichment_text(_summary())
-    assert "3h means:" not in text
+    assert "6h means:" not in text
     assert "station means:" not in text
 
 
@@ -237,20 +240,28 @@ async def test_generate_explanation_builds_explanation_and_claims(db_session):
     assert grounded.grounding_verdict == "grounded"
     assert grounded.skipped_phase2 is False
     assert grounded.claim_type == "concentration_elevation"
-    assert grounded.corroboration_score == 1.0
-    assert grounded.evidence_n == 1
-    assert grounded.per_source_verdicts["openaq"] == 1
+    assert grounded.matched_types[0] == "concentration_elevation"
+    assert grounded.causal is False
+    # Phase 2 ran but the only supporting source is the anomaly's own trigger
+    # channel (openaq no2), whose tautological support is demoted to silent —
+    # no independent channel corroborates, so the score is honestly None.
+    assert grounded.corroboration_score is None
+    assert grounded.evidence_n == 0
+    assert grounded.per_source_verdicts["openaq"] == 0
+    assert grounded.per_channel_verdicts["ground_insitu"] == 0
     assert grounded.cited_sources == ["openaq"]
 
     assert fabricated.step_index == 4
     assert fabricated.grounding_verdict == "unverified"
     assert fabricated.skipped_phase2 is True
+    assert fabricated.causal is False
     assert fabricated.corroboration_score is None
     assert fabricated.evidence_n == 0
     # Typed even though never scored: which types get fabricated is a result.
     # "ship channel" is a geographic reference, not an attribution cue, so
     # this reads as a concentration claim about SO2.
     assert fabricated.claim_type == "concentration_elevation"
+    assert fabricated.matched_types == ["concentration_elevation"]
     assert fabricated.partial_verifiability is False
 
 

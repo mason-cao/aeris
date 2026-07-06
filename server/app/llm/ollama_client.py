@@ -9,6 +9,13 @@ DEFAULT_REQUEST_TIMEOUT = 120.0
 # Pinned for the eval: Ollama's default temperature (0.8) makes every sweep
 # unreproducible and confounds the calibration comparison across models.
 DEFAULT_TEMPERATURE = 0.0
+# Pinned to llama3 8B's maximum: Ollama's default num_ctx (2048, 4096 on newer
+# builds) silently truncates the prompt, and the rendered eval prompts measure
+# ~6k+ tokens — the local model would see a fraction of the evidence the cloud
+# baselines see, invalidating the comparison. Verify per sweep by comparing the
+# reported prompt_eval_count against the cloud models' prompt_tokens for the
+# same cell.
+DEFAULT_NUM_CTX = 8192
 
 
 class OllamaClient(LLMClient):
@@ -25,6 +32,7 @@ class OllamaClient(LLMClient):
         http_client: httpx.AsyncClient | None = None,
         request_timeout: float = DEFAULT_REQUEST_TIMEOUT,
         temperature: float = DEFAULT_TEMPERATURE,
+        num_ctx: int = DEFAULT_NUM_CTX,
     ) -> None:
         super().__init__(http_client=http_client)
         self.model_name = model
@@ -32,6 +40,7 @@ class OllamaClient(LLMClient):
         self._base_url = base_url.rstrip("/")
         self._request_timeout = request_timeout
         self._temperature = temperature
+        self._num_ctx = num_ctx
 
     # Schema-constrained decoding stays off here: per the phase plan the
     # local model runs plain JSON mode, so its parse-failure rate is a
@@ -45,7 +54,10 @@ class OllamaClient(LLMClient):
                 "prompt": prompt,
                 "stream": False,
                 "format": "json",
-                "options": {"temperature": self._temperature},
+                "options": {
+                    "temperature": self._temperature,
+                    "num_ctx": self._num_ctx,
+                },
             },
             timeout=self._request_timeout,
         )

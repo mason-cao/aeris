@@ -275,11 +275,18 @@ class Claim(Base):
     )
     step_index: Mapped[int] = mapped_column(Integer, nullable=False)
     claim_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    # Every taxonomy type the classifier matched, primary first — needed to
+    # detect headline-type drain (a claim matching a headline type but routed
+    # to a descriptive primary) without re-running classification.
+    matched_types: Mapped[list | None] = mapped_column(JSON, nullable=True)
     claim_text: Mapped[str] = mapped_column(Text, nullable=False)
     cited_sources: Mapped[list | None] = mapped_column(JSON, nullable=True)
     # Phase 1 — retrieval-grounded factuality check (validate.py)
     grounding_verdict: Mapped[str] = mapped_column(String(16), nullable=False)
     grounding_evidence_ref: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # The claim asserts a causal relation (validate._CAUSAL_RE). Metadata for
+    # the grounded x causal analysis cut, never a scoring gate.
+    causal: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     skipped_phase2: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
@@ -287,6 +294,9 @@ class Claim(Base):
     corroboration_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     evidence_n: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     per_source_verdicts: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Channel-collapsed verdicts behind corroboration_score/evidence_n; stored
+    # so the ablation and reporting need not re-derive the channel grouping.
+    per_channel_verdicts: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     partial_verifiability: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )

@@ -7,7 +7,21 @@ from pydantic import BaseModel, Field
 
 MAX_CLAIMS_PER_STEP = 3
 
-SOURCE_NAMES = ("openaq", "sentinel5p", "gfs", "openweather")
+# Canonical citation names, one per collected source. Must cover every source
+# render_enrichment_text can show the model — a source the model sees but
+# cannot legally cite forces it to either mis-attribute the data or fail the
+# Phase 1 citation check (validate.SOURCE_ALIASES maps spelling variants back
+# onto these names).
+SOURCE_NAMES = (
+    "openaq",
+    "sentinel5p",
+    "gfs",
+    "openweather",
+    "tceq",
+    "purpleair",
+    "asos",
+    "epa_aqs",
+)
 
 
 class ReasoningStep(str, Enum):

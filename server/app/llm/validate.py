@@ -3,7 +3,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.llm.parser import ClaimDraft
-from app.llm.prompt import SOURCE_NAMES
 
 # Phase 1 - retrieval-grounded factuality check (the CLAUDE.md-mandated
 # hallucination gate). For each claim we ask the FActScore-style question: is
@@ -72,15 +71,17 @@ def threshold_cues(text: str) -> list[tuple[int, str]]:
     return sorted(cues)
 
 # Causal connectives. A claim asserting one ("X caused Y", "elevated due to Z")
-# states a *relation*, not just the presence of its entities. Lexical term
-# overlap can't tell "no2 caused by pm25" (a fabricated link) from "no2 and
-# pm25 were elevated", so a causal claim is grounded only when the same kind of
-# relation is attested in the context — otherwise causal attribution is left to
-# Phase 2 corroboration, where it is scored against cross-source patterns. This
-# requires only that *a* causal connective co-occur in the context, not that it
-# link the same entities; in practice the observational context rarely contains
-# causal language at all, so this filters fabricated causal claims while a
-# context that does narrate the cause can still ground one.
+# states a *relation* on top of its factual content. The relation itself cannot
+# be verified lexically: the enrichment context is machine-rendered numeric
+# lines that never contain causal language, so the old causal-connective-in-
+# context requirement rejected every causally-phrased claim — excluding exactly
+# the explanation content steps 2-4 prompt for, and counting phrasing style as
+# hallucination. Phase 1 therefore grounds a causal claim on its factual
+# content (term overlap, citations, numeric consistency) and records
+# ``causal=True`` on the result so the analysis reports grounded x causal cuts
+# separately; the relation's physical validity is judged by the Phase 2
+# claim-type scorers (transport, trap, secondary formation are causal-shaped)
+# and by the expert labels.
 _CAUSAL_RE = re.compile(
     r"\bcaus(?:e|es|ed|ing)\b|\bdue to\b|\bbecause\b|\bled to\b"
     r"|\blead(?:s|ing)? to\b|\bresult(?:ed|ing|s)? (?:in|of|from)\b"
@@ -161,6 +162,9 @@ _STOPWORDS = frozenset(
 class GroundingResult:
     verdict: str
     evidence_ref: dict | None
+    # The claim asserts a causal relation (see _CAUSAL_RE). Metadata, not a
+    # gate: persisted so grounded/unverified x causal/descriptive is reportable.
+    causal: bool = False
 
 
 def _quantities(text: str) -> list[tuple[float, str | None, int]]:
@@ -283,20 +287,41 @@ def _salient_terms(text: str) -> set[str]:
     return terms
 
 
+# Whole-token spelling variants a model may plausibly emit for each canonical
+# source (prompt.SOURCE_NAMES). Keys must stay in lockstep with SOURCE_NAMES
+# (asserted in tests). Aliases exist because _TERM_RE splits on underscores
+# ("noaa_gfs" -> noaa + gfs, "epa_aqs" -> epa + aqs) and models write natural
+# spellings ("Sentinel-5P", "purple air"); without them the citation check
+# rejected claims citing 4 of the 8 sources the prompt shows, inflating the
+# Phase 1 unverified rate for exactly the models that cite diligently.
+SOURCE_ALIASES: dict[str, frozenset[str]] = {
+    "openaq": frozenset({"openaq"}),
+    "sentinel5p": frozenset({"sentinel5p", "sentinel-5p", "s5p", "tropomi"}),
+    "gfs": frozenset({"gfs", "noaa"}),
+    "openweather": frozenset({"openweather", "openweathermap"}),
+    "tceq": frozenset({"tceq"}),
+    "purpleair": frozenset({"purpleair", "purple"}),
+    "asos": frozenset({"asos", "metar"}),
+    "epa_aqs": frozenset({"aqs"}),
+}
+
+
 def _cited_source_grounded(source: str, context_tokens: set[str]) -> bool:
     """Whether a cited source names a known data source present in the context.
 
-    A cited source counts only when one of the known AERIS source names
-    (``SOURCE_NAMES``) appears as a whole token in *both* the citation and the
-    context. The raw `src.lower() in context` substring check it replaces let
-    an empty string ground (it is a substring of everything) and let any
-    co-occurring word ("afternoon") pose as a source. Token matching against
-    the known names rejects both. A multi-token citation ("noaa gfs") is
-    grounded by its recognized part.
+    A cited source counts only when an alias of a known AERIS source
+    (``SOURCE_ALIASES``) appears as a whole token in the citation *and* an
+    alias of that same source appears in the context. The raw
+    `src.lower() in context` substring check this replaces let an empty string
+    ground (it is a substring of everything) and let any co-occurring word
+    ("afternoon") pose as a source. Token matching against the known aliases
+    rejects both. A multi-token citation ("noaa gfs") is grounded by its
+    recognized part.
     """
     citation_tokens = set(_TERM_RE.findall(source.lower()))
     return any(
-        name in citation_tokens and name in context_tokens for name in SOURCE_NAMES
+        (aliases & citation_tokens) and (aliases & context_tokens)
+        for aliases in SOURCE_ALIASES.values()
     )
 
 
@@ -335,21 +360,18 @@ def check_grounding(
             numeric_tolerance,
         )
 
-    relation_supported = True
-    if _CAUSAL_RE.search(claim_text.lower()):
-        relation_supported = _CAUSAL_RE.search(context_text.lower()) is not None
+    causal = _CAUSAL_RE.search(claim_text.lower()) is not None
 
     if (
         len(matched) >= min_overlap
         and sources_present
         and matched_numbers is not None
-        and relation_supported
     ):
         evidence_ref: dict = {"matched_terms": matched}
         if matched_numbers:
             evidence_ref["matched_numbers"] = matched_numbers
-        return GroundingResult(GROUNDED, evidence_ref)
-    return GroundingResult(UNVERIFIED, None)
+        return GroundingResult(GROUNDED, evidence_ref, causal=causal)
+    return GroundingResult(UNVERIFIED, None, causal=causal)
 
 
 def ground_claim_drafts(

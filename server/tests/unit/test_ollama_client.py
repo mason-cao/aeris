@@ -48,7 +48,10 @@ class TestOllamaClient:
         assert captured["body"]["format"] == "json"
         assert captured["body"]["stream"] is False
         # Pinned decoding: Ollama's 0.8 default would make sweeps unreproducible.
-        assert captured["body"]["options"] == {"temperature": 0.0}
+        # num_ctx pinned to llama3 8B's 8192: Ollama's default (2048/4096)
+        # silently truncates the ~6k-token eval prompts the cloud baselines
+        # receive in full, confounding the local-vs-cloud comparison.
+        assert captured["body"]["options"] == {"temperature": 0.0, "num_ctx": 8192}
         assert raw.text == '{"cause": "photochemical", "confidence": 0.8}'
         assert raw.prompt_tokens == 42
         assert raw.completion_tokens == 17
@@ -73,6 +76,20 @@ class TestOllamaClient:
         assert result.model_name == "llama3:8b"
         assert result.prompt_tokens == 100
         assert result.completion_tokens == 20
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_num_ctx_is_configurable(self) -> None:
+        captured: dict = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["body"] = json.loads(request.content)
+            return httpx.Response(200, json={"response": "{}"})
+
+        client = _client_with(handler, model="llama3:8b", num_ctx=4096)
+        await client._complete("p", _Attribution)
+
+        assert captured["body"]["options"]["num_ctx"] == 4096
         await client.close()
 
     @pytest.mark.asyncio

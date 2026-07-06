@@ -54,14 +54,17 @@ def _make_claim(explanation_id, **overrides) -> Claim:
         explanation_id=explanation_id,
         step_index=1,
         claim_type="concentration_elevation",
+        matched_types=["concentration_elevation", "temporal_pattern"],
         claim_text="Ground-level O3 exceeded 90 ppb in the afternoon.",
         cited_sources=["openaq"],
         grounding_verdict="grounded",
         grounding_evidence_ref={"source": "openaq", "metric": "o3", "value": 0.092},
+        causal=False,
         skipped_phase2=False,
         corroboration_score=0.5,
         evidence_n=2,
         per_source_verdicts={"openaq": 1, "sentinel5p": 0, "gfs": -1, "openweather": 1},
+        per_channel_verdicts={"ground_insitu": 1, "nwp": -1},
         partial_verifiability=False,
         low_corroboration_flag=False,
     )
@@ -148,6 +151,9 @@ class TestClaimModel:
         assert loaded.corroboration_score == pytest.approx(0.5)
         assert loaded.evidence_n == 2
         assert loaded.per_source_verdicts["gfs"] == -1
+        assert loaded.matched_types == ["concentration_elevation", "temporal_pattern"]
+        assert loaded.causal is False
+        assert loaded.per_channel_verdicts == {"ground_insitu": 1, "nwp": -1}
         assert loaded.partial_verifiability is False
         assert loaded.low_corroboration_flag is False
 

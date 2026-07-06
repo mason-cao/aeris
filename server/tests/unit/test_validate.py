@@ -1,6 +1,8 @@
 from app.llm.parser import ClaimDraft
+from app.llm.prompt import SOURCE_NAMES
 from app.llm.validate import (
     GROUNDED,
+    SOURCE_ALIASES,
     TOLERANCE_FLOOR,
     UNVERIFIED,
     GroundingResult,
@@ -227,31 +229,42 @@ class TestUnitlessNumericGrounding:
 
 
 class TestCausalGrounding:
-    """A causal claim asserts a relation, not just co-occurring entities.
+    """Causal phrasing is recorded metadata, never a grounding gate.
 
-    Phase 1 verifies a claim's content is present in the (observational) data
-    context. Without a relation check, "no2 caused by pm25" grounds whenever
-    both nouns appear, rewarding a fabricated causal link. Causal attribution
-    is scored in Phase 2 corroboration, so the causal link must itself be
-    attested in the context for Phase 1 to mark the claim grounded.
+    The enrichment context is machine-rendered numeric lines that never contain
+    causal language, so requiring a causal connective in the context rejected
+    every causally-phrased claim — excluding exactly the explanation content
+    steps 2-4 prompt for, and counting phrasing style as hallucination. Phase 1
+    now grounds a causal claim on its factual content and flags ``causal=True``
+    so the analysis reports grounded x causal cuts; the relation's validity is
+    Phase 2's and the expert labels' job.
     """
 
     CO_OCCUR = "openaq reports no2 elevated and pm25 elevated in the afternoon"
 
-    def test_causal_claim_unsupported_by_context_is_unverified(self) -> None:
-        # Both nouns appear, but the context never asserts the causal link.
+    def test_causal_claim_with_grounded_content_grounds_and_is_flagged(self) -> None:
         result = check_grounding(
-            "no2 was caused by pm25 buildup",
+            "no2 was elevated because of pm25 buildup in the afternoon",
             self.CO_OCCUR,
             cited_sources=["openaq"],
         )
 
-        assert result.verdict == UNVERIFIED
-        assert result.evidence_ref is None
+        assert result.verdict == GROUNDED
+        assert result.causal is True
 
-    def test_observational_claim_still_grounds(self) -> None:
-        # A non-causal claim over the same context must be unaffected by the
-        # causal gate.
+    def test_causal_claim_with_fabricated_content_stays_unverified(self) -> None:
+        # The flag never rescues a claim whose content fails the factual
+        # checks — a fabricated entity is still a fabricated entity.
+        result = check_grounding(
+            "benzene spiked downtown, driven by a refinery upset",
+            self.CO_OCCUR,
+            cited_sources=[],
+        )
+
+        assert result.verdict == UNVERIFIED
+        assert result.causal is True
+
+    def test_observational_claim_is_not_flagged_causal(self) -> None:
         result = check_grounding(
             "no2 was elevated in the afternoon",
             self.CO_OCCUR,
@@ -259,18 +272,55 @@ class TestCausalGrounding:
         )
 
         assert result.verdict == GROUNDED
+        assert result.causal is False
 
-    def test_causal_claim_grounds_when_context_attests_relation(self) -> None:
-        # When the context itself states the causal link, a causal claim grounds
-        # — the gate is a relation check, not a blanket ban on causal claims.
+
+class TestSourceAliases:
+    """The citation check must recognize every source the prompt can show.
+
+    The old 4-name token check rejected any claim citing tceq/purpleair/asos/
+    epa_aqs — sources the enrichment context renders — and natural spellings
+    like "Sentinel-5P", mechanically inflating the Phase 1 unverified rate for
+    models that cite diligently.
+    """
+
+    def test_alias_map_covers_every_prompt_source_name(self) -> None:
+        assert set(SOURCE_ALIASES) == set(SOURCE_NAMES)
+
+    def test_new_channel_sources_ground_when_present_in_context(self) -> None:
+        context = (
+            "tceq no2 nearest to anomaly 41 ppb; purpleair pm25 mean 38 ug/m3; "
+            "asos wind_speed 1.2 m/s"
+        )
+        for citation in ("tceq", "purpleair", "asos"):
+            result = check_grounding(
+                "no2 and pm25 were elevated under weak wind conditions near "
+                "the tceq purpleair asos monitors",
+                context,
+                cited_sources=[citation],
+            )
+            assert result.verdict == GROUNDED, citation
+
+    def test_natural_spellings_ground_via_aliases(self) -> None:
+        context = "sentinel5p s5p_no2_column nearest 0.00021; noaa_gfs u_10m 2.1 m/s"
+        for citation in ("Sentinel-5P", "S5P", "noaa_gfs", "NOAA GFS"):
+            result = check_grounding(
+                "the sentinel5p column and noaa_gfs winds were consistent",
+                context,
+                cited_sources=[citation],
+            )
+            assert result.verdict == GROUNDED, citation
+
+    def test_alias_requires_context_presence_too(self) -> None:
+        # Citing a real source that is absent from the context still fails —
+        # aliases widen recognition, not the evidence requirement.
         result = check_grounding(
-            "ozone was elevated due to photochemical production",
-            "openaq reports ozone elevated due to photochemical production "
-            "in the afternoon",
-            cited_sources=["openaq"],
+            "no2 was elevated in the afternoon",
+            "openaq reports no2 elevated in the afternoon",
+            cited_sources=["tceq"],
         )
 
-        assert result.verdict == GROUNDED
+        assert result.verdict == UNVERIFIED
 
 
 class TestGroundClaimDrafts:

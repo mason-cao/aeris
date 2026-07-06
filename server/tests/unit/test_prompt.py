@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from app.llm.prompt import (
     MAX_CLAIMS_PER_STEP,
+    SOURCE_NAMES,
     STEP_SEQUENCE,
     ReasoningStep,
     ReasoningStepResponse,
@@ -57,6 +58,18 @@ class TestBuildStepPrompt:
         )
         assert "REASONING SO FAR" in prompt
         assert "afternoon ozone spike, light winds" in prompt
+
+    def test_framing_names_every_collected_source(self) -> None:
+        # The model may cite only what SYSTEM_FRAMING names; a source shown in
+        # the data context but missing here forces mis-attribution or a
+        # citation-gate failure (tceq/purpleair/asos were missing pre-fix).
+        prompt = build_step_prompt(
+            ReasoningStep.PHYSICAL_SIGNATURE,
+            anomaly_text=ANOMALY,
+            enrichment_text=ENRICHMENT,
+        )
+        for name in SOURCE_NAMES:
+            assert name in prompt, name
 
     def test_research_framing_not_legal_attribution(self) -> None:
         prompt = build_step_prompt(

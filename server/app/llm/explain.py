@@ -43,7 +43,7 @@ def _with_unit(value: object, unit: str | None) -> str:
 
 
 # Time-bucketed pooled means rendered per metric so the model can reason
-# about temporal patterns, and per-station means so it can reason about
+# about temporal patterns, and per-entity means so it can reason about
 # spatial uniformity. Without these lines the prompt carried only
 # range/mean/nearest aggregates while the Phase 2 scorers judged trend and
 # spatial-CV claim types against the full series — claims the model had no
@@ -54,7 +54,18 @@ def _with_unit(value: object, unit: str | None) -> str:
 # lines while keeping 12 in-window points per metric — enough resolution for
 # the trend and diurnal claims the scorers verify.
 _SERIES_BUCKET_H = 6
-_MAX_STATION_MEANS = 8
+_MAX_ENTITY_MEANS = 8
+
+_ENTITY_TERMS: dict[str, tuple[str, str | None]] = {
+    "asos": ("stations", "station means"),
+    "epa_aqs": ("monitors", "monitor means"),
+    "noaa_gfs": ("grid cells", "grid-cell means"),
+    "openaq": ("sensors", "sensor means"),
+    "openweather": ("query points", "query-point means"),
+    "purpleair": ("sensors", "sensor means"),
+    "sentinel5p": ("granules", None),
+    "tceq": ("monitors", "monitor means"),
+}
 
 
 def _metric_points(data: Mapping) -> list[tuple[datetime, float]]:
@@ -74,7 +85,7 @@ def _metric_points(data: Mapping) -> list[tuple[datetime, float]]:
 
 
 def _render_bucket_means(data: Mapping) -> str | None:
-    """'3h means: 06-04 00Z 12.3, 03Z 14.1, ...' or None when too sparse."""
+    """'6h means: 06-04 00Z 12.3, 06Z 14.1, ...' or None when too sparse."""
     points = _metric_points(data)
     if not points:
         return None
@@ -100,13 +111,19 @@ def _render_bucket_means(data: Mapping) -> str | None:
     return f"{_SERIES_BUCKET_H}h means: " + ", ".join(parts)
 
 
-def _render_station_means(data: Mapping) -> str | None:
-    """'station means: AAA (2.1 km) 18.2, ...' or None for single entities."""
+def _entity_terms(source: str) -> tuple[str, str | None]:
+    return _ENTITY_TERMS.get(source, ("entities", "entity means"))
+
+
+def _render_entity_means(data: Mapping, label: str | None) -> str | None:
+    """Render per-entity means when the source has meaningful spatial entities."""
+    if label is None:
+        return None
     entities = data.get("entities", [])
     if len(entities) < 2:
         return None
     rendered: list[str] = []
-    for entity in entities[:_MAX_STATION_MEANS]:
+    for entity in entities[:_MAX_ENTITY_MEANS]:
         values = [float(v) for _, v in entity.get("series", [])]
         if not values:
             continue
@@ -116,10 +133,10 @@ def _render_station_means(data: Mapping) -> str | None:
         )
     if len(rendered) < 2:
         return None
-    overflow = len(entities) - _MAX_STATION_MEANS
+    overflow = len(entities) - _MAX_ENTITY_MEANS
     if overflow > 0:
         rendered.append(f"+{overflow} more")
-    return "station means: " + ", ".join(rendered)
+    return f"{label}: " + ", ".join(rendered)
 
 
 def render_anomaly_text(anomaly: Anomaly) -> str:
@@ -145,7 +162,7 @@ def render_enrichment_text(summary: Mapping) -> str:
 
     Also the Phase 1 grounding context: ``check_grounding`` verifies claims
     against exactly this text, so every number a model may legitimately cite
-    (range, mean, nearest-in-time, bucketed series means, per-station means)
+    (range, mean, nearest-in-time, bucketed series means, per-entity means)
     has to be spelled out here. The labeling CLI shows this same text, so
     whatever the model can see, the labeler can audit.
     """
@@ -158,11 +175,12 @@ def render_enrichment_text(summary: Mapping) -> str:
         block = summary["sources"][source]
         for metric in sorted(block.get("metrics", {})):
             data = block["metrics"][metric]
+            entity_label, means_label = _entity_terms(source)
             unit = data.get("unit")
             value_range = data.get("value_range", {})
             nearest = data.get("nearest_in_time", {})
             lines.append(
-                f"- {source} {metric}: {data.get('n_entities')} stations, "
+                f"- {source} {metric}: {data.get('n_entities')} {entity_label}, "
                 f"{data.get('n_points')} points, "
                 f"range {_with_unit(value_range.get('min'), unit)} to "
                 f"{_with_unit(value_range.get('max'), unit)}, "
@@ -171,7 +189,10 @@ def render_enrichment_text(summary: Mapping) -> str:
                 f"at {nearest.get('t')} ({nearest.get('dt_minutes')} min away, "
                 f"{nearest.get('distance_km')} km from anomaly)"
             )
-            for extra in (_render_bucket_means(data), _render_station_means(data)):
+            for extra in (
+                _render_bucket_means(data),
+                _render_entity_means(data, means_label),
+            ):
                 if extra:
                     lines.append(f"  {extra}")
     missing = sorted(

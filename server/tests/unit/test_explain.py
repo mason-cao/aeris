@@ -170,7 +170,7 @@ def test_render_enrichment_text_includes_per_metric_stats():
     assert "no2" in text
     assert "82.0 ppb" in text  # nearest-in-time, what claims get grounded against
     assert "72.0 ppb" in text  # in-window mean
-    assert "5 stations" in text or "5 entities" in text
+    assert "5 sensors" in text
 
 
 def test_render_enrichment_text_names_silent_sources():
@@ -179,7 +179,7 @@ def test_render_enrichment_text_names_silent_sources():
     assert "no data" in text.lower()
 
 
-def test_render_enrichment_text_includes_series_and_station_means():
+def test_render_enrichment_text_includes_series_and_sensor_means():
     # Temporal and spatial claim types are scored against the series; the
     # model (and the labeler) must see the same shape, not just aggregates.
     summary = _summary()
@@ -204,14 +204,46 @@ def test_render_enrichment_text_includes_series_and_station_means():
     # past what llama3 8B's 8192-token window holds.
     assert "6h means:" in text
     assert "06-05 06Z 62" in text
-    assert "station means:" in text
+    assert "sensor means:" in text
     assert "st-2 (6.4 km) 66" in text
 
 
 def test_render_enrichment_text_omits_series_lines_when_sparse():
-    # Aggregate-only summaries (one point, one station) stay as they were.
+    # Aggregate-only summaries (one point, one entity) omit detail lines.
     text = render_enrichment_text(_summary())
     assert "6h means:" not in text
+    assert "sensor means:" not in text
+
+
+def test_render_enrichment_text_uses_grid_cell_terms():
+    summary = _summary()
+    block = summary["sources"].pop("openaq")
+    summary["sources"]["noaa_gfs"] = block
+
+    text = render_enrichment_text(summary)
+
+    assert "5 grid cells" in text
+    assert "5 stations" not in text
+
+
+def test_render_enrichment_text_suppresses_granule_means():
+    summary = _summary()
+    block = summary["sources"].pop("openaq")
+    metric = block["metrics"]["no2"]
+    metric["entities"] = [
+        {
+            "entity_id": f"granule-{index}",
+            "distance_km": 0.0,
+            "series": [[f"2026-06-0{index}T12:00:00+00:00", float(index)]],
+        }
+        for index in (1, 2)
+    ]
+    summary["sources"]["sentinel5p"] = block
+
+    text = render_enrichment_text(summary)
+
+    assert "5 granules" in text
+    assert "granule means:" not in text
     assert "station means:" not in text
 
 

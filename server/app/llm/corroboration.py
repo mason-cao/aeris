@@ -1,14 +1,12 @@
 """Phase 2 — cross-source corroboration scorer.
 
 For each Phase-1-grounded claim about an atmospheric anomaly, score it against
-the agreement of the data sources, grouped into process-independent measurement
-channels (ground in-situ, ground optical, satellite column, NWP, met in-situ)
-so corroboration counts independent channels rather than raw source count —
-sources that share a measurement process collapse to one channel. "Independent"
-is an instrument/process-level claim, not full error independence: the NWP
-analyses assimilate the surface obs the met-insitu channel reports, so residual
-errors are only partially independent (state this in the methods; the measured
-residual-error correlation quantifies it). Design + claim taxonomy:
+the agreement of the data sources, grouped into measurement-process channels
+(ground in-situ, ground optical, satellite column, NWP, met in-situ). Sources
+that share a measurement process collapse to one group, so raw source count
+does not inflate the score. The groups are not assumed statistically
+independent: NWP analyses can assimilate observations reported by the direct
+meteorology channel. Design + claim taxonomy:
 docs/specs/2026-05-21-corroboration-scorer-design.md; channel grouping:
 docs/specs/2026-06-24-channel-independence-collectors.md.
 
@@ -38,19 +36,18 @@ CONTRADICTING = -1
 SILENT = 0
 
 # Each source's measurement channel. Sources that share a measurement process
-# collapse to one channel, so corroboration counts process-INDEPENDENT channels,
-# not raw sources — the ">=2 independent channels per sub-claim" the 2026-06-24
-# audit requires. TCEQ/EPA AQS are the same regulatory monitors as OpenAQ (one
-# ground channel); GFS/OpenWeather are both NWP-derived (one channel, the
-# audit's "common-mode"). Channel independence is instrument/process-level, not
-# full error independence — GFS analyses assimilate ASOS/METAR obs — which is
-# why the measured per-pair residual error correlation refines the within-vs-
-# across-channel weighting later (and needs the backfilled quiet-window data
-# first). A source not listed here gets its own channel.
+# collapse to one channel, so corroboration counts measurement-process groups,
+# not raw sources. TCEQ and EPA AQS share regulatory monitor sites;
+# GFS/OpenWeather are both NWP-derived. OpenAQ is provisionally assigned to the
+# ground channel, but the July 12 audit found mixed PM2.5 provider/instrument
+# classes; official scoring is blocked until that provenance is resolved. The
+# groups are not statistically independent: GFS analyses assimilate ASOS/METAR
+# observations, and any weighting claim needs residual-error measurements that
+# have not yet been completed. An unlisted source gets its own channel.
 SOURCE_CHANNELS: dict[str, str] = {
-    "openaq": "ground_insitu",       # regulatory ground monitors
+    "openaq": "ground_insitu",       # provisional; mixed PM2.5 provider classes
     "tceq": "ground_insitu",         # same regulatory monitors (preliminary feed)
-    "epa_aqs": "ground_insitu",      # same monitors, certified
+    "epa_aqs": "ground_insitu",      # historical AQS monitor samples
     "purpleair": "ground_optical",   # low-cost optical PM — different instrument physics
     "sentinel5p": "satellite_column",
     "noaa_gfs": "nwp",               # numerical weather prediction
@@ -60,7 +57,7 @@ SOURCE_CHANNELS: dict[str, str] = {
 
 
 def channel_of(source: str) -> str:
-    """The error-independent channel ``source`` belongs to (own name if unlisted)."""
+    """The measurement-process channel for ``source`` (own name if unlisted)."""
     return SOURCE_CHANNELS.get(source, source)
 
 # low_corroboration_flag threshold (memo: metadata signal, not a scoring gate).
@@ -90,11 +87,11 @@ class CorroborationResult:
 def aggregate_verdicts(per_source_verdicts: Mapping[str, int]) -> CorroborationResult:
     """Collapse per-source verdicts into a channel-aware score and evidence count.
 
-    Sources are first grouped into error-independent channels
+    Sources are first grouped into measurement-process channels
     (:data:`SOURCE_CHANNELS`) and each channel takes the net sign of its members'
     verdicts, so redundant sources (TCEQ+AQS, GFS+OpenWeather) count once and a
     within-channel disagreement nets to silent. ``evidence_n`` is then the number
-    of channels carrying a verdict — *independent* evidence, not raw source
+    of channels carrying a verdict, not raw source
     count — and ``score = (supporting - contradicting) / evidence_n`` in [-1, +1]
     (``None`` when every channel is silent). Single-source and distinct-channel
     claims are unchanged from the old per-source behaviour.
@@ -138,7 +135,7 @@ def aggregate_verdicts(per_source_verdicts: Mapping[str, int]) -> CorroborationR
 
 
 def low_corroboration_flag(score: float | None, *, evidence_n: int) -> bool:
-    """Phase 2 metadata flag: strongly contradicted across >= 2 sources.
+    """Phase 2 metadata flag: strongly contradicted across >= 2 channels.
 
     Not a gate — the raw ``corroboration_score`` is what the research analysis
     correlates against expert labels; this is a convenience signal for
@@ -640,8 +637,8 @@ def score_transport_direction(
     ow_dir = ow.get("wind_direction", {}).get("nearest_in_time", {}).get("v")
     if ow_dir is not None:
         measured["openweather"] = float(ow_dir) % 360.0
-    # ASOS anemometers — the in-situ met channel, error-independent of the NWP
-    # products (GFS forecast / OpenWeather blend).
+    # ASOS anemometers are a direct-observation channel, distinct from the NWP
+    # products but correlated through data assimilation and blended inputs.
     asos_dir = (
         summary.get("sources", {})
         .get("asos", {})

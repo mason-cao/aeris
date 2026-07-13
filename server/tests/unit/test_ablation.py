@@ -1,9 +1,9 @@
 """Leave-one-out corroboration ablation (2026-06-24 audit rec #2).
 
 Holds each model's claims fixed and re-scores them under source/channel
-exclusion — no LLM re-runs — to measure each error-independent channel's
+exclusion — no LLM re-runs — to measure each measurement-process channel's
 marginal contribution to the corroboration proxy. The headline metric is the
-fraction of scored claims that keep >= 2 independent channels (evidence_n>=2):
+fraction of scored claims that keep >= 2 process groups (evidence_n>=2):
 dropping a load-bearing channel must lower it, redundant within-channel drops
 must not.
 """
@@ -12,7 +12,6 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import select
 
 from app.db.models import Anomaly, Claim, EnrichmentRecord, Explanation
 from app.eval.ablation import (
@@ -56,7 +55,7 @@ def _summary(sources_metrics: dict, anomaly_ts: str = ANOMALY_TS) -> dict:
     }
 
 
-# Ground (tceq) + satellite (s5p) = two independent channels agreeing on a
+# Ground (tceq) + satellite (s5p) = two process groups agreeing on a
 # qualitative elevation, each against its own baseline in its own units — a
 # surface-ppb threshold can never legitimately engage a mol/m^2 column.
 GROUND_PLUS_SAT = _summary(

@@ -4,8 +4,7 @@ from dataclasses import dataclass
 
 from app.llm.parser import ClaimDraft
 
-# Phase 1 - retrieval-grounded factuality check (the CLAUDE.md-mandated
-# hallucination gate). For each claim we ask the FActScore-style question: is
+# Phase 1 - context-grounded factuality check. For each claim we ask: is
 # this claim's content present in the retrieved enrichment context the model
 # was given? Grounding requires lexical term overlap, a cited-source presence
 # check, and numeric consistency: any quantity stated in the claim must be

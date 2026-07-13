@@ -1,8 +1,8 @@
 """Leave-one-out corroboration ablation (2026-06-24 peer-review audit, rec #2).
 
-The corroboration score is a label-free eval proxy; this module measures how
-much each *error-independent channel* actually contributes to it. The claims a
-model produced are held fixed — no LLM re-runs — and each grounded claim is
+The corroboration score is a proposed automated evaluation proxy; this module
+measures how much each measurement-process channel contributes to it. The
+claims a model produced are held fixed — no LLM re-runs — and each grounded claim is
 re-scored under source/channel exclusion. Comparing a drop condition against the
 ``full`` baseline gives that channel's marginal contribution.
 
@@ -12,15 +12,15 @@ Three granularities, all reported:
   is the point: it quantifies the redundancy the channel grouping assumes.
 - ``drop-channel:<channel>`` — withhold every source in a channel (only emitted
   for channels with >= 2 present sources, else it duplicates the source drop).
-  This is the genuine independence test: removing a whole channel should be the
-  thing that lowers the multi-channel corroboration rate.
+  This tests the sensitivity to the process grouping: removing a whole channel
+  should lower the multi-channel corroboration rate when it is load-bearing.
 - ``drop-trigger-channel`` — per claim, withhold the channel whose source
   triggered that claim's anomaly (read from the summary's ``anomaly.source``).
   Quantifies how much of the proxy rests on the channel detection already
   selected on — the circularity check.
 
-The headline metric is ``n_multi_channel`` — claims that keep >= 2 independent
-channels (``evidence_n >= 2``). The audit's failure mode was the proxy resolving
+The headline metric is ``n_multi_channel`` — claims that keep >= 2 process
+groups (``evidence_n >= 2``). The audit's failure mode was the proxy resolving
 on one source (``evidence_n = 1``); this is the experiment that exposes it.
 
 CLI: ``python -m app.eval.ablation --anomaly-set fixtures/eval50.json``

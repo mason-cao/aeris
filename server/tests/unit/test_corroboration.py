@@ -6,7 +6,6 @@ research analysis correlates against expert labels. Spec:
 docs/specs/2026-05-21-corroboration-scorer-design.md.
 """
 
-import math
 
 from app.llm.corroboration import (
     CONTRADICTING,

@@ -200,11 +200,8 @@ def filter_and_mean(
     """Mean of pixel values that survive QA + bbox + finite-value masking.
 
     Vectorized over the full granule (~1.8M pixels) rather than a per-pixel
-    Python loop. ``None`` entries coerce to NaN, so they drop out exactly as
-    before. The mask reproduces the original element-wise logic precisely:
-    only the *value* is finiteness-checked, a qa of NaN compares False against
-    the threshold and so leaks through, and NaN coordinates fail the bbox test
-    and drop out.
+    Python loop. ``None`` entries coerce to NaN. Values, QA scores, and
+    coordinates must all be finite before a pixel can enter the mean.
     """
     if not (len(values) == len(qa) == len(lats) == len(lons)):
         return None
@@ -216,7 +213,10 @@ def filter_and_mean(
 
     keep = (
         np.isfinite(v)
-        & ~(q < qa_threshold)
+        & np.isfinite(q)
+        & (q >= qa_threshold)
+        & np.isfinite(la)
+        & np.isfinite(lo)
         & (la >= bbox.min_lat)
         & (la <= bbox.max_lat)
         & (lo >= bbox.min_lon)

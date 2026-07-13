@@ -1,12 +1,11 @@
-"""PurpleAir low-cost optical PM2.5 — instrument-independent from regulatory PM.
+"""PurpleAir low-cost optical PM2.5 observations.
 
 PurpleAir sensors use optical Plantower units; pairing them against the
-regulatory BAM/gravimetric PM2.5 already in OpenAQ gives a genuine
-different-instrument-physics channel for the type-1 PM2.5 sub-claim (the
-Barkjohn correction characterizes the link, so it's *partial* independence).
+regulatory BAM/gravimetric PM2.5 can provide a different-instrument-physics
+comparison. The channels remain correlated, and the current OpenAQ PM2.5 block
+contains mixed provider and instrument classes.
 
-Paid, points-metered API ($1 / 100k points; sensor owners free for their own
-sensors). The live ``/v1/sensors`` bbox call is cheap (one per hour); the
+Points-metered API. The live ``/v1/sensors`` bbox call is small (one per hour); the
 ``/v1/sensors/{id}/history`` backfill is point-expensive, so it is hard-capped
 against the free ``/v1/organization`` balance.
 
@@ -44,7 +43,7 @@ LIVE_PM_FIELD = "pm2.5"
 HISTORY_PM_FIELD = "pm2.5_atm"
 # ``humidity`` is the sensor's onboard RH and ``pm2.5_cf_1`` the CF=1 estimate;
 # both ride into each row's raw_json (see ``raw_json=row`` below) because the
-# post-freeze EPA Barkjohn correction (0.524*PA_cf1 - 0.0862*RH + 5.75) is
+# future EPA Barkjohn correction (0.524*PA_cf1 - 0.0862*RH + 5.75) is
 # defined on the CF=1 field with co-located RH — the stored ``pm2.5`` (ATM)
 # value diverges from CF=1 above ~25-30 ug/m3, exactly the anomaly regime, so
 # correcting ATM would mis-correct the readings that matter. Forward-only —

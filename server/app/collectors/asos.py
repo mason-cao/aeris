@@ -1,15 +1,11 @@
 """ASOS/METAR surface observations via the Iowa Environmental Mesonet (IEM).
 
 IEM redistributes the NOAA ASOS/AWOS/METAR feed as a free, key-less CSV
-service. These are raw anemometer/thermometer readings — a measurement
-process independent of the NWP-derived met channels (GFS analysis fields,
-OpenWeather's blended product), which is the instrument-level independence
-the corroboration analysis needs for wind/stagnation sub-claims. Note the
-errors are only *partially* independent: GFS analyses assimilate the very
-METAR obs this channel reports (and OpenWeather blends station data), so
-"independent" is a process claim, not full error independence — state the
-assimilation caveat in the methods and lean on the measured residual-error
-correlation for the quantitative version.
+service. These are direct anemometer/thermometer observations, a measurement
+process distinct from NWP-derived fields. They are not statistically
+independent: GFS analyses assimilate METAR observations and OpenWeather blends
+multiple weather inputs. Any quantitative independence claim therefore needs
+an explicit residual-error analysis.
 
 Two endpoints are used, both rate-limited through the shared ASOS limiter:
 

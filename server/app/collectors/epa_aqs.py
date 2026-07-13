@@ -1,14 +1,12 @@
-"""EPA Air Quality System (AQS) — certified historical ground chemistry.
+"""EPA Air Quality System (AQS) historical ground-chemistry samples.
 
-AQS is the federal regulatory archive. It is the certified counterpart to the
-preliminary TCEQ feed: same monitors, but quality-assured — and lagging "6
-months or more" behind real time, so it can never feed the live freeze window.
-Its role is the *demonstrable* error-independence analysis on quiet windows:
-the satellite column (Sentinel-5P) vs. in-situ ground (AQS) pair for the exact
-petrochemical species (NO2/SO2/CO) the Houston framing targets.
+AQS is the federal regulatory archive. AERIS uses it as a historical comparison
+for the preliminary TCEQ feed. The parser retains one-hour samples but does not
+retain or filter a certification-status field, so stored rows must not be
+described as certified without a separate provenance check.
 
-Backfill-only — there is no live collector (a 6-month-delayed source has no
-"current" reading to poll). This module holds the pure request/parse helpers;
+Backfill-only: there is no live collector. This module holds the pure
+request/parse helpers;
 ``EPAAQSBackfill`` in backfill.py does the network + persistence.
 
 Verified API contract (https://aqs.epa.gov/aqsweb/documents/data_api.html and
@@ -40,7 +38,7 @@ SOURCE_NAME = "epa_aqs"
 API_BASE = "https://aqs.epa.gov/data/api"
 AQS_SAMPLE_ENDPOINT = f"{API_BASE}/sampleData/byBox"
 
-# The petrochemical species the satellite-vs-ground independence pair targets.
+# Petrochemical species used in historical satellite-versus-ground comparisons.
 AQS_PARAM_TO_METRIC: dict[str, str] = {
     "42602": "no2",
     "42401": "so2",

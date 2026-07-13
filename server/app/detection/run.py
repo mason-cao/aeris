@@ -668,7 +668,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--source",
         default=None,
-        help="Filter to one data source (openaq, sentinel5p, noaa_gfs, openweather)",
+        help=(
+            "Filter to one data source (asos, noaa_gfs, openaq, openweather, "
+            "purpleair, sentinel5p, tceq, or historical epa_aqs rows)"
+        ),
     )
     parser.add_argument(
         "--metric",

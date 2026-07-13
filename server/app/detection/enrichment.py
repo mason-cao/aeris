@@ -12,13 +12,11 @@ observation nearest the anomaly in time). The summary is *pure context* —
 no scoring and no physics derivations — so the scorer owns every judgement
 call and the enrichment stays cheap to re-run.
 
-The four collected sources sit on four different spatial conventions:
-point OpenAQ stations, the 5-point OpenWeather grid, the 0.25 deg NOAA GFS
-grid, and the single-anchor Sentinel-5P granule mean. Enrichment treats
-them uniformly — every DataPoint carries its own ``(lat, lon)`` and a
-``source_entity_id``, so grouping by ``(source, metric, entity)`` and
-tagging each entity with its great-circle distance from the anomaly works
-the same for all four.
+The sources use different spatial conventions: ground sensors and monitors,
+OpenWeather query points, NOAA GFS grid cells, and Sentinel-5P granule means.
+Enrichment treats them uniformly: every DataPoint carries ``(lat, lon)`` and a
+``source_entity_id``, so grouping by ``(source, metric, entity)`` and tagging
+each entity with its great-circle distance from the anomaly uses one schema.
 """
 
 from __future__ import annotations
@@ -42,7 +40,7 @@ from app.db.models import Anomaly, DataPoint, EnrichmentRecord
 # scorer keys its parsing off this.
 SCHEMA_VERSION = 1
 
-# The sources Month 1 brought live. Coverage is reported against this set so
+# Coverage is reported against the live collector registry so
 # a silent collector shows up as an explicit gap rather than absent JSON.
 # Rows from any other source are still enriched, just not coverage-scored.
 EXPECTED_SOURCES: tuple[str, ...] = (
@@ -50,10 +48,9 @@ EXPECTED_SOURCES: tuple[str, ...] = (
     "openweather",
     "noaa_gfs",
     "sentinel5p",
-    # Channel-independence collectors (2026-06-24). Live sources, so coverage is
-    # reported for them too — a silent one shows as a gap. EPA AQS is omitted: it
-    # is backfill-only and 6-mo-delayed, so it is legitimately absent from a
-    # recent anomaly's window and must not be flagged as a collection gap.
+    # Additional measurement-process collectors (2026-06-24). Live sources,
+    # so coverage is reported for them too. EPA AQS is omitted because it is a
+    # historical, backfill-only source with no live freshness expectation.
     "asos",
     "tceq",
     "purpleair",

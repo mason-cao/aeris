@@ -939,7 +939,7 @@ class OpenWeatherBackfill(BackfillStrategy):
         notes = (
             "OpenWeather free tier exposes only current-conditions endpoints; "
             "historical data requires the paid One Call API 3.0 Historical add-on. "
-            "Use scheduled snapshot collection (APScheduler) to accumulate forward."
+            "Use the scheduled collector to accumulate snapshots going forward."
         )
         return BackfillResult(
             source=self.source_name,
@@ -1078,17 +1078,17 @@ class ASOSBackfill(BackfillStrategy):
         )
 
 
-# EPA AQS (certified historical, backfill-only) -----------------------
+# EPA AQS (historical, backfill-only) ---------------------------------
 
 
 class EPAAQSBackfill(BackfillStrategy):
-    """Certified NO2/SO2/CO from EPA AQS, chunked per calendar year.
+    """Historical NO2/SO2/CO from EPA AQS, chunked by calendar month.
 
-    Backfill-only: AQS lags 6+ months, so it never serves the live window —
-    it supplies the certified ground leg of the satellite-vs-ground
-    independence analysis on quiet historical windows. Skips cleanly when
-    credentials are unset so a default all-source run never errors.
-    Idempotent via the data_points dedup index.
+    Backfill-only: it supplies a historical ground leg for satellite-versus-
+    ground comparisons. The parser does not retain a certification-status
+    field, so these rows are not asserted to be certified. Skips cleanly when
+    credentials are unset so a default all-source run never errors. Idempotent
+    via the data_points dedup index.
     """
 
     source_name = EPA_AQS_SOURCE_NAME
@@ -1131,7 +1131,7 @@ class EPAAQSBackfill(BackfillStrategy):
                 notes=(
                     "EPA AQS backfill requires AQS_EMAIL and AQS_API_KEY in "
                     "server/.env (free signup at aqs.epa.gov/data/api/signup). "
-                    "Note: AQS data lags ~6 months, so it has no live-window rows."
+                    "AQS is configured as a historical, backfill-only source."
                 ),
                 duration_ms=(time.monotonic() - start) * 1000,
             )
@@ -1217,8 +1217,8 @@ class TCEQBackfill(BackfillStrategy):
     undocumented and fragile, so a sustained outage stops the run instead of
     hammering ~1190 (site, day) POSTs and risking a ban. POSTs go through
     ``rate_limited_post`` for 429 + transient-error retry. Idempotent via the
-    data_points dedup index. Data is preliminary/uncertified — EPA AQS is the
-    certified counterpart.
+    data_points dedup index. TCEQ data is preliminary; EPA AQS provides the
+    historical archive used for comparison.
     """
 
     source_name = "tceq"
@@ -1570,7 +1570,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--source",
         choices=_SOURCE_CHOICES,
         default=None,
-        help="Backfill one source instead of all four.",
+        help="Backfill one source instead of all available strategies.",
     )
     parser.add_argument(
         "--days",

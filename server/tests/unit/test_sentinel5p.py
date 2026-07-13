@@ -268,11 +268,7 @@ class TestFilterAndMean:
 
         assert result == pytest.approx((1 + 2 + 3 + 40) / 13)
 
-    def test_nan_qa_pixel_with_finite_value_is_retained(self) -> None:
-        # The filter only finiteness-checks the value, so a finite-value pixel
-        # whose qa is NaN compares False against the threshold and is kept. This
-        # is the pre-existing production behavior; pin it so vectorizing doesn't
-        # silently change which pixels enter the column mean.
+    def test_filters_nan_qa_pixels(self) -> None:
         result = filter_and_mean(
             values=[1.0] * 10 + [5.0] * 5,
             qa=[0.9] * 10 + [float("nan")] * 5,
@@ -283,7 +279,7 @@ class TestFilterAndMean:
             min_pixels=5,
         )
 
-        assert result == pytest.approx((10 * 1.0 + 5 * 5.0) / 15)
+        assert result == pytest.approx(1.0)
 
     def test_returns_none_when_below_min_pixels(self) -> None:
         result = filter_and_mean(

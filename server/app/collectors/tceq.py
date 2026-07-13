@@ -3,10 +3,11 @@
 This is the one source with no documented API: data comes from the public
 "Hourly Data (All Parameters)" CGI report
 (``/cgi-bin/compliance/monops/daily_summary.pl``), reverse-engineered and
-verified live on 2026-06-24. It is the *only* near-real-time path to in-situ
-NO2/SO2/CO for the Ship-Channel petrochemical corridor — the ground leg of the
-satellite(S5P)-vs-ground independence pair — since OpenAQ/AirNow don't surface
-those species and EPA AQS lags 6 months.
+verified live on 2026-06-24. AERIS uses it as the near-real-time path to in-situ
+NO2/SO2/CO for the Ship-Channel petrochemical corridor and the ground leg of a
+satellite(S5P)-versus-ground comparison, since the audited
+OpenAQ/AirNow coverage does not surface those species in the target area and
+EPA AQS is configured as historical-only.
 
 Verified contract (daily_summary.pl):
 * POST form: first_look=no, select_date=today|yesterday|user (+ user_month/
@@ -18,7 +19,7 @@ Verified contract (daily_summary.pl):
 * units (physically unambiguous + TCEQ/EPA regulatory standard): NO2/SO2 ppb,
   CO ppm
 * **data is preliminary/uncertified** ("may change... not official until
-  certified") — EPA AQS is the certified counterpart
+  certified"); EPA AQS is the historical comparison archive used by AERIS
 
 Operational caveats this is the fragile source: undocumented, no published
 rate limit or terms, HTML-scraped. Hence: a conservative shared limiter, a

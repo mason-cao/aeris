@@ -8,7 +8,7 @@ asyncpg==0.30.0
 psycopg2-binary==2.9.10
 alembic==1.14.1
 
-# HTTP client
+# HTTP client (collectors and LLM providers)
 httpx==0.28.1
 
 # Climate data (NOAA GFS via NOMADS GRIB filter, Sentinel-5P L2 netCDF)
@@ -21,17 +21,10 @@ pygrib==2.1.8
 scikit-learn==1.6.1
 statsmodels==0.14.4
 
-# LLM pipeline (Month 2) — RAG store. All model clients (Ollama, GPT, Gemini)
-# call their HTTP APIs through httpx directly; no vendor SDKs.
-chromadb==1.5.9
-
 # Data validation / config
 pydantic==2.11.1
 pydantic-settings==2.8.1
 python-dotenv==1.1.0
-
-# Scheduling (Week 4)
-apscheduler==3.11.0
 
 # Testing
 pytest==8.3.5

@@ -1,4 +1,4 @@
-"""Channel-aware aggregation: corroboration counts error-independent channels,
+"""Channel-aware aggregation: corroboration counts measurement-process groups,
 not raw sources (2026-06-24 audit rec #3, channel-grouping foundation)."""
 
 from app.llm.corroboration import (
@@ -51,7 +51,7 @@ class TestChannelMap:
 
 class TestAggregateChannels:
     def test_distinct_channels_count_separately(self) -> None:
-        # Ground + satellite agreeing = 2 independent channels (unchanged from the
+        # Ground + satellite agreeing = 2 process groups (unchanged from the
         # old per-source behavior, since they were already distinct).
         r = aggregate_verdicts({"openaq": SUPPORTING, "sentinel5p": SUPPORTING})
         assert r.evidence_n == 2

@@ -26,17 +26,13 @@ class Settings(BaseSettings):
     # Weather
     openweather_api_key: str = ""
 
-    # EPA AQS (certified historical ground chemistry; backfill-only)
+    # EPA AQS historical ground chemistry (backfill-only)
     aqs_email: str = ""
     aqs_api_key: str = ""
 
-    # NASA / Satellite
-    nasa_earthdata_token: str = ""
+    # Copernicus Data Space (Sentinel-5P)
     cdse_username: str = ""
     cdse_password: str = ""
-
-    # Mapping
-    mapbox_token: str = ""
 
     # LLM (cloud comparison only)
     openai_api_key: str = ""

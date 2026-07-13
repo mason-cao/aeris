@@ -35,6 +35,7 @@ Thumbs.db
 # Data (local only)
 server/data/chromadb/
 server/data/exports/
+server/rehearsal/
 *.db
 *.sqlite3
 

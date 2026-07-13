@@ -1,10 +1,12 @@
 import logging
-from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes.data import router as data_router
+from app.api.routes.system import router as system_router
 from app.config import settings
 from app.db.schema import create_tables
 from app.db.session import engine
@@ -25,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     logger.info("AERIS starting up (env=%s)", settings.aeris_env)
     if settings.aeris_env == "development":
         try:
@@ -39,7 +41,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="AERIS",
-    description="Autonomous Environmental RAG & Inference System",
+    description=(
+        "Research backend for the planned Autonomous Environmental RAG "
+        "& Inference System"
+    ),
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -51,10 +56,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Register routers
-from app.api.routes.system import router as system_router
-from app.api.routes.data import router as data_router
 
 app.include_router(system_router, prefix="/api")
 app.include_router(data_router, prefix="/api")

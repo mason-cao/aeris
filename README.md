@@ -1,164 +1,197 @@
 # A.E.R.I.S. - Autonomous Environmental RAG & Inference System
 
-A self-hosted environmental intelligence platform that detects anomalies in real-time environmental data and generates causal explanations using a locally-hosted LLM with RAG and multi-source cross-referencing.
+AERIS is a planned end-to-end environmental intelligence system for detecting
+Houston-area anomalies, retrieving relevant evidence, generating and evaluating
+LLM explanations, and presenting the results through a real-time map interface.
+The repository currently contains the research backend and evaluation workflow.
 
----
+## Current Status
 
-## The Problem
+The repository currently contains a Python backend and command-line research
+workflow. It can:
 
-Attributing complex climate events and anomalies to underlying atmospheric physics is a highly specialized task. The necessary data (vertical temperature profiles, wind vectors, and satellite imaging) exists, but it is scattered across various meteorological agencies in different formats.
+1. Collect and normalize seven live environmental feeds, plus historical EPA
+   AQS samples.
+2. Detect anomalies with z-score, STL, and isolation-forest methods.
+3. Build a 72-hour, cross-source evidence summary for each anomaly.
+4. Generate explanations with local Ollama or cloud comparison models.
+5. Check claims for context grounding and score them with deterministic,
+   channel-aware corroboration rules.
+6. Prepare frozen anomaly sets, run three-model sweeps, collect blinded expert
+   labels, and run source/channel ablations.
 
-Big cloud models could probably reason through this if you piped enough data in, but running GPT-class inference on a 24/7 stream isn't realistic for independent deployment. Small local models are cheap to run, but they hallucinate badly when asked to reason about climate physics and AI attribution. AERIS is an attempt to bridge that gap: an 8B model with a specialized RAG pipeline and structured cross-referencing to perform accurate climate attribution locally.
+The official evaluation has not been frozen, official expert labels have not
+been collected, and the final statistical analysis is not implemented. There
+is no vector-retrieval pipeline, web frontend, interactive map, or WebSocket
+service in the current repository.
 
-## What AERIS Does
+## Planned Product Architecture
 
-AERIS runs on a home server and:
+The project name describes the intended complete system, not only the current
+evaluation milestone. The planned product stages remain:
 
-1. **Aggregates** real-time atmospheric and climate data sources (including OpenWeather and Sentinel-5P)
-2. **Detects anomalies** using a three-method engine (statistical, seasonal decomposition, isolation forest)
-3. **Explains causes** via a locally-hosted LLM that cross-references all data sources through a RAG pipeline
-4. **Visualizes** everything on an interactive map, translating complex atmospheric anomalies into actionable regional health advisories and natural language summaries.
+- **RAG with ChromaDB:** retrieve relevant historical anomalies, validated
+  explanations, and supporting environmental context for model generation and
+  natural-language queries.
+- **React application:** provide the anomaly feed, anomaly detail, evidence,
+  evaluation, query, and system-status views.
+- **Interactive map:** use Mapbox GL to display monitors, weather fields,
+  satellite coverage, anomalies, and supporting evidence spatially.
+- **FastAPI WebSockets:** stream collector health, new observations, anomaly
+  detections, and explanation status to the frontend.
+- **Autonomous operation:** continuously collect, detect, enrich, explain,
+  evaluate, and publish new events with explicit quality and confidence gates.
 
-All inference runs locally, ensuring complete data privacy and independent operation.
+These are planned, crucial parts of AERIS. They are not removed from the
+roadmap merely because the July research evaluation is being completed first.
 
 ## Scope
 
-Geographic target: a 50km radius around downtown Houston, Texas. Houston was chosen for three high-contrast inputs that stress-test a multi-source attribution model: massive petrochemical emissions from the Ship Channel refinery complex, a dense government sensor network (EPA + TCEQ + harbor monitors), and dynamic Gulf-coast weather (sea-breeze fronts, hurricane corridor, frequent inversions). All collectors filter to this bounding box; the center coordinate is configurable via `AERIS_TARGET_LAT` / `AERIS_TARGET_LON` / `AERIS_TARGET_RADIUS_KM`.
+The configured target is centered on Houston, Texas, with a default 50 km
+radius. Point-based collectors apply the configured radius. Sentinel-5P column
+extraction currently averages quality-filtered pixels inside the corresponding
+Houston bounding box, so its spatial footprint is not an exact 50 km circle.
 
-Temporal scope: the evaluation set is drawn from summer anomalies only, so seasonal variation doesn't confound the cross-source corroboration signal. Data collection itself runs year-round; the restriction applies to the labeled evaluation set, not to ingestion.
+The planned evaluation focuses on summer air-quality anomalies. Collection is
+not inherently limited to that evaluation window.
 
-## Architecture
+## Implemented Architecture
 
+```text
+Windows collector box
+  -> seven scheduled live collectors
+  -> SQLite edge database
+
+Analysis workflow
+  -> optional PostgreSQL + TimescaleDB analysis database
+  -> anomaly detection
+  -> cross-source enrichment
+  -> LLM explanation generation
+  -> context-grounding and deterministic corroboration
+  -> frozen-set, labeling, and ablation CLIs
+
+FastAPI
+  -> health endpoint
+  -> data-source and paginated raw-data endpoints
 ```
-Home Server (Always-On)
-├── Data Collectors ──── 8 sources / 5 error-independent channels (ground in-situ, ground optical, satellite column, NWP, met in-situ)
-├── PostgreSQL + TimescaleDB ──── Time-series storage
-├── Anomaly Detection ──── Z-score | STL decomposition | Isolation Forest
-├── Ollama (Llama 3 8B) ──── Local LLM inference
-├── ChromaDB ──── RAG vector store
-└── FastAPI ──── REST API + WebSocket
 
-Web Application (React)
-├── Interactive Map ──── Mapbox GL JS with meteorological/anomaly/satellite layers
-├── Anomaly Feed ──── Real-time detected anomalies with LLM attribution summaries
-├── Anomaly Detail ──── Full physics explanation + downstream regional health advisories
-├── NL Query ──── "What atmospheric conditions caused the temperature inversion yesterday?"
-└── System Dashboard ──── Collection status, model metrics, server health
-```
-
-## Tech Stack
-
-| Layer        | Technology                        |
-| ------------ | --------------------------------- |
-| Backend      | Python 3.11+, FastAPI, SQLAlchemy |
-| Database     | PostgreSQL + TimescaleDB          |
-| Vector Store | ChromaDB                          |
-| Local LLM    | Ollama (Llama 3 8B)               |
-| ML           | scikit-learn, statsmodels         |
-| Frontend     | React 18, TypeScript, Vite        |
-| Mapping      | Mapbox GL JS                      |
-| Charts       | Recharts                          |
-| Styling      | Tailwind CSS                      |
+The local and cloud model clients call HTTP APIs directly through `httpx`.
+Structured database evidence is rendered into the prompt; it is not retrieved
+from a vector store.
 
 ## Data Sources
 
-Eight sources grouped into **error-independent measurement channels** — sources
-that share a measurement process (the two NWP products; the regulatory ground
-monitors) collapse to one channel, so corroboration counts *independent*
-channels, not raw sources. The target is ≥2 independent channels per headline
-sub-claim (see [Research](#research)).
+| Source | Role | Cadence | Implementation status |
+| --- | --- | --- | --- |
+| OpenAQ | PM2.5 and ozone from mixed ground networks | Hourly | Live; PM2.5 provider/instrument classification is unresolved |
+| TCEQ CAMS | Preliminary ground NO2, SO2, and CO | Hourly | Live; scraped public report |
+| EPA AQS | Historical ground NO2, SO2, and CO | Backfill only | Stored rows are one-hour AQS samples; certification status is not retained |
+| PurpleAir | Low-cost optical PM2.5 | Hourly | Live; official use still needs correction and outlier policy |
+| Sentinel-5P | Satellite NO2, SO2, CO, and HCHO columns | Daily when available | Live catalog and column extraction |
+| NOAA GFS | NWP meteorology, winds, and boundary-layer fields | 6-hour cycles | Live |
+| OpenWeather | Blended surface weather at five query points | Hourly | Live; no free historical backfill |
+| ASOS / METAR | Direct airport weather observations | Hourly | Live |
 
-| Source                            | Channel          | Data                                                                                                                  | Frequency | Status     |
-| --------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------- | --------- | ---------- |
-| OpenAQ                            | ground in-situ   | Ground-station criteria pollutants — PM2.5 and ozone in the target area                                              | Hourly    | Live       |
-| TCEQ CAMS                         | ground in-situ   | Ship-Channel ground monitors — NO2, SO2, CO (the petrochemical species OpenAQ doesn't surface in-radius)             | Hourly    | Live       |
-| EPA AQS                           | ground in-situ   | Certified ground NO2, SO2, CO — the quality-assured counterpart to TCEQ for the independence analysis                | —         | Historical |
-| PurpleAir                         | ground optical   | Low-cost optical PM2.5 — different instrument physics from the regulatory monitors                                   | Hourly    | Live       |
-| Sentinel-5P                       | satellite column | Satellite atmospheric chemistry — NO2, CO, HCHO column densities (SO2 below the TROPOMI detection limit over Houston) | Daily     | Live       |
-| NOAA Global Forecast System (GFS) | NWP              | Upper-air temperature & geopotential height, 10 m winds, boundary-layer height, surface pressure, precipitable water | 6 hours   | Live       |
-| OpenWeather                       | NWP              | Surface temperature, humidity, pressure, wind speed/direction, cloud cover, precipitation                           | Hourly    | Live       |
-| ASOS / METAR                      | met in-situ      | Airport anemometer/thermometer obs — wind direction & speed, temperature, humidity (raw, not model-blended)          | Hourly    | Live       |
+The scorer groups sources into measurement-process channels. Those groups are
+a research design choice, not proof of statistical independence. In particular,
+the current OpenAQ PM2.5 block mixes provider classes, and NWP products can
+share model inputs or assimilated observations with direct weather feeds. Any
+independence claim must be tested rather than inferred from source names.
 
-## Research
+## Research Question
 
-**Questions**:
+The planned study asks whether agreement across process-distinct measurement
+channels can act as an automated signal for the quality of LLM explanations of
+environmental anomalies, and how a local Llama 3 8B model compares with GPT-5.4
+and Gemini 3.5 Flash baselines.
 
-1. Can the agreement of **error-independent measurement channels** — heterogeneous instruments observing one physical state through largely independent error processes — serve as a label-free evaluation signal for LLM scientific attributions, one structurally distinct from retrieval-grounded factuality checks (FActScore-style) because it leverages constraints from the underlying physical system rather than textual overlap?
-2. When does a locally-hosted 8B model's attribution quality diverge from cloud GPT-class models, and is the local model overconfident on exactly the claims it gets wrong?
+Implemented evaluation infrastructure includes:
 
-Linking weather patterns to environmental events is well-established science; the open question is whether the correctness of an LLM's causal reasoning can be mechanically scored at scale, without relying entirely on expert labels.
+- A context-grounding gate with source, term, and numeric checks.
+- A ten-type deterministic claim scorer.
+- A channel-aware aggregation rule and leave-one-source/channel-out ablation.
+- A resumable three-model harness.
+- A blinded per-claim expert-labeling CLI.
 
-**Contributions**:
+Planned but not yet implemented or completed:
 
-1. **Error-independent channel architecture** — eight sources (OpenAQ, TCEQ, EPA AQS, PurpleAir, Sentinel-5P, NOAA GFS, OpenWeather, ASOS) normalized to a common schema and grouped into five measurement channels whose errors arise from largely independent processes (ground in-situ, ground optical, satellite column, NWP, met in-situ). Cross-referencing across channels — not raw source count — is what gives an 8B local model structured, mutually-constraining context to reason about atmospheric anomalies.
-2. **Phase 1: retrieval-grounded factuality check** — automated hallucination detection that verifies each claim against the retrieved enrichment context the model was given (FActScore-style). Filters fabricated claims before the corroboration scorer ever sees them.
-3. **Phase 2: cross-channel corroboration scorer** (the novel contribution) — per-claim agreement scoring across error-independent measurement channels via a 10-type claim taxonomy (3 headline types for inferential analysis, 7 descriptive). Each headline sub-claim is resolved against ≥2 independent channels where the physics allows it, and the residual cross-source error correlation is measured per pair on quiet windows rather than independence being assumed — turning "sources I assert are independent" into "channels I demonstrate are independent." Tested as a label-free proxy for ground-truth verification of LLM scientific reasoning.
-4. **Empirical local-vs-cloud comparison** on a domain where small models are widely assumed to fail, with calibration curves (does stated confidence track corroboration?) and disagreement structure (where do local + cloud diverge?).
-
-**Evaluation**:
-
-- ~50 anomalies drawn from the summer months (seasonal confounds removed), labeled by me and Dr. Bracco, with an audit-subset Cohen's κ for inter-rater reliability — kept broad across whatever anomaly categories the summer delivers (e.g., petrochemical upsets, ozone exceedances, regional transport events) to test cross-category generalization.
-- Phase 1 metric: % verifiable per (model, claim type) + fabrication rate.
-- Phase 2 metric: Spearman/Pearson between corroboration scores and expert labels, per claim type.
-- **Phase 1 → Phase 2 delta**: claims grounded in retrieved context but contradicted by independent sensors — the empirical case for cross-source corroboration as a signal class distinct from retrieval-grounded factuality.
-- Local (Llama 3 8B) vs. cloud (GPT-5.4, Gemini 3.5 Flash) on both phases.
-- Calibration: reliability diagrams of stated confidence vs. corroboration score, per model.
-- User comprehension and actionability study (Phase 4).
+- The official anomaly freeze and model-output set.
+- Official expert labels and inter-rater reliability.
+- Confidence intervals, clustered inference, calibration analysis, and final
+  model comparisons.
+- Empirical validation of the proposed channel grouping.
 
 ## Getting Started
 
 ### Prerequisites
 
 - Python 3.11+
-- PostgreSQL 15+ with TimescaleDB extension
-- Ollama with Llama 3 8B pulled
-- Node.js 18+ (Phase 3, frontend)
+- Ollama with `llama3:8b` for local generation
+- SQLite for edge collection or PostgreSQL/TimescaleDB for analysis
+- API credentials for the sources and cloud baselines you intend to run
 
-### Setup
+### Backend Setup
 
 ```bash
-# Clone
 git clone https://github.com/mason-cao/aeris.git
-cd aeris
-
-# Backend
-cd server
+cd aeris/server
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env  # fill in API keys
-uvicorn app.main:app --reload
-
-# Frontend — Phase 3 (client/ is not scaffolded yet)
-# cd client
-# npm install
-# npm run dev
+cp .env.example .env
+pytest -q
+uvicorn app.main:app --reload --port 8000
 ```
+
+### Common Commands
+
+```bash
+# Run all registered live collectors or one source.
+python -m app.collectors.run_all
+python -m app.collectors.run_all --source openaq
+
+# Backfill a supported historical source.
+python -m app.collectors.backfill --source epa_aqs \
+  --since 2025-06-01 --until 2025-08-31
+
+# Run detection and enrichment.
+python -m app.detection.run
+python -m app.detection.enrichment
+
+# Generate one explanation.
+python -m app.llm.explain --anomaly-id=<UUID>
+```
+
+Do not run the freeze or official-label commands until the evaluation protocol,
+data-quality rules, and official data snapshot have been locked.
 
 ### Environment Variables
 
-Copy `server/.env.example` and fill in:
+See `server/.env.example`. The active settings are:
 
-- `DATABASE_URL` - PostgreSQL connection string
-- `OPENAQ_API_KEY` - OpenAQ
-- `OPENWEATHER_API_KEY` - OpenWeather
-- `CDSE_USERNAME` / `CDSE_PASSWORD` - Copernicus Data Space (Sentinel-5P granule downloads)
-- `NASA_EARTHDATA_TOKEN` - NASA Earthdata fallback (optional)
-- `OPENAI_API_KEY` / `GOOGLE_API_KEY` - cloud LLM comparison (GPT-5.4, Gemini 3.5 Flash)
-- `MAPBOX_TOKEN` - Mapbox GL JS (Phase 3, frontend)
+- `DATABASE_URL` and `DATABASE_URL_SYNC`
+- `OPENAQ_API_KEY`, `OPENAQ_MAX_READING_AGE_S`, and `PURPLEAIR_API_KEY`
+- `OPENWEATHER_API_KEY`
+- `AQS_EMAIL` and `AQS_API_KEY`
+- `CDSE_USERNAME` and `CDSE_PASSWORD`
+- `OPENAI_API_KEY` and `GOOGLE_API_KEY`
+- `AERIS_ENV`, `AERIS_LOG_LEVEL`, and the three `AERIS_TARGET_*` settings
 
 ## Roadmap
 
-- [x] Design specification
-- [x] **Stage 1**: Server infrastructure + data pipeline (all four macro APIs live — OpenAQ, OpenWeather, Sentinel-5P column extraction, NOAA GFS analysis)
-- [ ] **Stage 2**: Anomaly detection engine + LLM explanation pipeline _(in progress — detection, explanation, validation, the channel-aware corroboration scorer, the four channel-independence collectors (TCEQ, EPA AQS, PurpleAir, ASOS), and the evaluation harness are built and dry-run-verified; the eval run remains)_
-- [ ] **Stage 3**: Web application (map, feed, detail, query, dashboard)
-- [ ] **Stage 4**: Research evaluation + polish
-- [ ] **Stage 5**: Paper, competition submissions, stretch goals
+- [x] Live collector registry and historical backfill strategies
+- [x] Anomaly detection and cross-source enrichment
+- [x] LLM generation, grounding, corroboration, labeling, and ablation CLIs
+- [ ] Resolve provenance, quality-control, and scorer methodology blockers
+- [ ] Freeze and run the official evaluation
+- [ ] Collect official labels and implement the statistical analysis
+- [ ] Add the ChromaDB retrieval layer and RAG evaluation
+- [ ] Build the React and Mapbox application
+- [ ] Add WebSocket-driven live updates and autonomous product workflows
 
 ## Acknowledgements
 
-Dr. Annalisa Bracco, Senior Scientist @ CMCC & Professor, Georgia Institute of Technology - Formal mentor for the AI attribution phase
+Dr. Annalisa Bracco is the scientific mentor for the attribution evaluation.
 
 ## License
 

@@ -2,7 +2,8 @@
 
 Turns the Acer (i7-4710HQ / 16 GB / Win 10 Education) into an unattended data
 collector that runs all seven AERIS live collectors hourly into a local SQLite
-database (EPA AQS is backfill-only — 6-mo-delayed — so it has no hourly task). Built to survive a multi-week travel gap with no one at the keyboard:
+database. EPA AQS is a historical backfill and has no hourly task. The setup is
+built to survive a multi-week travel gap with no one at the keyboard:
 code is deployed by `git pull`, and an independent liveness alarm pings a
 dead-man's switch so a silent stall reaches your phone.
 
@@ -117,7 +118,7 @@ copy C:\temp\aeris\aeris\server\.env.example  C:\temp\aeris\aeris\server\.env
 Edit **`C:\temp\aeris\aeris\server\.env`** in Notepad:
 
 1. [ ] Fill in your real API keys: `OPENAQ_API_KEY`, `OPENWEATHER_API_KEY`,
-       `NASA_EARTHDATA_TOKEN`, `CDSE_USERNAME`, `CDSE_PASSWORD`,
+       `CDSE_USERNAME`, `CDSE_PASSWORD`,
        `PURPLEAIR_API_KEY`, and — for the EPA AQS historical backfill —
        `AQS_EMAIL` + `AQS_API_KEY`. (ASOS and TCEQ need no key.)
 2. [ ] Set these two lines exactly:
@@ -312,14 +313,14 @@ down) is the one a local emailer can never catch.
 Per-source freshness budgets: openaq/openweather/asos/tceq/purpleair 3 h,
 noaa_gfs 12 h, sentinel5p 72 h (it is orbital — ~1 overpass/day, with
 cloud-gapped days). A `STALE` sentinel5p inside a couple of days is usually a
-real collection gap, not a false alarm. EPA AQS is **not** monitored (it is
-backfill-only and 6-mo-delayed, so it has no "fresh" state).
+real collection gap, not a false alarm. EPA AQS is **not** monitored because it
+is a backfill-only historical source and has no live freshness state.
 
 ---
 
 ## Monitoring from the road
 
-The Healthchecks email (Step 11) is your primary signal — green means all four
+The Healthchecks email (Step 11) is your primary signal — green means all seven
 sources are landing fresh data; a red/alert means investigate. If you also want
 to eyeball the logs, point the Acer's OneDrive at `C:\aeris-data\logs\` (or copy
 the folder there) so `collector.log` and `liveness.log` sync to your phone. A
@@ -327,12 +328,12 @@ healthy `collector.log` gains one `===== RUN =====` block per hour.
 
 ---
 
-## One-time backfill — fill the freeze window (run once, before Jul 1)
+## One-time historical backfill
 
-The hourly task only collects forward from deploy time. Run these **once** (from
-the Miniforge Prompt, `conda activate aeris`, in `...\server`) to fill the
-Jun 1 → now freeze window and the certified summer-2025 independence window.
-All are idempotent (dedup makes re-runs free):
+The hourly task only collects forward from deploy time. Run these from the
+Miniforge Prompt (`conda activate aeris`, in `...\server`) to fill a chosen
+analysis window and a summer-2025 historical comparison window. All are
+idempotent:
 
 ```bat
 python -m app.collectors.backfill --source asos      --since 2026-06-01
@@ -342,54 +343,29 @@ python -m app.collectors.backfill --source epa_aqs    --since 2025-06-01 --until
 python -m app.collectors.backfill --source sentinel5p --since 2025-06-01 --until 2025-08-31
 ```
 
-- `tceq` is slow (14 sites × the range, heavily rate-limited) — let it finish.
-- `purpleair` is **paid** (~$1, hard-capped at $3 against the points balance).
-- `epa_aqs` data lags ~3 months, so it has **no** Jun–Jul 2026 rows — it fills
-  the certified 2025 window for the satellite-vs-ground independence analysis;
-  `sentinel5p` on the same window gives it something to pair against. S5P
-  granules are hundreds of MB — run on Ethernet.
-- Re-run `epa_aqs` every month or two later to pick up 2026 data as AQS ingests it.
+- `tceq` is slow (14 sites across the range, heavily rate-limited); let it finish.
+- PurpleAir historical requests consume API points. Check the account balance
+  before starting a large range.
+- AERIS treats EPA AQS as historical. The parser retains one-hour samples but
+  not a certification-status field, so do not call every stored row certified.
+- Sentinel-5P granules can be hundreds of MB; use a stable connection.
 
 ---
 
-## Eval freeze checklist — 2026 (Jul 1–13)
+## Official evaluation freeze
 
-The unattended collection window is **Jul 1–12**; the eval set freezes **Jul 13**
-from the Jun 1 → Jul 12 data. Run this on the last day you have hands on the box.
-
-**Before Jul 1 — lock it down**
-
-1. [ ] Run `deploy.bat` once; confirm the deployed commit is the one you intend
-       to freeze on. This is the last deploy until after the freeze.
-2. [ ] `cd C:\temp\aeris\aeris\server` then `python -m app.collectors.run_all`
-       **twice** — seven `ok` lines, and still all `ok` on the rerun (dedup works).
-3. [ ] Healthchecks is green; the force-stale test (Step 11.6) turns it red, then
-       it heals on the next healthy run.
-4. [ ] Windows Update paused through Jul 13 (re-click to extend the 7-day cap).
-5. [ ] AC power + Ethernet; sleep/hibernate off (Step 6); signed in; lid-close
-       does nothing.
-6. [ ] `dir C:\aeris-data` shows enough free disk for ~2 weeks of rows.
-
-**Jul 1–12 — hands off**
-
-7. [ ] **Do not run `deploy.bat`, `git pull`, or edit anything.** The code is frozen.
-8. [ ] If Healthchecks alerts, fix the smallest thing (a key, power, network).
-       Avoid redeploying mid-window unless collection has gone fully dark.
-
-**Jul 13 — freeze handoff**
-
-9.  [ ] Copy `C:\aeris-data\aeris.db` to the Mac.
-10. [ ] On the Mac, build the fixture:
-        `python -m app.eval.freeze --start 2026-06-01 --end 2026-07-12 --top 50 --out fixtures/eval50.json`.
-11. [ ] Before trusting the set, scan `liveness.log` / the Healthchecks history
-        for any gap inside the window.
+The former July 13 freeze checklist is superseded. Do not freeze an official
+evaluation or collect official labels from this setup guide. The July 12 data
+snapshot is approved only for audit and disposable rehearsal work. Freeze only
+after the provenance, quality-control, scorer, and labeling-protocol decisions
+listed in `docs/bracco/2026-07-15-labeling-call-preparation.md` are resolved.
 
 ---
 
 ## Troubleshooting
 
 **`conda env create` fails on `pygrib`/`eccodes`.**
-The other three collectors don't need it. Edit `environment.yml`, delete the
+The other collectors do not need it. Edit `environment.yml`, delete the
 `pygrib` and `eccodes` lines, and re-run Step 2. NOAA GFS will report `failed`
 each run — that's fine: NOMADS keeps ~10 days of GFS cycles, so you can
 backfill the gap with `python -m app.collectors.backfill` when you return

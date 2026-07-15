@@ -28,6 +28,7 @@ from enum import Enum
 from statistics import fmean, pstdev
 
 from app.llm.validate import strip_locators, threshold_cues, within_tolerance
+from app.provenance.openaq_pm25 import verified_monitor_entity_ids
 
 # Per-source verdict on a single claim. A source either supports the claim,
 # contradicts it, or is silent (no data bearing on it within the window).
@@ -38,14 +39,15 @@ SILENT = 0
 # Each source's measurement channel. Sources that share a measurement process
 # collapse to one channel, so corroboration counts measurement-process groups,
 # not raw sources. TCEQ and EPA AQS share regulatory monitor sites;
-# GFS/OpenWeather are both NWP-derived. OpenAQ is provisionally assigned to the
-# ground channel, but the July 12 audit found mixed PM2.5 provider/instrument
-# classes; official scoring is blocked until that provenance is resolved. The
-# groups are not statistically independent: GFS analyses assimilate ASOS/METAR
-# observations, and any weighting claim needs residual-error measurements that
-# have not yet been completed. An unlisted source gets its own channel.
+# GFS/OpenWeather are both NWP-derived. OpenAQ PM2.5 enters the ground channel
+# only after the B6 entity-provenance filter retains verified AirNow government
+# monitors; Clarity/AirGradient and unmappable archive entities are excluded.
+# The groups are not statistically independent: GFS analyses assimilate
+# ASOS/METAR observations, and any weighting claim needs residual-error
+# measurements that have not yet been completed. An unlisted source gets its
+# own channel.
 SOURCE_CHANNELS: dict[str, str] = {
-    "openaq": "ground_insitu",       # provisional; mixed PM2.5 provider classes
+    "openaq": "ground_insitu",       # PM2.5 is entity-filtered before voting
     "tceq": "ground_insitu",         # same regulatory monitors (preliminary feed)
     "epa_aqs": "ground_insitu",      # historical AQS monitor samples
     "purpleair": "ground_optical",   # low-cost optical PM — different instrument physics
@@ -401,17 +403,27 @@ def score_concentration_elevation(
     if sentinel_metric is not None:
         relevant["sentinel5p"] = sentinel_metric
 
-    sources = summary.get("sources", {})
     verdicts: dict[str, int] = {}
     notes: list[str] = []
 
     for source, metric in relevant.items():
         if metric is None:
             continue
-        data = sources.get(source, {}).get("metrics", {}).get(metric)
+        raw_data = (
+            summary.get("sources", {})
+            .get(source, {})
+            .get("metrics", {})
+            .get(metric)
+        )
+        data = _metric_block(summary, source, metric)
         if not data or data.get("nearest_in_time", {}).get("v") is None:
             verdicts[source] = SILENT
-            notes.append(f"{source}: no {metric} in window")
+            if source == "openaq" and metric == "pm25" and raw_data:
+                notes.append(
+                    "openaq: no verified-monitor pm25 observation in window"
+                )
+            else:
+                notes.append(f"{source}: no {metric} in window")
             continue
 
         nearest = data["nearest_in_time"]["v"]
@@ -753,7 +765,103 @@ def score_meteorological_state(
 
 def _metric_block(summary: Mapping, source: str, metric: str) -> Mapping | None:
     block = summary.get("sources", {}).get(source, {}).get("metrics", {}).get(metric)
-    return block or None
+    if not block:
+        return None
+    if source == "openaq" and metric == "pm25":
+        return _verified_openaq_pm25_block(summary, block)
+    return block
+
+
+def _verified_openaq_pm25_block(
+    summary: Mapping, block: Mapping
+) -> Mapping | None:
+    """Rebuild an OpenAQ PM2.5 block from verified monitor entities only."""
+    eligible_ids = verified_monitor_entity_ids()
+    raw_entities = block.get("entities")
+    if not isinstance(raw_entities, list):
+        return None
+
+    anomaly_ts = _anomaly_ts(summary)
+    entities: list[dict] = []
+    nearest_candidates: list[tuple[datetime, float, str, float]] = []
+    values: list[float] = []
+
+    for raw_entity in raw_entities:
+        if not isinstance(raw_entity, Mapping):
+            continue
+        entity_id = str(raw_entity.get("entity_id", ""))
+        if entity_id not in eligible_ids:
+            continue
+        try:
+            distance = float(raw_entity.get("distance_km", math.inf))
+        except (TypeError, ValueError):
+            distance = math.inf
+
+        series: list[list[object]] = []
+        for raw_pair in raw_entity.get("series", []):
+            if not isinstance(raw_pair, (list, tuple)) or len(raw_pair) != 2:
+                continue
+            raw_timestamp, raw_value = raw_pair
+            try:
+                timestamp = datetime.fromisoformat(str(raw_timestamp))
+                value = float(raw_value)
+            except (TypeError, ValueError):
+                continue
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            if not math.isfinite(value):
+                continue
+            normalized_timestamp = timestamp.isoformat()
+            series.append([normalized_timestamp, value])
+            values.append(value)
+            nearest_candidates.append((timestamp, distance, entity_id, value))
+
+        if series:
+            entity = dict(raw_entity)
+            entity["entity_id"] = entity_id
+            entity["n_points"] = len(series)
+            entity["series"] = series
+            entities.append(entity)
+
+    if not entities or not nearest_candidates:
+        return None
+
+    if anomaly_ts is None:
+        original_nearest = block.get("nearest_in_time", {})
+        if str(original_nearest.get("entity_id", "")) not in eligible_ids:
+            return None
+        nearest = dict(original_nearest)
+    else:
+        timestamp, distance, entity_id, value = min(
+            nearest_candidates,
+            key=lambda item: (
+                abs(item[0] - anomaly_ts),
+                item[1],
+                item[2],
+                item[0],
+            ),
+        )
+        nearest = {
+            "t": timestamp.isoformat(),
+            "v": value,
+            "entity_id": entity_id,
+            "distance_km": round(distance, 3),
+            "dt_minutes": round(
+                abs(timestamp - anomaly_ts).total_seconds() / 60.0, 1
+            ),
+        }
+
+    filtered = dict(block)
+    filtered["n_points"] = len(values)
+    filtered["n_entities"] = len(entities)
+    filtered["value_range"] = {
+        "min": min(values),
+        "max": max(values),
+        "mean": round(sum(values) / len(values), 4),
+    }
+    filtered["nearest_in_time"] = nearest
+    filtered["entities"] = entities
+    return filtered
 
 
 # The redundant regulatory ground sources (one channel; the aggregator

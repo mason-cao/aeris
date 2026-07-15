@@ -12,11 +12,15 @@ from app.llm.corroboration import (
     score_meteorological_state,
     score_transport_direction,
 )
+from app.provenance.openaq_pm25 import verified_monitor_entity_ids
+
+
+_OPENAQ_MONITOR_ID = min(verified_monitor_entity_ids(), key=int)
 
 
 def _summary(sources_metrics: dict, anomaly_ts: str = "2026-06-15T12:00:00+00:00") -> dict:
     """Minimal enrichment summary: {source: {metric: nearest_value}}."""
-    return {
+    summary = {
         "anomaly": {"timestamp": anomaly_ts, "lat": 29.76, "lon": -95.37},
         "sources": {
             source: {
@@ -28,6 +32,28 @@ def _summary(sources_metrics: dict, anomaly_ts: str = "2026-06-15T12:00:00+00:00
             for source, metrics in sources_metrics.items()
         },
     }
+    openaq_pm25 = (
+        summary.get("sources", {})
+        .get("openaq", {})
+        .get("metrics", {})
+        .get("pm25")
+    )
+    if openaq_pm25:
+        value = openaq_pm25["nearest_in_time"]["v"]
+        openaq_pm25["nearest_in_time"].update(
+            {"t": anomaly_ts, "entity_id": _OPENAQ_MONITOR_ID}
+        )
+        openaq_pm25["entities"] = [
+            {
+                "entity_id": _OPENAQ_MONITOR_ID,
+                "lat": 29.76,
+                "lon": -95.37,
+                "distance_km": 0.0,
+                "n_points": 1,
+                "series": [[anomaly_ts, value]],
+            }
+        ]
+    return summary
 
 
 class TestChannelMap:

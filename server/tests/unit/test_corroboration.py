@@ -20,6 +20,12 @@ from app.llm.corroboration import (
     score_meteorological_state,
     score_transport_direction,
 )
+from app.provenance.openaq_pm25 import verified_monitor_entity_ids
+
+
+_OPENAQ_MONITOR_IDS = tuple(
+    sorted(verified_monitor_entity_ids(), key=int)
+)
 
 
 def test_all_silent_returns_null_and_unverified():
@@ -350,7 +356,7 @@ def test_concentration_qualitative_elevated_uses_pre_anomaly_baseline():
                         "nearest_in_time": {"v": 52.0},
                         "entities": [
                             {
-                                "entity_id": "s1",
+                                "entity_id": _OPENAQ_MONITOR_IDS[0],
                                 "series": _hourly_series(
                                     0, [12.0, 11.0, 13.0, 12.0, 12.0, 52.0]
                                 ),
@@ -381,7 +387,7 @@ def test_concentration_qualitative_without_baseline_is_silent():
                         "nearest_in_time": {"v": 52.0},
                         "entities": [
                             {
-                                "entity_id": "s1",
+                                "entity_id": _OPENAQ_MONITOR_IDS[0],
                                 "series": _hourly_series(3, [12.0, 13.0, 52.0]),
                             }
                         ],
@@ -498,7 +504,7 @@ def test_concentration_qualitative_within_sigma_band_is_silent():
                         "nearest_in_time": {"v": 12.5},
                         "entities": [
                             {
-                                "entity_id": "s1",
+                                "entity_id": _OPENAQ_MONITOR_IDS[0],
                                 "series": _hourly_series(
                                     0, [12.0, 11.0, 13.0, 12.0, 12.0, 12.5]
                                 ),
@@ -528,7 +534,7 @@ def test_concentration_qualitative_below_baseline_contradicts():
                         "nearest_in_time": {"v": 9.0},
                         "entities": [
                             {
-                                "entity_id": "s1",
+                                "entity_id": _OPENAQ_MONITOR_IDS[0],
                                 "series": _hourly_series(
                                     0, [12.0, 11.0, 13.0, 12.0, 12.0, 9.0]
                                 ),
@@ -563,7 +569,7 @@ def _trigger_summary() -> dict:
                         "nearest_in_time": {"v": 52.0},
                         "entities": [
                             {
-                                "entity_id": "s1",
+                                "entity_id": _OPENAQ_MONITOR_IDS[0],
                                 "series": _hourly_series(
                                     0, [12.0, 11.0, 13.0, 12.0, 12.0, 52.0]
                                 ),
@@ -832,7 +838,11 @@ def _metric_from_entities(entities: list[dict]) -> dict:
             "max": max(values),
             "mean": sum(values) / len(values),
         },
-        "nearest_in_time": {"v": values[-1]},
+        "nearest_in_time": {
+            "t": entities[-1]["series"][-1][0],
+            "v": values[-1],
+            "entity_id": entities[-1]["entity_id"],
+        },
         "entities": entities,
     }
 
@@ -980,7 +990,9 @@ def test_trap_no_data_is_silent():
 
 
 def test_temporal_rising_trend_supported():
-    entities = [_entity("a", _series(10, [10, 12, 15, 18, 22, 26]))]
+    entities = [
+        _entity(_OPENAQ_MONITOR_IDS[0], _series(10, [10, 12, 15, 18, 22, 26]))
+    ]
     summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
     verdicts, _ = score_temporal_pattern(
         "PM2.5 concentrations climbed steadily through the afternoon.", summary
@@ -989,7 +1001,9 @@ def test_temporal_rising_trend_supported():
 
 
 def test_temporal_rising_claim_contradicted_by_falling_series():
-    entities = [_entity("a", _series(10, [30, 26, 22, 15, 12, 8]))]
+    entities = [
+        _entity(_OPENAQ_MONITOR_IDS[0], _series(10, [30, 26, 22, 15, 12, 8]))
+    ]
     summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
     verdicts, _ = score_temporal_pattern(
         "PM2.5 levels rose all afternoon.", summary
@@ -998,7 +1012,7 @@ def test_temporal_rising_claim_contradicted_by_falling_series():
 
 
 def test_temporal_too_few_points_is_silent():
-    entities = [_entity("a", _series(10, [10, 12]))]
+    entities = [_entity(_OPENAQ_MONITOR_IDS[0], _series(10, [10, 12]))]
     summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
     verdicts, _ = score_temporal_pattern("PM2.5 rose sharply.", summary)
     assert verdicts["openaq"] == SILENT
@@ -1008,7 +1022,8 @@ def test_temporal_rising_claim_reads_the_hours_into_the_anomaly():
     # Rising into a 12:00 anomaly, falling after. Pooled over the whole
     # window the trend reads "down"; the claim is about the build-up.
     rise_then_fall = _entity(
-        "s1", _series(6, [5, 10, 15, 20, 25, 30, 28, 24, 20, 16, 12, 8, 4, 2])
+        _OPENAQ_MONITOR_IDS[0],
+        _series(6, [5, 10, 15, 20, 25, 30, 28, 24, 20, 16, 12, 8, 4, 2]),
     )
     summary = {
         **_summary_with(
@@ -1308,15 +1323,26 @@ def test_secondary_formation_only_reads_the_anomaly_day():
 # --- background_vs_event (type 10) ---
 
 
-def _stations(means: list[float], obs_per_station: int = 6) -> list[dict]:
+def _stations(
+    means: list[float],
+    obs_per_station: int = 6,
+    *,
+    entity_ids: tuple[str, ...] | None = None,
+    entity_offset: int = 0,
+) -> list[dict]:
     return [
-        _entity(f"s{i}", _series(10, [m] * obs_per_station))
+        _entity(
+            entity_ids[entity_offset + i] if entity_ids else f"s{i}",
+            _series(10, [m] * obs_per_station),
+        )
         for i, m in enumerate(means)
     ]
 
 
 def test_background_regional_claim_supported_by_uniform_stations():
-    entities = _stations([20, 21, 19, 22, 20])
+    entities = _stations(
+        [20, 21, 19, 22, 20], entity_ids=_OPENAQ_MONITOR_IDS
+    )
     summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
     verdicts, _ = score_background_vs_event(
         "Elevated PM2.5 across all monitors suggests regional transport.", summary
@@ -1325,7 +1351,9 @@ def test_background_regional_claim_supported_by_uniform_stations():
 
 
 def test_background_regional_claim_contradicted_by_localized_spike():
-    entities = _stations([95, 12, 10, 11, 13])
+    entities = _stations(
+        [95, 12, 10, 11, 13], entity_ids=_OPENAQ_MONITOR_IDS
+    )
     summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
     verdicts, _ = score_background_vs_event(
         "The haze was regional, not a local source.", summary
@@ -1334,7 +1362,9 @@ def test_background_regional_claim_contradicted_by_localized_spike():
 
 
 def test_background_local_claim_supported_by_localized_spike():
-    entities = _stations([95, 12, 10, 11, 13])
+    entities = _stations(
+        [95, 12, 10, 11, 13], entity_ids=_OPENAQ_MONITOR_IDS
+    )
     summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
     verdicts, _ = score_background_vs_event(
         "An isolated spike at one monitor points to a local source.", summary
@@ -1344,7 +1374,7 @@ def test_background_local_claim_supported_by_localized_spike():
 
 def test_background_precondition_unmet_is_silent():
     # Bracco data-quality precondition: needs >= 5 qualifying stations.
-    entities = _stations([20, 21, 19])
+    entities = _stations([20, 21, 19], entity_ids=_OPENAQ_MONITOR_IDS)
     summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
     verdicts, note = score_background_vs_event(
         "Uniform PM2.5 suggests a regional event.", summary
@@ -1355,8 +1385,13 @@ def test_background_precondition_unmet_is_silent():
 
 def test_background_sparse_stations_do_not_count_toward_precondition():
     # 5 stations but two have fewer than 6 observations each.
-    entities = _stations([20, 21, 19], obs_per_station=8) + _stations(
-        [22, 18], obs_per_station=3
+    entities = _stations(
+        [20, 21, 19], obs_per_station=8, entity_ids=_OPENAQ_MONITOR_IDS
+    ) + _stations(
+        [22, 18],
+        obs_per_station=3,
+        entity_ids=_OPENAQ_MONITOR_IDS,
+        entity_offset=3,
     )
     summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
     verdicts, note = score_background_vs_event(
@@ -1464,7 +1499,9 @@ def test_under_cued_primary_type_drops_a_contradicted_secondary():
     # single-primary scoring, pinned here so a dispatch change can't silently
     # alter it. Fixing it (fall through to rank-2) is a scoring-design change.
     claim = "PM2.5 was elevated across all stations in the region, exceeding 80 ppb."
-    entities = _stations([12.0, 11.0])  # only 2 stations -> precondition unmet
+    entities = _stations(
+        [12.0, 11.0], entity_ids=_OPENAQ_MONITOR_IDS
+    )  # only 2 stations -> precondition unmet
     summary = _summary_with({"openaq": {"pm25": _metric_from_entities(entities)}})
 
     matched = classify_claim(claim)

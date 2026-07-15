@@ -222,6 +222,7 @@ def _claim_row(
             matched_types=[t.value for t in scored.matched_types],
             claim_text=draft.claim_text,
             cited_sources=draft.cited_sources,
+            citation_outcome=grounding.citation_outcome,
             grounding_verdict=grounding.verdict,
             grounding_evidence_ref=grounding.evidence_ref,
             causal=grounding.causal,
@@ -244,6 +245,7 @@ def _claim_row(
         matched_types=[t.value for t in matched],
         claim_text=draft.claim_text,
         cited_sources=draft.cited_sources,
+        citation_outcome=grounding.citation_outcome,
         grounding_verdict=grounding.verdict,
         grounding_evidence_ref=None,
         causal=grounding.causal,
@@ -394,7 +396,7 @@ def _format_explanation(explanation: Explanation, persisted: bool) -> str:
         "",
         explanation.final_narrative,
         "",
-        f"{'step':<6} {'type':<26} {'grounding':<12} {'phase2':<8} "
+        f"{'step':<6} {'type':<26} {'citation':<12} {'grounding':<12} {'phase2':<8} "
         f"{'score':>6} {'n':>3}",
     ]
     for claim in explanation.claims:
@@ -402,6 +404,7 @@ def _format_explanation(explanation: Explanation, persisted: bool) -> str:
         phase2 = "skip" if claim.skipped_phase2 else "run"
         lines.append(
             f"{claim.step_index:<6} {claim.claim_type:<26} "
+            f"{(claim.citation_outcome or 'legacy-null'):<12} "
             f"{claim.grounding_verdict:<12} {phase2:<8} {score:>6} "
             f"{claim.evidence_n:>3}"
         )

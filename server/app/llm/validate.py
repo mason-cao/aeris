@@ -21,6 +21,9 @@ from app.llm.parser import ClaimDraft
 
 GROUNDED = "grounded"
 UNVERIFIED = "unverified"
+CITED_RIGHT = "cited_right"
+CITED_WRONG = "cited_wrong"
+UNCITED = "uncited"
 
 # Aligned with the Phase 2 concentration_elevation tolerance (±25%) so the
 # Phase 1 -> Phase 2 delta can't be attributed to a strictness gap.
@@ -161,6 +164,7 @@ _STOPWORDS = frozenset(
 class GroundingResult:
     verdict: str
     evidence_ref: dict | None
+    citation_outcome: str
     # The claim asserts a causal relation (see _CAUSAL_RE). Metadata, not a
     # gate: persisted so grounded/unverified x causal/descriptive is reportable.
     causal: bool = False
@@ -336,6 +340,7 @@ def check_grounding(
     matched = sorted(_salient_terms(claim_text) & _salient_terms(context_text))
 
     sources_present = True
+    citation_outcome = UNCITED
     if cited_sources:
         cited = [src for src in cited_sources if src and src.strip()]
         if not cited:
@@ -347,6 +352,7 @@ def check_grounding(
             sources_present = all(
                 _cited_source_grounded(src, context_tokens) for src in cited
             )
+        citation_outcome = CITED_RIGHT if sources_present else CITED_WRONG
 
     claim_quantities = _quantities(claim_text)
     matched_numbers: list[dict] | None = []
@@ -369,8 +375,18 @@ def check_grounding(
         evidence_ref: dict = {"matched_terms": matched}
         if matched_numbers:
             evidence_ref["matched_numbers"] = matched_numbers
-        return GroundingResult(GROUNDED, evidence_ref, causal=causal)
-    return GroundingResult(UNVERIFIED, None, causal=causal)
+        return GroundingResult(
+            GROUNDED,
+            evidence_ref,
+            citation_outcome=citation_outcome,
+            causal=causal,
+        )
+    return GroundingResult(
+        UNVERIFIED,
+        None,
+        citation_outcome=citation_outcome,
+        causal=causal,
+    )
 
 
 def ground_claim_drafts(

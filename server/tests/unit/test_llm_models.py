@@ -57,6 +57,7 @@ def _make_claim(explanation_id, **overrides) -> Claim:
         matched_types=["concentration_elevation", "temporal_pattern"],
         claim_text="Ground-level O3 exceeded 90 ppb in the afternoon.",
         cited_sources=["openaq"],
+        citation_outcome="cited_right",
         grounding_verdict="grounded",
         grounding_evidence_ref={"source": "openaq", "metric": "o3", "value": 0.092},
         causal=False,
@@ -146,6 +147,7 @@ class TestClaimModel:
         assert loaded.step_index == 1
         assert loaded.claim_type == "concentration_elevation"
         assert loaded.grounding_verdict == "grounded"
+        assert loaded.citation_outcome == "cited_right"
         assert loaded.grounding_evidence_ref["metric"] == "o3"
         assert loaded.skipped_phase2 is False
         assert loaded.corroboration_score == pytest.approx(0.5)

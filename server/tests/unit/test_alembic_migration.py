@@ -70,6 +70,18 @@ def test_upgrade_head_creates_claims_fk_to_explanations(sqlite_url) -> None:
         engine.dispose()
 
 
+def test_upgrade_head_creates_nullable_legacy_citation_outcome(sqlite_url) -> None:
+    cfg = _alembic_config(sqlite_url)
+    command.upgrade(cfg, "head")
+
+    engine = create_engine(sqlite_url)
+    try:
+        columns = {column["name"]: column for column in inspect(engine).get_columns("claims")}
+        assert columns["citation_outcome"]["nullable"] is True
+    finally:
+        engine.dispose()
+
+
 def test_upgrade_head_creates_enrichment_fk_to_anomalies(sqlite_url) -> None:
     cfg = _alembic_config(sqlite_url)
     command.upgrade(cfg, "head")

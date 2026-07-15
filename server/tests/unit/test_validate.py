@@ -1,10 +1,13 @@
 from app.llm.parser import ClaimDraft
 from app.llm.prompt import SOURCE_NAMES
 from app.llm.validate import (
+    CITED_RIGHT,
+    CITED_WRONG,
     GROUNDED,
     SOURCE_ALIASES,
     TOLERANCE_FLOOR,
     UNVERIFIED,
+    UNCITED,
     GroundingResult,
     _supports,
     check_grounding,
@@ -20,6 +23,32 @@ CONTEXT = (
 
 
 class TestCheckGrounding:
+    def test_cited_right_wrong_and_uncited_are_distinct_outcomes(self) -> None:
+        claim = "ozone was elevated in the afternoon"
+
+        cited_right = check_grounding(
+            claim,
+            CONTEXT,
+            cited_sources=["openaq"],
+        )
+        cited_wrong = check_grounding(
+            claim,
+            CONTEXT,
+            cited_sources=["sentinel5p"],
+        )
+        uncited = check_grounding(
+            claim,
+            CONTEXT,
+            cited_sources=[],
+        )
+
+        assert cited_right.citation_outcome == CITED_RIGHT
+        assert cited_wrong.citation_outcome == CITED_WRONG
+        assert uncited.citation_outcome == UNCITED
+        assert cited_right.verdict == GROUNDED
+        assert cited_wrong.verdict == UNVERIFIED
+        assert uncited.verdict == GROUNDED
+
     def test_claim_present_in_context_is_grounded(self) -> None:
         result = check_grounding(
             "Ground-level ozone was elevated in the afternoon",
@@ -63,6 +92,7 @@ class TestCheckGrounding:
         )
 
         assert result.verdict == UNVERIFIED
+        assert result.citation_outcome == CITED_WRONG
 
     def test_cited_non_source_word_does_not_pass(self) -> None:
         # "afternoon" appears in the context but is not a data source. A raw
@@ -86,6 +116,7 @@ class TestCheckGrounding:
         )
 
         assert result.verdict == GROUNDED
+        assert result.citation_outcome == CITED_RIGHT
 
 
 class TestNumericGrounding:

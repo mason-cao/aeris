@@ -16,6 +16,7 @@ from sqlalchemy import func, select
 from app.db.models import Anomaly, Claim, EnrichmentRecord, Explanation
 from app.llm.client_base import LLMClient, RawCompletion
 from app.llm.explain import (
+    _format_explanation,
     _parse_args,
     _with_unit,
     generate_explanation,
@@ -270,6 +271,7 @@ async def test_generate_explanation_builds_explanation_and_claims(db_session):
     grounded, fabricated = explanation.claims
     assert grounded.step_index == 1
     assert grounded.grounding_verdict == "grounded"
+    assert grounded.citation_outcome == "cited_right"
     assert grounded.skipped_phase2 is False
     assert grounded.claim_type == "concentration_elevation"
     assert grounded.matched_types[0] == "concentration_elevation"
@@ -285,6 +287,7 @@ async def test_generate_explanation_builds_explanation_and_claims(db_session):
 
     assert fabricated.step_index == 4
     assert fabricated.grounding_verdict == "unverified"
+    assert fabricated.citation_outcome == "uncited"
     assert fabricated.skipped_phase2 is True
     assert fabricated.causal is False
     assert fabricated.corroboration_score is None
@@ -295,6 +298,10 @@ async def test_generate_explanation_builds_explanation_and_claims(db_session):
     assert fabricated.claim_type == "concentration_elevation"
     assert fabricated.matched_types == ["concentration_elevation"]
     assert fabricated.partial_verifiability is False
+
+    formatted = _format_explanation(explanation, persisted=False)
+    assert "cited_right" in formatted
+    assert "uncited" in formatted
 
 
 @pytest.mark.asyncio

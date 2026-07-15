@@ -281,6 +281,11 @@ class Claim(Base):
     matched_types: Mapped[list | None] = mapped_column(JSON, nullable=True)
     claim_text: Mapped[str] = mapped_column(Text, nullable=False)
     cited_sources: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # B11 citation-reporting dimension. Legacy pre-migration rows remain null;
+    # every claim emitted by explain.py records one of the declared outcomes.
+    citation_outcome: Mapped[str | None] = mapped_column(
+        String(16), nullable=True
+    )
     # Phase 1 — retrieval-grounded factuality check (validate.py)
     grounding_verdict: Mapped[str] = mapped_column(String(16), nullable=False)
     grounding_evidence_ref: Mapped[dict | None] = mapped_column(JSON, nullable=True)

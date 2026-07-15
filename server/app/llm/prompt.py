@@ -93,16 +93,27 @@ _STEP_INSTRUCTIONS: dict[ReasoningStep, str] = {
 }
 
 
+CLAIM_WRITING_INSTRUCTION = (
+    "Write each claim as one atomic, self-contained statement that can be "
+    "judged independently. Name its subject explicitly. Do not rely on an "
+    "antecedent outside the claim, including context-dependent uses of this, "
+    "it, these, or they. Do not combine independent assertions that could "
+    "receive different verdicts."
+)
+
+
 def _schema_instruction(step: ReasoningStep) -> str:
     cap = f" Include at most {MAX_CLAIMS_PER_STEP} claims."
     if step is ReasoningStep.SYNTHESIS:
         return (
-            'Respond ONLY with JSON of the form {"final_narrative": string, '
+            CLAIM_WRITING_INSTRUCTION
+            + ' Respond ONLY with JSON of the form {"final_narrative": string, '
             '"stated_confidence": number from 0 to 1, "claims": '
             '[{"statement": string, "cited_sources": [string]}]}.' + cap
         )
     return (
-        'Respond ONLY with JSON of the form {"summary": string, "claims": '
+        CLAIM_WRITING_INSTRUCTION
+        + ' Respond ONLY with JSON of the form {"summary": string, "claims": '
         '[{"statement": string, "cited_sources": [string]}]}.' + cap
     )
 

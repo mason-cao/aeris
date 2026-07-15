@@ -35,6 +35,24 @@ class TestStepSequence:
 
 
 class TestBuildStepPrompt:
+    @pytest.mark.parametrize("step", STEP_SEQUENCE)
+    def test_every_step_requires_atomic_self_contained_claims(
+        self, step: ReasoningStep
+    ) -> None:
+        prompt = build_step_prompt(
+            step,
+            anomaly_text=ANOMALY,
+            enrichment_text=ENRICHMENT,
+        )
+
+        atomic = "one atomic, self-contained statement"
+        lowered = prompt.lower()
+        assert atomic in lowered
+        assert "name its subject explicitly" in lowered
+        assert "antecedent outside the claim" in lowered
+        assert "independent assertions" in lowered
+        assert lowered.index(atomic) < lowered.index("respond only with json")
+
     def test_first_step_includes_anomaly_and_context_but_no_prior_reasoning(self) -> None:
         prompt = build_step_prompt(
             ReasoningStep.PHYSICAL_SIGNATURE,

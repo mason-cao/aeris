@@ -25,7 +25,9 @@ def _summary(sources_metrics: dict, anomaly_ts: str = "2026-06-15T12:00:00+00:00
         "sources": {
             source: {
                 "metrics": {
-                    metric: {"nearest_in_time": {"v": value}}
+                    metric: {
+                        "nearest_in_time": {"v": value, "dt_minutes": 0.0}
+                    }
                     for metric, value in metrics.items()
                 }
             }
@@ -218,7 +220,7 @@ class TestScorerChannelInclusion:
                 for h, v in enumerate(baseline)
             ]
             return {
-                "nearest_in_time": {"v": nearest},
+                "nearest_in_time": {"v": nearest, "dt_minutes": 0.0},
                 "entities": [{"entity_id": "e", "series": series}],
             }
 

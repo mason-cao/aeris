@@ -178,6 +178,11 @@ def test_memo_examples_route_to_their_taxonomy_rows():
 
 
 def _summary_with(metrics_by_source: dict) -> dict:
+    for metrics in metrics_by_source.values():
+        for block in metrics.values():
+            nearest = block.get("nearest_in_time")
+            if isinstance(nearest, dict) and nearest.get("v") is not None:
+                nearest.setdefault("dt_minutes", 0.0)
     return {
         "schema_version": 1,
         "sources": {

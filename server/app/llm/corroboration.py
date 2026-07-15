@@ -26,7 +26,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from statistics import fmean, pstdev
+from typing import cast
 
+from app.llm.observation_age import assess_observation_age
 from app.llm.validate import strip_locators, threshold_cues, within_tolerance
 from app.provenance.openaq_pm25 import verified_monitor_entity_ids
 from app.provenance.purpleair_qc import purpleair_reading_is_eligible
@@ -36,6 +38,29 @@ from app.provenance.purpleair_qc import purpleair_reading_is_eligible
 SUPPORTING = 1
 CONTRADICTING = -1
 SILENT = 0
+
+
+def _fresh_nearest_value(
+    source: str,
+    aspect: str,
+    block: Mapping | None,
+) -> tuple[float | None, str | None]:
+    """Return a nearest value only when its declared B8 age gate passes."""
+    if not block:
+        return None, None
+    nearest = block.get("nearest_in_time")
+    if not isinstance(nearest, Mapping) or nearest.get("v") is None:
+        return None, None
+    raw_dt_minutes = nearest.get("dt_minutes")
+    decision = assess_observation_age(source, raw_dt_minutes)
+    if decision.votes:
+        return cast(float, nearest["v"]), None
+    note = (
+        f"{source}: {aspect} age-gated SILENT "
+        f"(dt_minutes={raw_dt_minutes!r}, "
+        f"gate_minutes={decision.gate_minutes}, reason={decision.reason})"
+    )
+    return None, note
 
 # Each source's measurement channel. Sources that share a measurement process
 # collapse to one channel, so corroboration counts measurement-process groups,
@@ -427,7 +452,15 @@ def score_concentration_elevation(
                 notes.append(f"{source}: no {metric} in window")
             continue
 
-        nearest = data["nearest_in_time"]["v"]
+        nearest, age_note = _fresh_nearest_value(source, metric, data)
+        if age_note is not None:
+            verdicts[source] = SILENT
+            notes.append(age_note)
+            continue
+        if nearest is None:
+            verdicts[source] = SILENT
+            notes.append(f"{source}: no {metric} event value")
+            continue
         if (
             metric == "s5p_so2_column"
             and nearest < tolerance.so2_detection_limit_mol_m2
@@ -626,11 +659,16 @@ def _claimed_from_bearing(claim_text: str) -> float | None:
     return None
 
 
-def _gfs_wind_components(summary: Mapping) -> tuple[float | None, float | None]:
+def _gfs_wind_components(
+    summary: Mapping,
+) -> tuple[float | None, float | None, tuple[str, ...]]:
     gfs = summary.get("sources", {}).get("noaa_gfs", {}).get("metrics", {})
-    u = gfs.get("u_10m", {}).get("nearest_in_time", {}).get("v")
-    v = gfs.get("v_10m", {}).get("nearest_in_time", {}).get("v")
-    return u, v
+    raw_u, u_note = _fresh_nearest_value("noaa_gfs", "u_10m", gfs.get("u_10m"))
+    raw_v, v_note = _fresh_nearest_value("noaa_gfs", "v_10m", gfs.get("v_10m"))
+    notes = tuple(note for note in (u_note, v_note) if note is not None)
+    u = float(raw_u) if raw_u is not None else None
+    v = float(raw_v) if raw_v is not None else None
+    return u, v, notes
 
 
 def score_transport_direction(
@@ -643,28 +681,35 @@ def score_transport_direction(
     claimed_from = _claimed_from_bearing(claim_text)
 
     measured: dict[str, float] = {}
-    u, v = _gfs_wind_components(summary)
-    if u is not None and v is not None:
-        measured["noaa_gfs"] = _wind_from_bearing(u, v)
+    age_notes: list[str] = []
+    if claimed_from is not None:
+        u, v, gfs_age_notes = _gfs_wind_components(summary)
+        age_notes.extend(gfs_age_notes)
+        if u is not None and v is not None:
+            measured["noaa_gfs"] = _wind_from_bearing(u, v)
     ow = summary.get("sources", {}).get("openweather", {}).get("metrics", {})
-    ow_dir = ow.get("wind_direction", {}).get("nearest_in_time", {}).get("v")
-    if ow_dir is not None:
-        measured["openweather"] = float(ow_dir) % 360.0
+    if claimed_from is not None:
+        ow_dir, ow_age_note = _fresh_nearest_value(
+            "openweather", "wind_direction", ow.get("wind_direction")
+        )
+        if ow_age_note is not None:
+            age_notes.append(ow_age_note)
+        if ow_dir is not None:
+            measured["openweather"] = float(ow_dir) % 360.0
     # ASOS anemometers are a direct-observation channel, distinct from the NWP
     # products but correlated through data assimilation and blended inputs.
-    asos_dir = (
-        summary.get("sources", {})
-        .get("asos", {})
-        .get("metrics", {})
-        .get("wind_direction", {})
-        .get("nearest_in_time", {})
-        .get("v")
-    )
-    if asos_dir is not None:
-        measured["asos"] = float(asos_dir) % 360.0
+    asos = summary.get("sources", {}).get("asos", {}).get("metrics", {})
+    if claimed_from is not None:
+        asos_dir, asos_age_note = _fresh_nearest_value(
+            "asos", "wind_direction", asos.get("wind_direction")
+        )
+        if asos_age_note is not None:
+            age_notes.append(asos_age_note)
+        if asos_dir is not None:
+            measured["asos"] = float(asos_dir) % 360.0
 
     verdicts: dict[str, int] = {}
-    notes: list[str] = []
+    notes: list[str] = age_notes
     for source in ("noaa_gfs", "openweather", "asos"):
         if source not in measured or claimed_from is None:
             verdicts[source] = SILENT
@@ -741,14 +786,43 @@ def score_meteorological_state(
             return None
         return SUPPORTING if abs(measured - temp) <= tolerance.temp_c else CONTRADICTING
 
-    u, v = _gfs_wind_components(summary)
-    gfs_speed = _wind_speed(u, v) if (u is not None and v is not None) else None
+    age_notes: list[str] = []
+    gfs_speed: float | None = None
+    if wind is not None:
+        u, v, gfs_age_notes = _gfs_wind_components(summary)
+        age_notes.extend(gfs_age_notes)
+        if u is not None and v is not None:
+            gfs_speed = _wind_speed(u, v)
     ow = summary.get("sources", {}).get("openweather", {}).get("metrics", {})
-    ow_speed = ow.get("wind_speed", {}).get("nearest_in_time", {}).get("v")
-    ow_temp = ow.get("temperature", {}).get("nearest_in_time", {}).get("v")
+    ow_speed: float | None = None
+    if wind is not None:
+        ow_speed, ow_speed_note = _fresh_nearest_value(
+            "openweather", "wind_speed", ow.get("wind_speed")
+        )
+        if ow_speed_note is not None:
+            age_notes.append(ow_speed_note)
+    ow_temp: float | None = None
+    if temp is not None:
+        ow_temp, ow_temp_note = _fresh_nearest_value(
+            "openweather", "temperature", ow.get("temperature")
+        )
+        if ow_temp_note is not None:
+            age_notes.append(ow_temp_note)
     asos = summary.get("sources", {}).get("asos", {}).get("metrics", {})
-    asos_speed = asos.get("wind_speed", {}).get("nearest_in_time", {}).get("v")
-    asos_temp = asos.get("temperature", {}).get("nearest_in_time", {}).get("v")
+    asos_speed: float | None = None
+    if wind is not None:
+        asos_speed, asos_speed_note = _fresh_nearest_value(
+            "asos", "wind_speed", asos.get("wind_speed")
+        )
+        if asos_speed_note is not None:
+            age_notes.append(asos_speed_note)
+    asos_temp: float | None = None
+    if temp is not None:
+        asos_temp, asos_temp_note = _fresh_nearest_value(
+            "asos", "temperature", asos.get("temperature")
+        )
+        if asos_temp_note is not None:
+            age_notes.append(asos_temp_note)
 
     verdicts = {
         "noaa_gfs": _combine(wind_verdict(gfs_speed)),
@@ -756,7 +830,8 @@ def score_meteorological_state(
         # ASOS in-situ wind/temp — independent of the NWP channel.
         "asos": _combine(wind_verdict(asos_speed), temp_verdict(asos_temp)),
     }
-    return verdicts, f"wind_intent={wind} temp={temp}"
+    notes = [f"wind_intent={wind} temp={temp}", *age_notes]
+    return verdicts, "; ".join(notes)
 
 
 # ---------------------------------------------------------------------------
@@ -984,12 +1059,6 @@ def _ground_sources_for(metric: str | None) -> tuple[str, ...]:
     return _GROUND_INSITU_SOURCES
 
 
-def _nearest(block: Mapping | None) -> float | None:
-    if not block:
-        return None
-    return block.get("nearest_in_time", {}).get("v")
-
-
 def _window_mean(block: Mapping | None) -> float | None:
     if not block:
         return None
@@ -1140,11 +1209,19 @@ def score_atmospheric_trap(
     """
     text = claim_text.lower()
     pbl_block = _metric_block(summary, "noaa_gfs", "pbl_height")
-    pbl_nearest = _nearest(pbl_block)
+    claimed = _claimed_pbl_height(text)
+    has_qualitative_intent = any(w in text for w in _TRAP_QUAL_WORDS)
+    pbl_nearest: float | None = None
+    age_note: str | None = None
+    if claimed is not None or has_qualitative_intent:
+        pbl_nearest, age_note = _fresh_nearest_value(
+            "noaa_gfs", "pbl_height", pbl_block
+        )
 
     pbl_verdict: int | None = None
-    note = f"pbl_nearest={pbl_nearest}"
-    claimed = _claimed_pbl_height(text)
+    note = age_note or f"pbl_nearest={pbl_nearest}"
+    if age_note is not None:
+        return {"noaa_gfs": SILENT}, note
     if pbl_nearest is not None and claimed is not None:
         pbl_verdict = (
             SUPPORTING
@@ -1152,7 +1229,7 @@ def score_atmospheric_trap(
             else CONTRADICTING
         )
         note += f" claimed={claimed}"
-    elif pbl_nearest is not None and any(w in text for w in _TRAP_QUAL_WORDS):
+    elif pbl_nearest is not None and has_qualitative_intent:
         nearest_iso = (pbl_block or {}).get("nearest_in_time", {}).get("t")
         hour, peers = _same_hour_values(pbl_block, nearest_iso)
         if len(peers) >= tolerance.min_same_hour_points:
@@ -1360,18 +1437,24 @@ def score_chemistry(
 
     if "hcho" in directions:
         block = _metric_block(summary, "sentinel5p", "s5p_hcho_column")
+        nearest, age_note = _fresh_nearest_value(
+            "sentinel5p", "s5p_hcho_column", block
+        )
         verdict = _direction_verdict(
-            _nearest(block),
+            nearest,
             _window_mean(block),
             directions["hcho"],
             noise_buffer=tolerance.noise_buffer,
         )
         verdicts["sentinel5p"] = SILENT if verdict is None else verdict
-        notes.append(
-            "sentinel5p: hcho granule silent"
-            if verdict is None
-            else f"sentinel5p: hcho {directions['hcho']} vs window mean"
-        )
+        if age_note is not None:
+            notes.append(age_note)
+        else:
+            notes.append(
+                "sentinel5p: hcho granule silent"
+                if verdict is None
+                else f"sentinel5p: hcho {directions['hcho']} vs window mean"
+            )
 
     ground_species = [s for s in ("ozone", "no2") if s in directions]
     if ground_species:
@@ -1382,12 +1465,15 @@ def score_chemistry(
             legs = []
             for species in ground_species:
                 block = _metric_block(summary, source, species)
+                nearest, age_note = _fresh_nearest_value(source, species, block)
                 legs.append(
                     _direction_verdict(
-                        _nearest(block), _window_mean(block), directions[species]
+                        nearest, _window_mean(block), directions[species]
                     )
                 )
-                if block is not None:
+                if age_note is not None:
+                    notes.append(age_note)
+                elif block is not None:
                     notes.append(f"{source}: {species} {directions[species]} checked")
             verdicts[source] = _combine(*legs)
 
@@ -1440,15 +1526,24 @@ def score_point_source_attribution(
         )
 
     measured: dict[str, float] = {}
-    u, v = _gfs_wind_components(summary)
-    if u is not None and v is not None:
-        measured["noaa_gfs"] = _wind_from_bearing(u, v)
-    ow_dir = _nearest(_metric_block(summary, "openweather", "wind_direction"))
-    if ow_dir is not None:
-        measured["openweather"] = float(ow_dir) % 360.0
+    age_notes: list[str] = []
+    if expected_from is not None:
+        u, v, gfs_age_notes = _gfs_wind_components(summary)
+        age_notes.extend(gfs_age_notes)
+        if u is not None and v is not None:
+            measured["noaa_gfs"] = _wind_from_bearing(u, v)
+        ow_dir, ow_age_note = _fresh_nearest_value(
+            "openweather",
+            "wind_direction",
+            _metric_block(summary, "openweather", "wind_direction"),
+        )
+        if ow_age_note is not None:
+            age_notes.append(ow_age_note)
+        if ow_dir is not None:
+            measured["openweather"] = float(ow_dir) % 360.0
 
     verdicts: dict[str, int] = {}
-    notes: list[str] = []
+    notes: list[str] = age_notes
     for source in ("noaa_gfs", "openweather"):
         if expected_from is None or source not in measured:
             verdicts[source] = SILENT

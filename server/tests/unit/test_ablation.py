@@ -39,7 +39,7 @@ def _elevated_metric(baseline: list[float], nearest: float) -> dict:
         [f"2026-06-15T{h:02d}:00:00+00:00", v] for h, v in enumerate(baseline)
     ]
     return {
-        "nearest_in_time": {"v": nearest},
+        "nearest_in_time": {"v": nearest, "dt_minutes": 0.0},
         "entities": [{"entity_id": "e", "series": series}],
     }
 

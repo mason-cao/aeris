@@ -114,6 +114,11 @@ def test_low_corroboration_flag_requires_strong_negative_and_two_sources():
 
 def _summary_with(metrics_by_source: dict) -> dict:
     """A minimal enrichment summary carrying {source: {metric: {...}}}."""
+    for metrics in metrics_by_source.values():
+        for block in metrics.values():
+            nearest = block.get("nearest_in_time")
+            if isinstance(nearest, dict) and nearest.get("v") is not None:
+                nearest.setdefault("dt_minutes", 0.0)
     return {
         "schema_version": 1,
         "sources": {

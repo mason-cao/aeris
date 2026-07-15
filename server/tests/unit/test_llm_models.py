@@ -2,13 +2,35 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import UniqueConstraint, select
 
 from app.db.models import Anomaly, Claim, ExpertLabel, Explanation
 
 
 HOUSTON_LAT = 29.7604
 HOUSTON_LON = -95.3698
+
+
+def test_integrity_pairs_have_named_unique_constraints() -> None:
+    explanation_constraints = {
+        constraint.name: tuple(column.name for column in constraint.columns)
+        for constraint in Explanation.__table__.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+    label_constraints = {
+        constraint.name: tuple(column.name for column in constraint.columns)
+        for constraint in ExpertLabel.__table__.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+
+    assert explanation_constraints["uq_explanations_anomaly_model"] == (
+        "anomaly_id",
+        "model_name",
+    )
+    assert label_constraints["uq_expert_labels_anomaly_labeler"] == (
+        "anomaly_id",
+        "labeler",
+    )
 
 
 def _make_anomaly(**overrides) -> Anomaly:

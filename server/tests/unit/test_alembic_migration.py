@@ -6,6 +6,8 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, select, text
+from sqlalchemy.engine import Connection
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.models import Anomaly, EnrichmentRecord
@@ -16,6 +18,63 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # A valid uuid4 whose undashed hex is digits plus a single 'e' — the shape a
 # NUMERIC-affinity column coerces to REAL/Inf on SQLite (the production bug).
 NUMERIC_LOOKING = uuid.UUID("12345678-9012-4456-8e78-901234567890")
+PRE_A6_REVISION = "a5d7e9c2b614"
+
+
+def _insert_anomaly(connection: Connection, anomaly_id: uuid.UUID) -> None:
+    connection.execute(
+        text(
+            "INSERT INTO anomalies "
+            "(id, timestamp, lat, lon, metric, source, value, "
+            "methods_triggered, severity) VALUES "
+            "(:id, '2026-07-15 12:00:00', 29.76, -95.37, 'pm25', "
+            "'openaq', 12.0, :methods, 'moderate')"
+        ),
+        {"id": anomaly_id.hex, "methods": '["zscore"]'},
+    )
+
+
+def _insert_explanation(
+    connection: Connection,
+    *,
+    row_id: uuid.UUID,
+    anomaly_id: uuid.UUID,
+    model_name: str,
+) -> None:
+    connection.execute(
+        text(
+            "INSERT INTO explanations "
+            "(id, anomaly_id, model_name, reasoning_steps_json, "
+            "final_narrative) VALUES "
+            "(:id, :anomaly_id, :model_name, :steps, 'synthetic')"
+        ),
+        {
+            "id": row_id.hex,
+            "anomaly_id": anomaly_id.hex,
+            "model_name": model_name,
+            "steps": "{}",
+        },
+    )
+
+
+def _insert_expert_label(
+    connection: Connection,
+    *,
+    row_id: uuid.UUID,
+    anomaly_id: uuid.UUID,
+    labeler: str,
+) -> None:
+    connection.execute(
+        text(
+            "INSERT INTO expert_labels (id, anomaly_id, labeler) "
+            "VALUES (:id, :anomaly_id, :labeler)"
+        ),
+        {
+            "id": row_id.hex,
+            "anomaly_id": anomaly_id.hex,
+            "labeler": labeler,
+        },
+    )
 
 
 def _alembic_config(db_url: str) -> Config:
@@ -172,6 +231,219 @@ def test_upgrade_head_orm_uuid_roundtrips_pk_and_fk(sqlite_url) -> None:
             assert record.anomaly_id == NUMERIC_LOOKING
             # FK resolves back to the parent row through the migrated schema.
             assert record.anomaly.id == NUMERIC_LOOKING
+    finally:
+        engine.dispose()
+
+
+def test_upgrade_head_creates_integrity_unique_constraints(sqlite_url: str) -> None:
+    cfg = _alembic_config(sqlite_url)
+    command.upgrade(cfg, "head")
+
+    engine = create_engine(sqlite_url)
+    try:
+        explanation_constraints = {
+            constraint["name"]: tuple(constraint["column_names"])
+            for constraint in inspect(engine).get_unique_constraints("explanations")
+        }
+        label_constraints = {
+            constraint["name"]: tuple(constraint["column_names"])
+            for constraint in inspect(engine).get_unique_constraints("expert_labels")
+        }
+        assert explanation_constraints["uq_explanations_anomaly_model"] == (
+            "anomaly_id",
+            "model_name",
+        )
+        assert label_constraints["uq_expert_labels_anomaly_labeler"] == (
+            "anomaly_id",
+            "labeler",
+        )
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.parametrize("record_type", ("explanation", "expert_label"))
+def test_migrated_schema_rejects_exact_duplicate_integrity_pair(
+    sqlite_url: str,
+    record_type: str,
+) -> None:
+    cfg = _alembic_config(sqlite_url)
+    command.upgrade(cfg, "head")
+    anomaly_id = uuid.uuid4()
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.begin() as connection:
+            _insert_anomaly(connection, anomaly_id)
+            if record_type == "explanation":
+                _insert_explanation(
+                    connection,
+                    row_id=uuid.uuid4(),
+                    anomaly_id=anomaly_id,
+                    model_name="llama3:8b",
+                )
+            else:
+                _insert_expert_label(
+                    connection,
+                    row_id=uuid.uuid4(),
+                    anomaly_id=anomaly_id,
+                    labeler="bracco",
+                )
+
+        with pytest.raises(IntegrityError):
+            with engine.begin() as connection:
+                if record_type == "explanation":
+                    _insert_explanation(
+                        connection,
+                        row_id=uuid.uuid4(),
+                        anomaly_id=anomaly_id,
+                        model_name="llama3:8b",
+                    )
+                else:
+                    _insert_expert_label(
+                        connection,
+                        row_id=uuid.uuid4(),
+                        anomaly_id=anomaly_id,
+                        labeler="bracco",
+                    )
+
+        with engine.begin() as connection:
+            if record_type == "explanation":
+                _insert_explanation(
+                    connection,
+                    row_id=uuid.uuid4(),
+                    anomaly_id=anomaly_id,
+                    model_name="LLAMA3:8B",
+                )
+                count = connection.execute(
+                    text("SELECT COUNT(*) FROM explanations")
+                ).scalar_one()
+            else:
+                _insert_expert_label(
+                    connection,
+                    row_id=uuid.uuid4(),
+                    anomaly_id=anomaly_id,
+                    labeler="Bracco",
+                )
+                count = connection.execute(
+                    text("SELECT COUNT(*) FROM expert_labels")
+                ).scalar_one()
+        assert count == 2
+    finally:
+        engine.dispose()
+
+
+def test_a6_upgrade_lists_legacy_duplicates_without_mutation(
+    sqlite_url: str,
+) -> None:
+    cfg = _alembic_config(sqlite_url)
+    command.upgrade(cfg, PRE_A6_REVISION)
+    anomaly_id = uuid.uuid4()
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.begin() as connection:
+            _insert_anomaly(connection, anomaly_id)
+            for _index in range(2):
+                _insert_explanation(
+                    connection,
+                    row_id=uuid.uuid4(),
+                    anomaly_id=anomaly_id,
+                    model_name="llama3:8b",
+                )
+                _insert_expert_label(
+                    connection,
+                    row_id=uuid.uuid4(),
+                    anomaly_id=anomaly_id,
+                    labeler="bracco",
+                )
+            explanations_before = connection.execute(
+                text("SELECT * FROM explanations ORDER BY id")
+            ).all()
+            labels_before = connection.execute(
+                text("SELECT * FROM expert_labels ORDER BY id")
+            ).all()
+
+        with pytest.raises(RuntimeError) as exc_info:
+            command.upgrade(cfg, "head")
+
+        message = str(exc_info.value)
+        assert "A-6 uniqueness preflight failed" in message
+        assert "explanations" in message
+        assert f"anomaly_id={anomaly_id.hex}" in message
+        assert "model_name='llama3:8b'" in message
+        assert "expert_labels" in message
+        assert "labeler='bracco'" in message
+        assert message.count("count=2") == 2
+
+        with engine.connect() as connection:
+            explanations_after = connection.execute(
+                text("SELECT * FROM explanations ORDER BY id")
+            ).all()
+            labels_after = connection.execute(
+                text("SELECT * FROM expert_labels ORDER BY id")
+            ).all()
+            revision = connection.execute(
+                text("SELECT version_num FROM alembic_version")
+            ).scalar_one()
+        assert explanations_after == explanations_before
+        assert labels_after == labels_before
+        assert revision == PRE_A6_REVISION
+        assert {
+            constraint["name"]
+            for constraint in inspect(engine).get_unique_constraints("explanations")
+        } == set()
+        assert {
+            constraint["name"]
+            for constraint in inspect(engine).get_unique_constraints("expert_labels")
+        } == set()
+    finally:
+        engine.dispose()
+
+
+def test_a6_downgrade_drops_only_constraints_and_preserves_rows(
+    sqlite_url: str,
+) -> None:
+    cfg = _alembic_config(sqlite_url)
+    command.upgrade(cfg, "head")
+    anomaly_id = uuid.uuid4()
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.begin() as connection:
+            _insert_anomaly(connection, anomaly_id)
+            _insert_explanation(
+                connection,
+                row_id=uuid.uuid4(),
+                anomaly_id=anomaly_id,
+                model_name="llama3:8b",
+            )
+            _insert_expert_label(
+                connection,
+                row_id=uuid.uuid4(),
+                anomaly_id=anomaly_id,
+                labeler="mason",
+            )
+            explanations_before = connection.execute(
+                text("SELECT * FROM explanations ORDER BY id")
+            ).all()
+            labels_before = connection.execute(
+                text("SELECT * FROM expert_labels ORDER BY id")
+            ).all()
+
+        command.downgrade(cfg, PRE_A6_REVISION)
+
+        assert {
+            constraint["name"]
+            for constraint in inspect(engine).get_unique_constraints("explanations")
+        } == set()
+        assert {
+            constraint["name"]
+            for constraint in inspect(engine).get_unique_constraints("expert_labels")
+        } == set()
+        with engine.connect() as connection:
+            assert connection.execute(
+                text("SELECT * FROM explanations ORDER BY id")
+            ).all() == explanations_before
+            assert connection.execute(
+                text("SELECT * FROM expert_labels ORDER BY id")
+            ).all() == labels_before
     finally:
         engine.dispose()
 

@@ -251,6 +251,11 @@ class Explanation(Base):
     )
 
     __table_args__ = (
+        UniqueConstraint(
+            "anomaly_id",
+            "model_name",
+            name="uq_explanations_anomaly_model",
+        ),
         Index("ix_explanations_anomaly_id", "anomaly_id"),
         Index("ix_explanations_model_name", "model_name"),
     )
@@ -350,6 +355,11 @@ class ExpertLabel(Base):
     anomaly: Mapped["Anomaly"] = relationship(back_populates="expert_labels")
 
     __table_args__ = (
+        UniqueConstraint(
+            "anomaly_id",
+            "labeler",
+            name="uq_expert_labels_anomaly_labeler",
+        ),
         Index("ix_expert_labels_anomaly_id", "anomaly_id"),
         Index("ix_expert_labels_labeler", "labeler"),
     )

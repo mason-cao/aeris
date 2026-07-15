@@ -754,6 +754,13 @@ def _build_story(
                 styles["body"],
             ),
             Paragraph(
+                "After return, the checksummed annotated PDF is the primary artifact. Mason transcribes it twice "
+                "in independent sessions; the second pass is blind to the first. A mechanical diff identifies "
+                "mismatches for resolution against that PDF. Ambiguous marks are never interpreted; they are sent "
+                "back as an enumerated clarification list before ingestion.",
+                styles["body"],
+            ),
+            Paragraph(
                 "Valid: scientifically defensible at the precision stated and supported by the evidence shown. "
                 "Invalid: contradicted by the evidence, misstates a measurement, or uses indefensible physical "
                 "reasoning. Unsure: the displayed evidence is insufficient, the measurements cannot resolve the "

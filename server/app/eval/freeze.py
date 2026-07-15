@@ -38,6 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.collectors.geo import distance_km
 from app.db.models import Anomaly
+from app.provenance.purpleair_qc import purpleair_qc_manifest_payload
 
 # 90 min, not 30: the ground sources report hourly, so consecutive-hour flags
 # at one station are 60 min apart — a 30 min window could never chain them and
@@ -217,6 +218,9 @@ def fixture_payload(result: FreezeResult) -> dict:
         "n_window_anomalies": result.n_anomalies,
         "n_events": result.n_events,
         "composition": selection_composition(result.selected),
+        "data_quality": {
+            "purpleair_time_aware_qc": purpleair_qc_manifest_payload(),
+        },
         "anomaly_ids": [str(a.id) for a in result.selected],
     }
 

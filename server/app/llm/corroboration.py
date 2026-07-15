@@ -29,6 +29,7 @@ from statistics import fmean, pstdev
 
 from app.llm.validate import strip_locators, threshold_cues, within_tolerance
 from app.provenance.openaq_pm25 import verified_monitor_entity_ids
+from app.provenance.purpleair_qc import purpleair_reading_is_eligible
 
 # Per-source verdict on a single claim. A source either supports the claim,
 # contradicts it, or is silent (no data bearing on it within the window).
@@ -769,6 +770,8 @@ def _metric_block(summary: Mapping, source: str, metric: str) -> Mapping | None:
         return None
     if source == "openaq" and metric == "pm25":
         return _verified_openaq_pm25_block(summary, block)
+    if source == "purpleair" and metric == "pm25":
+        return _eligible_purpleair_pm25_block(summary, block)
     return block
 
 
@@ -831,6 +834,107 @@ def _verified_openaq_pm25_block(
         if str(original_nearest.get("entity_id", "")) not in eligible_ids:
             return None
         nearest = dict(original_nearest)
+    else:
+        timestamp, distance, entity_id, value = min(
+            nearest_candidates,
+            key=lambda item: (
+                abs(item[0] - anomaly_ts),
+                item[1],
+                item[2],
+                item[0],
+            ),
+        )
+        nearest = {
+            "t": timestamp.isoformat(),
+            "v": value,
+            "entity_id": entity_id,
+            "distance_km": round(distance, 3),
+            "dt_minutes": round(
+                abs(timestamp - anomaly_ts).total_seconds() / 60.0, 1
+            ),
+        }
+
+    filtered = dict(block)
+    filtered["n_points"] = len(values)
+    filtered["n_entities"] = len(entities)
+    filtered["value_range"] = {
+        "min": min(values),
+        "max": max(values),
+        "mean": round(sum(values) / len(values), 4),
+    }
+    filtered["nearest_in_time"] = nearest
+    filtered["entities"] = entities
+    return filtered
+
+
+def _eligible_purpleair_pm25_block(
+    summary: Mapping, block: Mapping
+) -> Mapping | None:
+    """Rebuild a PurpleAir PM2.5 block from B7-eligible rows only."""
+    raw_entities = block.get("entities")
+    if not isinstance(raw_entities, list):
+        return None
+
+    anomaly_ts = _anomaly_ts(summary)
+    entities: list[dict] = []
+    nearest_candidates: list[tuple[datetime, float, str, float]] = []
+    values: list[float] = []
+
+    for raw_entity in raw_entities:
+        if not isinstance(raw_entity, Mapping):
+            continue
+        entity_id = str(raw_entity.get("entity_id", ""))
+        try:
+            distance = float(raw_entity.get("distance_km", math.inf))
+        except (TypeError, ValueError):
+            distance = math.inf
+
+        series: list[list[object]] = []
+        for raw_pair in raw_entity.get("series", []):
+            if not isinstance(raw_pair, (list, tuple)) or len(raw_pair) != 2:
+                continue
+            raw_timestamp, raw_value = raw_pair
+            try:
+                timestamp = datetime.fromisoformat(str(raw_timestamp))
+                value = float(raw_value)
+            except (TypeError, ValueError):
+                continue
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            if (
+                not math.isfinite(value)
+                or not purpleair_reading_is_eligible(entity_id, timestamp)
+            ):
+                continue
+            normalized_timestamp = timestamp.isoformat()
+            series.append([normalized_timestamp, value])
+            values.append(value)
+            nearest_candidates.append((timestamp, distance, entity_id, value))
+
+        if series:
+            entity = dict(raw_entity)
+            entity["entity_id"] = entity_id
+            entity["n_points"] = len(series)
+            entity["series"] = series
+            entities.append(entity)
+
+    if not entities or not nearest_candidates:
+        return None
+
+    nearest: dict[str, object] = {}
+    if anomaly_ts is None:
+        original_nearest = block.get("nearest_in_time", {})
+        raw_timestamp = original_nearest.get("t")
+        entity_id = str(original_nearest.get("entity_id", ""))
+        try:
+            timestamp = datetime.fromisoformat(str(raw_timestamp))
+        except (TypeError, ValueError):
+            timestamp = None
+        if timestamp is not None:
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            if purpleair_reading_is_eligible(entity_id, timestamp):
+                nearest = dict(original_nearest)
     else:
         timestamp, distance, entity_id, value = min(
             nearest_candidates,

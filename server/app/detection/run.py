@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.collectors.geo import distance_km
 from app.db.models import Anomaly, DataPoint
+from app.provenance.purpleair_qc import purpleair_reading_is_eligible
 
 from .consensus import ConsensusAnomaly
 from .engine import DetectionEngine
@@ -198,6 +199,15 @@ def group_points_by_series(
     groups: dict[GroupKey, list[DataPoint]] = defaultdict(list)
     for p in points:
         if p.metric not in primary_metrics:
+            continue
+        if (
+            p.source == "purpleair"
+            and p.metric == "pm25"
+            and not purpleair_reading_is_eligible(
+                p.source_entity_id,
+                p.timestamp,
+            )
+        ):
             continue
         key = GroupKey(
             source=p.source,

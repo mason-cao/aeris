@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.collectors.geo import BoundingBox, distance_km, offset_coordinate
 from app.db.models import Anomaly, DataPoint, EnrichmentRecord
+from app.provenance.purpleair_qc import purpleair_reading_is_eligible
 
 
 # Bumped when the cross_source_summary_json shape changes; the corroboration
@@ -156,6 +157,15 @@ def build_cross_source_summary(
         if point.value is None or not math.isfinite(point.value):
             continue
         point_ts = _ensure_utc(point.timestamp)
+        if (
+            point.source == "purpleair"
+            and point.metric == "pm25"
+            and not purpleair_reading_is_eligible(
+                point.source_entity_id,
+                point_ts,
+            )
+        ):
+            continue
         if point_ts < start or point_ts > end:
             continue
         dist = distance_km(anomaly.lat, anomaly.lon, point.lat, point.lon)

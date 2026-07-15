@@ -249,6 +249,53 @@ class TestFreezeEvalSet:
 
 
 class TestFixturePayload:
+    def test_payload_carries_purpleair_qc_manifest_evidence(self) -> None:
+        result = FreezeResult(
+            window_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            window_end=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            top_n=50,
+            n_anomalies=0,
+            n_events=0,
+            selected=[],
+            event_sizes={},
+            missing_enrichment=[],
+        )
+
+        block = fixture_payload(result)["data_quality"][
+            "purpleair_time_aware_qc"
+        ]
+
+        assert block["artifact"] == "purpleair_time_aware_qc.v1.json"
+        assert block["artifact_sha256"] == (
+            "057c1e65e7f0b0a7cee5ba3033730777951a38731cda00ee83f82542e18d7468"
+        )
+        assert block["snapshot_sha256"] == (
+            "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81"
+        )
+        assert block["parameters"] == {
+            "candidate_min_observations": 6,
+            "center_step_hours": 1,
+            "minimum_peer_sensors": 10,
+            "network_extreme_median_ug_m3": 100.0,
+            "peer_min_observations": 6,
+            "saturation_ug_m3": 500.0,
+            "segment_absolute_floor_ug_m3": 20.0,
+            "segment_ratio_threshold": 5.0,
+            "window_hours": 24,
+        }
+        assert block["window_evaluation"]["unevaluated_fraction"] == pytest.approx(
+            0.106916820251
+        )
+        assert {segment["entity_id"] for segment in block["segments"]} >= {
+            "165203",
+            "194469",
+            "288282",
+        }
+        assert all(
+            sensor["retained_after_last_excluded"] > 0
+            for sensor in block["audited_sensors"]
+        )
+
     def test_payload_loads_through_the_harness(self, tmp_path) -> None:
         selected = [_anomaly(), _anomaly(metric="ozone")]
         result = FreezeResult(

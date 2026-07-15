@@ -1,0 +1,7950 @@
+{
+  "audited_sensors": [
+    {
+      "entity_id": "165203",
+      "excluded_fraction": 0.5864811133200796,
+      "excluded_rows": 590,
+      "first_excluded": "2026-06-01T00:00:00+00:00",
+      "last_excluded": "2026-07-05T05:01:40+00:00",
+      "latest_retained": "2026-07-12T17:01:18+00:00",
+      "retained_after_last_excluded": 180,
+      "rows": 1006
+    },
+    {
+      "entity_id": "194469",
+      "excluded_fraction": 0.22962226640159045,
+      "excluded_rows": 231,
+      "first_excluded": "2026-06-09T11:00:00+00:00",
+      "last_excluded": "2026-06-25T06:00:24+00:00",
+      "latest_retained": "2026-07-12T16:59:35+00:00",
+      "retained_after_last_excluded": 421,
+      "rows": 1006
+    },
+    {
+      "entity_id": "288282",
+      "excluded_fraction": 0.0019880715705765406,
+      "excluded_rows": 2,
+      "first_excluded": "2026-06-09T08:00:00+00:00",
+      "last_excluded": "2026-06-09T09:00:00+00:00",
+      "latest_retained": "2026-07-12T16:59:37+00:00",
+      "retained_after_last_excluded": 804,
+      "rows": 1006
+    }
+  ],
+  "excluded_rows": [
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-05T18:00:00+00:00",
+      "value": 3.4
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-05T19:00:00+00:00",
+      "value": 42.0
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-05T20:00:00+00:00",
+      "value": 62.8
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-05T21:00:00+00:00",
+      "value": 32.6
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-05T22:00:00+00:00",
+      "value": 34.2
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-05T23:00:00+00:00",
+      "value": 24.8
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-06T00:00:00+00:00",
+      "value": 25.9
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-06T01:00:00+00:00",
+      "value": 21.0
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-06T02:00:00+00:00",
+      "value": 28.5
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-06T03:00:00+00:00",
+      "value": 25.0
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-06T04:00:00+00:00",
+      "value": 5.0
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-06T05:00:00+00:00",
+      "value": 7.8
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-06T06:00:00+00:00",
+      "value": 6.3
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-06T07:00:00+00:00",
+      "value": 7.7
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-06T08:00:00+00:00",
+      "value": 4.9
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-06T09:00:00+00:00",
+      "value": 5.6
+    },
+    {
+      "entity_id": "118923",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-06T10:00:00+00:00",
+      "value": 11.1
+    },
+    {
+      "entity_id": "161689",
+      "reasons": [
+        "saturation"
+      ],
+      "timestamp": "2026-07-04T22:00:37+00:00",
+      "value": 550.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T00:00:00+00:00",
+      "value": 1606.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T01:00:00+00:00",
+      "value": 1623.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T02:00:00+00:00",
+      "value": 1640.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T03:00:00+00:00",
+      "value": 1654.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T04:00:00+00:00",
+      "value": 1666.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T05:00:00+00:00",
+      "value": 1668.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T06:00:00+00:00",
+      "value": 1668.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T07:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T08:00:00+00:00",
+      "value": 1669.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T09:00:00+00:00",
+      "value": 1669.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T10:00:00+00:00",
+      "value": 1669.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T11:00:00+00:00",
+      "value": 1668.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T12:00:00+00:00",
+      "value": 1668.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T13:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T14:00:00+00:00",
+      "value": 1661.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T15:00:00+00:00",
+      "value": 1656.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T16:00:00+00:00",
+      "value": 1642.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T17:00:00+00:00",
+      "value": 1617.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T18:00:00+00:00",
+      "value": 1603.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T19:00:00+00:00",
+      "value": 1592.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T20:00:00+00:00",
+      "value": 1583.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T21:00:00+00:00",
+      "value": 1573.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T22:00:00+00:00",
+      "value": 1564.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-01T23:00:00+00:00",
+      "value": 1575.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T00:00:00+00:00",
+      "value": 1591.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T01:00:00+00:00",
+      "value": 1605.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T02:00:00+00:00",
+      "value": 1620.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T03:00:00+00:00",
+      "value": 1633.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T04:00:00+00:00",
+      "value": 1648.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T05:00:00+00:00",
+      "value": 1660.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T06:00:00+00:00",
+      "value": 1664.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T07:00:00+00:00",
+      "value": 1665.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T08:00:00+00:00",
+      "value": 1667.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T09:00:00+00:00",
+      "value": 1667.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T10:00:00+00:00",
+      "value": 1667.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T11:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T12:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T13:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T14:00:00+00:00",
+      "value": 1661.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T15:00:00+00:00",
+      "value": 1633.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T16:00:00+00:00",
+      "value": 1616.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T17:00:00+00:00",
+      "value": 1605.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T18:00:00+00:00",
+      "value": 1587.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T19:00:00+00:00",
+      "value": 1578.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T20:00:00+00:00",
+      "value": 1600.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T21:00:00+00:00",
+      "value": 1665.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T22:00:00+00:00",
+      "value": 1667.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-02T23:00:00+00:00",
+      "value": 1670.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T00:00:00+00:00",
+      "value": 1669.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T01:00:00+00:00",
+      "value": 1667.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T02:00:00+00:00",
+      "value": 1668.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T03:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T04:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T05:00:00+00:00",
+      "value": 1668.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T06:00:00+00:00",
+      "value": 1668.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T07:00:00+00:00",
+      "value": 1669.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T08:00:00+00:00",
+      "value": 1669.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T09:00:00+00:00",
+      "value": 1669.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T10:00:00+00:00",
+      "value": 1669.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T11:00:00+00:00",
+      "value": 1669.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T12:00:00+00:00",
+      "value": 1670.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T13:00:00+00:00",
+      "value": 1669.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T14:00:00+00:00",
+      "value": 1669.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T15:00:00+00:00",
+      "value": 1669.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T16:00:00+00:00",
+      "value": 1668.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T17:00:00+00:00",
+      "value": 1661.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T18:00:00+00:00",
+      "value": 1646.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T19:00:00+00:00",
+      "value": 1662.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T20:00:00+00:00",
+      "value": 1667.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T21:00:00+00:00",
+      "value": 1666.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T22:00:00+00:00",
+      "value": 1667.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-03T23:00:00+00:00",
+      "value": 1666.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T00:00:00+00:00",
+      "value": 1667.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T01:00:00+00:00",
+      "value": 1668.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T02:00:00+00:00",
+      "value": 1669.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T03:00:00+00:00",
+      "value": 1668.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T04:00:00+00:00",
+      "value": 1667.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T05:00:00+00:00",
+      "value": 1668.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T06:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T07:00:00+00:00",
+      "value": 1669.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T08:00:00+00:00",
+      "value": 1669.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T09:00:00+00:00",
+      "value": 1669.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T10:00:00+00:00",
+      "value": 1670.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T11:00:00+00:00",
+      "value": 1671.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T12:00:00+00:00",
+      "value": 1670.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T13:00:00+00:00",
+      "value": 1671.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T14:00:00+00:00",
+      "value": 1670.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T15:00:00+00:00",
+      "value": 1668.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T16:00:00+00:00",
+      "value": 1667.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T17:00:00+00:00",
+      "value": 1669.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T18:00:00+00:00",
+      "value": 1668.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T19:00:00+00:00",
+      "value": 1666.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T20:00:00+00:00",
+      "value": 1655.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T21:00:00+00:00",
+      "value": 1665.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T22:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-04T23:00:00+00:00",
+      "value": 1667.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T00:00:00+00:00",
+      "value": 1667.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T01:00:00+00:00",
+      "value": 1667.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T02:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T03:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T04:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T05:00:00+00:00",
+      "value": 1668.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T06:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T07:00:00+00:00",
+      "value": 1667.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T08:00:00+00:00",
+      "value": 1667.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T09:00:00+00:00",
+      "value": 1668.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T10:00:00+00:00",
+      "value": 1669.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T11:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T12:00:00+00:00",
+      "value": 1668.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T13:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T14:00:00+00:00",
+      "value": 1668.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T15:00:00+00:00",
+      "value": 1666.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T16:00:00+00:00",
+      "value": 1666.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T17:00:00+00:00",
+      "value": 1667.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T18:00:00+00:00",
+      "value": 1666.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T19:00:00+00:00",
+      "value": 1666.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T20:00:00+00:00",
+      "value": 1666.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T21:00:00+00:00",
+      "value": 1662.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T22:00:00+00:00",
+      "value": 1653.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-05T23:00:00+00:00",
+      "value": 1653.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T00:00:00+00:00",
+      "value": 1657.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T01:00:00+00:00",
+      "value": 1666.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T02:00:00+00:00",
+      "value": 1666.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T03:00:00+00:00",
+      "value": 1666.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T04:00:00+00:00",
+      "value": 1666.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T05:00:00+00:00",
+      "value": 1666.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T06:00:00+00:00",
+      "value": 1666.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T07:00:00+00:00",
+      "value": 1666.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T08:00:00+00:00",
+      "value": 1666.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T09:00:00+00:00",
+      "value": 1666.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T10:00:00+00:00",
+      "value": 1666.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T11:00:00+00:00",
+      "value": 1666.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T12:00:00+00:00",
+      "value": 1667.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T13:00:00+00:00",
+      "value": 1667.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T14:00:00+00:00",
+      "value": 1666.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T15:00:00+00:00",
+      "value": 1662.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T16:00:00+00:00",
+      "value": 1665.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T17:00:00+00:00",
+      "value": 1651.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T18:00:00+00:00",
+      "value": 1647.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T19:00:00+00:00",
+      "value": 1667.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T20:00:00+00:00",
+      "value": 1665.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T21:00:00+00:00",
+      "value": 1645.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T22:00:00+00:00",
+      "value": 1637.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-06T23:00:00+00:00",
+      "value": 1641.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T00:00:00+00:00",
+      "value": 1642.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T01:00:00+00:00",
+      "value": 1644.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T02:00:00+00:00",
+      "value": 1650.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T03:00:00+00:00",
+      "value": 1663.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T04:00:00+00:00",
+      "value": 1665.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T05:00:00+00:00",
+      "value": 1668.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T06:00:00+00:00",
+      "value": 1669.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T07:00:00+00:00",
+      "value": 1668.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T08:00:00+00:00",
+      "value": 1669.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T09:00:00+00:00",
+      "value": 1670.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T10:00:00+00:00",
+      "value": 1670.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T11:00:00+00:00",
+      "value": 1670.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T12:00:00+00:00",
+      "value": 1669.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T13:00:00+00:00",
+      "value": 1669.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T14:00:00+00:00",
+      "value": 1652.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T15:00:00+00:00",
+      "value": 1635.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T16:00:00+00:00",
+      "value": 1622.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T17:00:00+00:00",
+      "value": 1611.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T18:00:00+00:00",
+      "value": 1604.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T19:00:00+00:00",
+      "value": 1599.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T20:00:00+00:00",
+      "value": 1599.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T21:00:00+00:00",
+      "value": 1613.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T22:00:00+00:00",
+      "value": 1624.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-07T23:00:00+00:00",
+      "value": 1633.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T00:00:00+00:00",
+      "value": 1642.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T01:00:00+00:00",
+      "value": 1646.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T02:00:00+00:00",
+      "value": 1648.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T03:00:00+00:00",
+      "value": 1651.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T04:00:00+00:00",
+      "value": 1655.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T05:00:00+00:00",
+      "value": 1658.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T06:00:00+00:00",
+      "value": 1661.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T07:00:00+00:00",
+      "value": 1664.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T08:00:00+00:00",
+      "value": 1669.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T09:00:00+00:00",
+      "value": 1669.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T10:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T11:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T12:00:00+00:00",
+      "value": 1667.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T13:00:00+00:00",
+      "value": 1656.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T14:00:00+00:00",
+      "value": 1645.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T15:00:00+00:00",
+      "value": 1631.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T16:00:00+00:00",
+      "value": 1626.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T17:00:00+00:00",
+      "value": 1604.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T18:00:00+00:00",
+      "value": 1588.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T19:00:00+00:00",
+      "value": 1570.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T20:00:00+00:00",
+      "value": 1571.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T21:00:00+00:00",
+      "value": 1580.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T22:00:00+00:00",
+      "value": 1581.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-08T23:00:00+00:00",
+      "value": 1577.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T00:00:00+00:00",
+      "value": 1596.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T01:00:00+00:00",
+      "value": 1616.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T02:00:00+00:00",
+      "value": 1633.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T03:00:00+00:00",
+      "value": 1651.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T04:00:00+00:00",
+      "value": 1665.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T05:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T06:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T07:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T08:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T09:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T10:00:00+00:00",
+      "value": 1669.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T11:00:00+00:00",
+      "value": 1669.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T12:00:00+00:00",
+      "value": 1669.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T13:00:00+00:00",
+      "value": 1661.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T14:00:00+00:00",
+      "value": 1648.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T15:00:00+00:00",
+      "value": 1630.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T16:00:00+00:00",
+      "value": 1619.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T17:00:00+00:00",
+      "value": 1598.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T18:00:00+00:00",
+      "value": 1579.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T19:00:00+00:00",
+      "value": 1573.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T20:00:00+00:00",
+      "value": 1565.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T21:00:00+00:00",
+      "value": 1560.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T22:00:00+00:00",
+      "value": 1567.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T23:00:00+00:00",
+      "value": 1568.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T00:00:00+00:00",
+      "value": 1592.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T01:00:00+00:00",
+      "value": 1609.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T02:00:00+00:00",
+      "value": 1622.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T03:00:00+00:00",
+      "value": 1632.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T04:00:00+00:00",
+      "value": 1643.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T05:00:00+00:00",
+      "value": 1653.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T06:00:00+00:00",
+      "value": 1657.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T07:00:00+00:00",
+      "value": 1663.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T08:00:00+00:00",
+      "value": 1666.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T09:00:00+00:00",
+      "value": 1664.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T10:00:00+00:00",
+      "value": 1659.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T11:00:00+00:00",
+      "value": 1664.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T12:00:00+00:00",
+      "value": 1655.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T13:00:00+00:00",
+      "value": 1641.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T14:00:00+00:00",
+      "value": 1614.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T15:00:00+00:00",
+      "value": 1596.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T16:00:00+00:00",
+      "value": 1587.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T17:00:00+00:00",
+      "value": 1584.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T18:00:00+00:00",
+      "value": 1562.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T19:00:00+00:00",
+      "value": 1557.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T20:00:00+00:00",
+      "value": 1551.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T21:00:00+00:00",
+      "value": 1554.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T22:00:00+00:00",
+      "value": 1556.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-10T23:00:00+00:00",
+      "value": 1565.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T00:00:00+00:00",
+      "value": 1579.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T01:00:00+00:00",
+      "value": 1600.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T02:00:00+00:00",
+      "value": 1615.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T03:00:00+00:00",
+      "value": 1628.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T04:00:00+00:00",
+      "value": 1638.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T05:00:00+00:00",
+      "value": 1642.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T06:00:00+00:00",
+      "value": 1644.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T07:00:00+00:00",
+      "value": 1653.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T08:00:00+00:00",
+      "value": 1656.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T09:00:00+00:00",
+      "value": 1665.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T10:00:00+00:00",
+      "value": 1667.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T11:00:00+00:00",
+      "value": 1667.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T12:00:00+00:00",
+      "value": 1666.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T13:00:00+00:00",
+      "value": 1654.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T14:00:00+00:00",
+      "value": 1630.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T15:00:00+00:00",
+      "value": 1613.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T16:00:00+00:00",
+      "value": 1594.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T17:00:00+00:00",
+      "value": 1584.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T18:00:00+00:00",
+      "value": 1568.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T19:00:00+00:00",
+      "value": 1556.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T20:00:00+00:00",
+      "value": 1546.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T21:00:00+00:00",
+      "value": 1549.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T22:00:00+00:00",
+      "value": 1564.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-11T23:00:00+00:00",
+      "value": 1571.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T00:00:00+00:00",
+      "value": 1588.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T01:00:00+00:00",
+      "value": 1604.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T02:00:00+00:00",
+      "value": 1617.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T03:00:00+00:00",
+      "value": 1627.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T04:00:00+00:00",
+      "value": 1639.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T05:00:00+00:00",
+      "value": 1650.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T06:00:00+00:00",
+      "value": 1654.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T07:00:00+00:00",
+      "value": 1655.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T08:00:00+00:00",
+      "value": 1664.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T09:00:00+00:00",
+      "value": 1666.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T10:00:00+00:00",
+      "value": 1666.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T11:00:00+00:00",
+      "value": 1666.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T12:00:00+00:00",
+      "value": 1666.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T13:00:00+00:00",
+      "value": 1657.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T14:00:00+00:00",
+      "value": 1626.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T15:00:00+00:00",
+      "value": 1604.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T16:00:00+00:00",
+      "value": 1584.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T17:00:00+00:00",
+      "value": 1581.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T18:00:00+00:00",
+      "value": 1579.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T19:00:00+00:00",
+      "value": 1599.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T20:00:00+00:00",
+      "value": 1606.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T21:00:00+00:00",
+      "value": 1609.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T22:00:00+00:00",
+      "value": 1593.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-12T23:00:00+00:00",
+      "value": 1586.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T00:00:00+00:00",
+      "value": 1593.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T01:00:00+00:00",
+      "value": 1603.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T02:00:00+00:00",
+      "value": 1618.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T03:00:00+00:00",
+      "value": 1631.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T04:00:00+00:00",
+      "value": 1644.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T05:00:00+00:00",
+      "value": 1656.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T06:00:00+00:00",
+      "value": 1667.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T07:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T08:00:00+00:00",
+      "value": 1668.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T09:00:00+00:00",
+      "value": 1668.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T10:00:00+00:00",
+      "value": 1669.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T11:00:00+00:00",
+      "value": 1669.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T12:00:00+00:00",
+      "value": 1669.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T13:00:00+00:00",
+      "value": 1662.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T14:00:00+00:00",
+      "value": 1641.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T15:00:00+00:00",
+      "value": 1623.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T16:00:00+00:00",
+      "value": 1609.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T17:00:00+00:00",
+      "value": 1586.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T18:00:00+00:00",
+      "value": 1572.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T19:00:00+00:00",
+      "value": 1569.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T20:00:00+00:00",
+      "value": 1567.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T21:00:00+00:00",
+      "value": 1576.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T22:00:00+00:00",
+      "value": 1570.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T23:00:00+00:00",
+      "value": 1583.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T00:00:00+00:00",
+      "value": 1592.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T01:00:00+00:00",
+      "value": 1598.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T02:00:00+00:00",
+      "value": 1611.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T03:00:00+00:00",
+      "value": 1628.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T04:00:00+00:00",
+      "value": 1638.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T05:00:00+00:00",
+      "value": 1642.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T06:00:00+00:00",
+      "value": 1644.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T07:00:00+00:00",
+      "value": 1644.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T08:00:00+00:00",
+      "value": 1650.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T09:00:00+00:00",
+      "value": 1651.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T10:00:00+00:00",
+      "value": 1661.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T11:00:00+00:00",
+      "value": 1668.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T12:00:00+00:00",
+      "value": 1659.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T13:00:00+00:00",
+      "value": 1639.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T14:00:00+00:00",
+      "value": 1646.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T15:00:00+00:00",
+      "value": 1660.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T16:00:00+00:00",
+      "value": 1613.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T17:00:00+00:00",
+      "value": 1605.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T18:00:00+00:00",
+      "value": 1606.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T19:00:00+00:00",
+      "value": 1586.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T20:00:00+00:00",
+      "value": 1573.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T21:00:00+00:00",
+      "value": 1558.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T22:00:00+00:00",
+      "value": 1570.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-14T23:00:00+00:00",
+      "value": 1596.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T00:00:00+00:00",
+      "value": 1619.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T01:00:00+00:00",
+      "value": 1660.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T02:00:00+00:00",
+      "value": 1670.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T03:00:00+00:00",
+      "value": 1669.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T04:00:00+00:00",
+      "value": 1669.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T05:00:00+00:00",
+      "value": 1669.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T06:00:00+00:00",
+      "value": 1669.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T07:00:00+00:00",
+      "value": 1669.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T08:00:00+00:00",
+      "value": 1666.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T09:00:00+00:00",
+      "value": 1667.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T10:00:00+00:00",
+      "value": 1670.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T11:00:00+00:00",
+      "value": 1670.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T12:00:00+00:00",
+      "value": 1669.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T13:00:00+00:00",
+      "value": 1669.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T14:00:00+00:00",
+      "value": 1670.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T15:00:00+00:00",
+      "value": 1668.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T16:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T17:00:00+00:00",
+      "value": 1666.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T18:00:00+00:00",
+      "value": 1666.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T19:00:00+00:00",
+      "value": 1667.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T20:00:00+00:00",
+      "value": 1668.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T21:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T22:00:00+00:00",
+      "value": 1669.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T23:00:00+00:00",
+      "value": 1668.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T00:00:00+00:00",
+      "value": 1668.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T01:00:00+00:00",
+      "value": 1668.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T02:00:00+00:00",
+      "value": 1669.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T03:00:00+00:00",
+      "value": 1669.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T04:00:00+00:00",
+      "value": 1670.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T05:00:00+00:00",
+      "value": 1670.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T06:00:00+00:00",
+      "value": 1670.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T07:00:00+00:00",
+      "value": 1670.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T08:00:00+00:00",
+      "value": 1670.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T09:00:00+00:00",
+      "value": 1669.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T10:00:00+00:00",
+      "value": 1668.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T11:00:00+00:00",
+      "value": 1669.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T12:00:00+00:00",
+      "value": 1669.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T13:00:00+00:00",
+      "value": 1670.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T14:00:00+00:00",
+      "value": 1668.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T15:00:00+00:00",
+      "value": 1667.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T16:00:00+00:00",
+      "value": 1666.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T17:00:00+00:00",
+      "value": 1666.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T18:00:00+00:00",
+      "value": 1666.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T19:00:00+00:00",
+      "value": 1666.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T20:00:00+00:00",
+      "value": 1667.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T21:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T22:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T23:00:00+00:00",
+      "value": 1661.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T00:00:00+00:00",
+      "value": 1654.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T01:00:00+00:00",
+      "value": 1665.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T02:00:00+00:00",
+      "value": 1669.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T03:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T04:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T05:00:00+00:00",
+      "value": 1668.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T06:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T07:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T08:00:00+00:00",
+      "value": 1668.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T09:00:00+00:00",
+      "value": 1670.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T10:00:00+00:00",
+      "value": 1670.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T11:00:00+00:00",
+      "value": 1668.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T12:00:00+00:00",
+      "value": 1667.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T13:00:00+00:00",
+      "value": 1669.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T14:00:00+00:00",
+      "value": 1670.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T15:00:00+00:00",
+      "value": 1670.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T16:00:00+00:00",
+      "value": 1669.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T17:00:00+00:00",
+      "value": 1668.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T18:00:00+00:00",
+      "value": 1651.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T19:00:00+00:00",
+      "value": 1636.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T20:00:00+00:00",
+      "value": 1618.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T21:00:00+00:00",
+      "value": 1605.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T22:00:00+00:00",
+      "value": 1610.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T23:00:00+00:00",
+      "value": 1616.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T00:00:00+00:00",
+      "value": 1627.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T01:00:00+00:00",
+      "value": 1641.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T02:00:00+00:00",
+      "value": 1653.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T03:00:00+00:00",
+      "value": 1664.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T04:00:00+00:00",
+      "value": 1669.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T05:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T06:00:00+00:00",
+      "value": 1669.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T07:00:00+00:00",
+      "value": 1669.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T08:00:00+00:00",
+      "value": 1668.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T09:00:00+00:00",
+      "value": 1667.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T10:00:00+00:00",
+      "value": 1667.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T11:00:00+00:00",
+      "value": 1669.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T12:00:00+00:00",
+      "value": 1679.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T13:00:00+00:00",
+      "value": 1677.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T14:00:00+00:00",
+      "value": 1651.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T15:00:00+00:00",
+      "value": 1629.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T16:00:00+00:00",
+      "value": 1615.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T17:00:00+00:00",
+      "value": 1589.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T18:00:00+00:00",
+      "value": 1571.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T19:00:00+00:00",
+      "value": 1558.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T20:00:00+00:00",
+      "value": 1535.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T21:00:00+00:00",
+      "value": 1540.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T22:00:00+00:00",
+      "value": 1540.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T23:00:00+00:00",
+      "value": 1538.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T00:00:00+00:00",
+      "value": 1554.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T01:00:00+00:00",
+      "value": 1584.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T02:00:00+00:00",
+      "value": 1612.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T03:00:00+00:00",
+      "value": 1626.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T04:00:00+00:00",
+      "value": 1635.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T05:00:00+00:00",
+      "value": 1642.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T06:00:00+00:00",
+      "value": 1649.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T07:00:00+00:00",
+      "value": 1655.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T08:00:00+00:00",
+      "value": 1660.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T09:00:00+00:00",
+      "value": 1666.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T10:00:00+00:00",
+      "value": 1669.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T11:00:00+00:00",
+      "value": 1669.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T12:00:00+00:00",
+      "value": 1665.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T13:00:00+00:00",
+      "value": 1654.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T14:00:00+00:00",
+      "value": 1638.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T15:00:00+00:00",
+      "value": 1618.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T16:00:00+00:00",
+      "value": 1602.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T17:00:00+00:00",
+      "value": 1590.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T18:00:00+00:00",
+      "value": 1571.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T19:00:00+00:00",
+      "value": 1575.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T20:00:00+00:00",
+      "value": 1614.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T21:00:00+00:00",
+      "value": 1626.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T22:00:00+00:00",
+      "value": 1668.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T23:00:00+00:00",
+      "value": 1670.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T00:00:00+00:00",
+      "value": 1669.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T01:00:00+00:00",
+      "value": 1668.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T02:00:00+00:00",
+      "value": 1669.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T03:00:00+00:00",
+      "value": 1669.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T04:00:00+00:00",
+      "value": 1669.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T05:00:00+00:00",
+      "value": 1669.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T06:00:00+00:00",
+      "value": 1668.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T07:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T08:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T09:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T10:00:00+00:00",
+      "value": 1668.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T11:00:00+00:00",
+      "value": 1668.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T12:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T13:00:00+00:00",
+      "value": 1668.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T14:00:00+00:00",
+      "value": 1668.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T15:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T16:00:00+00:00",
+      "value": 1665.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T17:00:00+00:00",
+      "value": 1661.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T18:00:00+00:00",
+      "value": 1666.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T19:00:00+00:00",
+      "value": 1667.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T20:00:00+00:00",
+      "value": 1668.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T21:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T22:00:00+00:00",
+      "value": 1667.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T23:00:00+00:00",
+      "value": 1667.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T00:00:00+00:00",
+      "value": 1668.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T01:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T02:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T03:00:00+00:00",
+      "value": 1668.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T04:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T05:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T06:00:00+00:00",
+      "value": 1668.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T07:00:00+00:00",
+      "value": 1668.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T08:00:00+00:00",
+      "value": 1669.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T09:00:00+00:00",
+      "value": 1669.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T10:00:00+00:00",
+      "value": 1670.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T11:00:00+00:00",
+      "value": 1669.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T12:00:00+00:00",
+      "value": 1668.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T13:00:00+00:00",
+      "value": 1667.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T14:00:00+00:00",
+      "value": 1667.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T15:00:00+00:00",
+      "value": 1668.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T16:00:00+00:00",
+      "value": 1666.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T17:00:00+00:00",
+      "value": 1667.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T18:00:00+00:00",
+      "value": 1660.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T19:00:00+00:00",
+      "value": 1630.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T20:00:00+00:00",
+      "value": 1606.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T21:00:00+00:00",
+      "value": 1596.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T22:00:00+00:00",
+      "value": 1592.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T23:00:00+00:00",
+      "value": 1594.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T00:00:00+00:00",
+      "value": 1620.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T01:00:00+00:00",
+      "value": 1643.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T02:00:00+00:00",
+      "value": 1655.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T03:00:00+00:00",
+      "value": 1656.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T04:00:00+00:00",
+      "value": 1660.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T05:00:00+00:00",
+      "value": 1667.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T06:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T07:00:00+00:00",
+      "value": 1668.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T08:00:00+00:00",
+      "value": 1669.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T09:00:00+00:00",
+      "value": 1671.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T10:00:00+00:00",
+      "value": 1672.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T11:00:00+00:00",
+      "value": 1673.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T12:00:00+00:00",
+      "value": 1670.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T13:00:00+00:00",
+      "value": 1657.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T14:00:00+00:00",
+      "value": 1638.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T15:00:00+00:00",
+      "value": 1616.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T16:00:00+00:00",
+      "value": 1592.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T17:00:00+00:00",
+      "value": 1573.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T18:00:00+00:00",
+      "value": 1561.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T19:00:00+00:00",
+      "value": 1555.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T20:00:00+00:00",
+      "value": 1544.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T21:00:00+00:00",
+      "value": 1536.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T22:00:00+00:00",
+      "value": 1546.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-22T23:00:00+00:00",
+      "value": 1556.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T00:00:00+00:00",
+      "value": 1574.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T01:00:00+00:00",
+      "value": 1597.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T02:00:00+00:00",
+      "value": 1619.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T03:00:00+00:00",
+      "value": 1630.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T04:00:00+00:00",
+      "value": 1642.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T05:00:00+00:00",
+      "value": 1655.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T06:00:00+00:00",
+      "value": 1663.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T07:00:00+00:00",
+      "value": 1667.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T08:00:00+00:00",
+      "value": 1668.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T09:00:00+00:00",
+      "value": 1668.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T10:00:00+00:00",
+      "value": 1668.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T11:00:00+00:00",
+      "value": 1668.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T12:00:00+00:00",
+      "value": 1671.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T13:00:00+00:00",
+      "value": 1669.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T14:00:00+00:00",
+      "value": 1664.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T15:00:00+00:00",
+      "value": 1645.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T16:00:00+00:00",
+      "value": 1624.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T17:00:00+00:00",
+      "value": 1611.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T18:00:00+00:00",
+      "value": 1592.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T19:00:00+00:00",
+      "value": 1578.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T20:00:00+00:00",
+      "value": 1565.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T21:00:00+00:00",
+      "value": 1564.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T22:00:00+00:00",
+      "value": 1562.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T23:00:00+00:00",
+      "value": 1568.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T00:00:00+00:00",
+      "value": 1578.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T01:00:00+00:00",
+      "value": 1593.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T02:00:00+00:00",
+      "value": 1612.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T03:00:00+00:00",
+      "value": 1627.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T04:00:00+00:00",
+      "value": 1643.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T05:00:00+00:00",
+      "value": 1660.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T06:00:00+00:00",
+      "value": 1668.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T07:00:00+00:00",
+      "value": 1669.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T08:00:00+00:00",
+      "value": 1669.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T09:00:00+00:00",
+      "value": 1669.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T10:00:00+00:00",
+      "value": 1669.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T11:00:00+00:00",
+      "value": 1669.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T12:00:00+00:00",
+      "value": 1669.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T13:00:00+00:00",
+      "value": 1669.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T14:00:00+00:00",
+      "value": 1668.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T15:00:00+00:00",
+      "value": 1649.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T16:00:00+00:00",
+      "value": 1628.1
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T17:00:00+00:00",
+      "value": 1614.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T18:00:00+00:00",
+      "value": 1603.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T19:00:00+00:00",
+      "value": 1590.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T20:00:00+00:00",
+      "value": 1573.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T21:00:00+00:00",
+      "value": 1563.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T22:00:00+00:00",
+      "value": 1561.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T22:40:46+00:00",
+      "value": 7.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T23:00:00+00:00",
+      "value": 1562.8
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T23:00:46+00:00",
+      "value": 7.0
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T00:00:46+00:00",
+      "value": 7.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T01:00:47+00:00",
+      "value": 7.4
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T02:00:48+00:00",
+      "value": 7.7
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T03:00:48+00:00",
+      "value": 8.5
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T04:00:49+00:00",
+      "value": 7.9
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T05:00:49+00:00",
+      "value": 8.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T06:00:50+00:00",
+      "value": 8.3
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T07:00:36+00:00",
+      "value": 9.2
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T08:00:49+00:00",
+      "value": 8.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T09:01:00+00:00",
+      "value": 8.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T10:01:12+00:00",
+      "value": 9.6
+    },
+    {
+      "entity_id": "165203",
+      "reasons": [
+        "saturation"
+      ],
+      "timestamp": "2026-07-05T05:01:40+00:00",
+      "value": 1697.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T11:00:00+00:00",
+      "value": 500.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T12:00:00+00:00",
+      "value": 560.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T13:00:00+00:00",
+      "value": 1649.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T14:00:00+00:00",
+      "value": 1241.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T10:00:00+00:00",
+      "value": 1250.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T11:00:00+00:00",
+      "value": 1670.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "saturation"
+      ],
+      "timestamp": "2026-06-13T12:00:00+00:00",
+      "value": 1115.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T02:00:00+00:00",
+      "value": 21.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T03:00:00+00:00",
+      "value": 27.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T04:00:00+00:00",
+      "value": 48.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T05:00:00+00:00",
+      "value": 72.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T06:00:00+00:00",
+      "value": 77.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T07:00:00+00:00",
+      "value": 65.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T08:00:00+00:00",
+      "value": 48.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T09:00:00+00:00",
+      "value": 55.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T10:00:00+00:00",
+      "value": 64.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T11:00:00+00:00",
+      "value": 40.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T12:00:00+00:00",
+      "value": 35.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T13:00:00+00:00",
+      "value": 35.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T14:00:00+00:00",
+      "value": 49.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T15:00:00+00:00",
+      "value": 1568.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T16:00:00+00:00",
+      "value": 1205.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-15T17:00:00+00:00",
+      "value": 711.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T18:00:00+00:00",
+      "value": 316.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T19:00:00+00:00",
+      "value": 24.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T20:00:00+00:00",
+      "value": 9.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T21:00:00+00:00",
+      "value": 8.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T22:00:00+00:00",
+      "value": 43.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-15T23:00:00+00:00",
+      "value": 61.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T00:00:00+00:00",
+      "value": 68.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T01:00:00+00:00",
+      "value": 85.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T02:00:00+00:00",
+      "value": 100.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T03:00:00+00:00",
+      "value": 97.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T04:00:00+00:00",
+      "value": 91.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T05:00:00+00:00",
+      "value": 124.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T06:00:00+00:00",
+      "value": 168.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T07:00:00+00:00",
+      "value": 168.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T08:00:00+00:00",
+      "value": 137.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T09:00:00+00:00",
+      "value": 147.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T10:00:00+00:00",
+      "value": 1150.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T11:00:00+00:00",
+      "value": 998.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T12:00:00+00:00",
+      "value": 1256.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T13:00:00+00:00",
+      "value": 72.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T14:00:00+00:00",
+      "value": 89.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-16T15:00:00+00:00",
+      "value": 876.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T16:00:00+00:00",
+      "value": 45.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T17:00:00+00:00",
+      "value": 54.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T18:00:00+00:00",
+      "value": 4.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T19:00:00+00:00",
+      "value": 1.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T20:00:00+00:00",
+      "value": 2.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T21:00:00+00:00",
+      "value": 6.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T22:00:00+00:00",
+      "value": 4.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-16T23:00:00+00:00",
+      "value": 10.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T00:00:00+00:00",
+      "value": 21.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T01:00:00+00:00",
+      "value": 48.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T02:00:00+00:00",
+      "value": 77.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T03:00:00+00:00",
+      "value": 140.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T04:00:00+00:00",
+      "value": 1143.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T05:00:00+00:00",
+      "value": 1562.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T06:00:00+00:00",
+      "value": 1553.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T07:00:00+00:00",
+      "value": 661.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T08:00:00+00:00",
+      "value": 1581.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T09:00:00+00:00",
+      "value": 1588.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T10:00:00+00:00",
+      "value": 1549.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T11:00:00+00:00",
+      "value": 193.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T12:00:00+00:00",
+      "value": 49.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T13:00:00+00:00",
+      "value": 25.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T14:00:00+00:00",
+      "value": 67.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T15:00:00+00:00",
+      "value": 39.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T16:00:00+00:00",
+      "value": 1297.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-17T17:00:00+00:00",
+      "value": 1670.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T18:00:00+00:00",
+      "value": 363.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T19:00:00+00:00",
+      "value": 5.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T20:00:00+00:00",
+      "value": 6.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T21:00:00+00:00",
+      "value": 5.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T22:00:00+00:00",
+      "value": 4.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-17T23:00:00+00:00",
+      "value": 4.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-18T00:00:00+00:00",
+      "value": 12.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-18T01:00:00+00:00",
+      "value": 31.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-18T02:00:00+00:00",
+      "value": 55.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-18T03:00:00+00:00",
+      "value": 77.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-18T04:00:00+00:00",
+      "value": 88.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-18T05:00:00+00:00",
+      "value": 322.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T06:00:00+00:00",
+      "value": 1670.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T07:00:00+00:00",
+      "value": 1670.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T08:00:00+00:00",
+      "value": 1670.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T09:00:00+00:00",
+      "value": 1669.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T10:00:00+00:00",
+      "value": 1669.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T11:00:00+00:00",
+      "value": 1137.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-18T12:00:00+00:00",
+      "value": 640.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-18T13:00:00+00:00",
+      "value": 52.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-18T14:00:00+00:00",
+      "value": 41.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-18T15:00:00+00:00",
+      "value": 39.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-18T16:00:00+00:00",
+      "value": 31.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-18T17:00:00+00:00",
+      "value": 26.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-18T18:00:00+00:00",
+      "value": 27.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-18T19:00:00+00:00",
+      "value": 28.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-19T10:00:00+00:00",
+      "value": 24.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-19T11:00:00+00:00",
+      "value": 26.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-19T12:00:00+00:00",
+      "value": 25.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-19T13:00:00+00:00",
+      "value": 23.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-19T14:00:00+00:00",
+      "value": 17.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-19T15:00:00+00:00",
+      "value": 16.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-19T16:00:00+00:00",
+      "value": 15.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-19T17:00:00+00:00",
+      "value": 14.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-19T18:00:00+00:00",
+      "value": 16.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-19T19:00:00+00:00",
+      "value": 20.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-19T20:00:00+00:00",
+      "value": 68.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-19T21:00:00+00:00",
+      "value": 45.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T22:00:00+00:00",
+      "value": 1129.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-19T23:00:00+00:00",
+      "value": 1523.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T00:00:00+00:00",
+      "value": 877.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T01:00:00+00:00",
+      "value": 1669.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T02:00:00+00:00",
+      "value": 1670.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T03:00:00+00:00",
+      "value": 176.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T04:00:00+00:00",
+      "value": 1156.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T05:00:00+00:00",
+      "value": 1669.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T06:00:00+00:00",
+      "value": 1669.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T07:00:00+00:00",
+      "value": 1669.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T08:00:00+00:00",
+      "value": 1669.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T09:00:00+00:00",
+      "value": 1669.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T10:00:00+00:00",
+      "value": 1669.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T11:00:00+00:00",
+      "value": 1669.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-20T12:00:00+00:00",
+      "value": 1670.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T13:00:00+00:00",
+      "value": 40.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T14:00:00+00:00",
+      "value": 13.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T15:00:00+00:00",
+      "value": 17.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T16:00:00+00:00",
+      "value": 18.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T17:00:00+00:00",
+      "value": 8.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T18:00:00+00:00",
+      "value": 20.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T19:00:00+00:00",
+      "value": 29.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T20:00:00+00:00",
+      "value": 16.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T21:00:00+00:00",
+      "value": 108.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T22:00:00+00:00",
+      "value": 172.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T23:00:00+00:00",
+      "value": 268.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T00:00:00+00:00",
+      "value": 164.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T01:00:00+00:00",
+      "value": 164.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T02:00:00+00:00",
+      "value": 1307.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T03:00:00+00:00",
+      "value": 1669.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T04:00:00+00:00",
+      "value": 1677.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T05:00:00+00:00",
+      "value": 1671.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T06:00:00+00:00",
+      "value": 1669.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T07:00:00+00:00",
+      "value": 1670.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T08:00:00+00:00",
+      "value": 1670.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T09:00:00+00:00",
+      "value": 1669.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T10:00:00+00:00",
+      "value": 1670.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T11:00:00+00:00",
+      "value": 1670.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T12:00:00+00:00",
+      "value": 1670.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T13:00:00+00:00",
+      "value": 250.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T14:00:00+00:00",
+      "value": 6.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T15:00:00+00:00",
+      "value": 6.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T16:00:00+00:00",
+      "value": 5.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T17:00:00+00:00",
+      "value": 467.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T18:00:00+00:00",
+      "value": 694.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-21T19:00:00+00:00",
+      "value": 1047.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T20:00:00+00:00",
+      "value": 6.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T21:00:00+00:00",
+      "value": 9.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T22:00:00+00:00",
+      "value": 12.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T23:00:00+00:00",
+      "value": 12.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T00:00:00+00:00",
+      "value": 10.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T01:00:00+00:00",
+      "value": 9.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T02:00:00+00:00",
+      "value": 9.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T03:00:00+00:00",
+      "value": 8.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T04:00:00+00:00",
+      "value": 14.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T14:00:00+00:00",
+      "value": 25.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T15:00:00+00:00",
+      "value": 27.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T16:00:00+00:00",
+      "value": 23.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T17:00:00+00:00",
+      "value": 16.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T18:00:00+00:00",
+      "value": 14.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T19:00:00+00:00",
+      "value": 12.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T20:00:00+00:00",
+      "value": 13.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T21:00:00+00:00",
+      "value": 11.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T22:00:00+00:00",
+      "value": 7.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T23:00:00+00:00",
+      "value": 4.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T00:00:00+00:00",
+      "value": 7.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T01:00:00+00:00",
+      "value": 6.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T02:00:00+00:00",
+      "value": 47.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T03:00:00+00:00",
+      "value": 76.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T04:00:00+00:00",
+      "value": 96.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T05:00:00+00:00",
+      "value": 104.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T06:00:00+00:00",
+      "value": 134.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T07:00:00+00:00",
+      "value": 630.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T08:00:00+00:00",
+      "value": 1669.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T09:00:00+00:00",
+      "value": 1669.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T10:00:00+00:00",
+      "value": 1670.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T11:00:00+00:00",
+      "value": 1670.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T12:00:00+00:00",
+      "value": 1674.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T13:00:00+00:00",
+      "value": 1673.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-23T14:00:00+00:00",
+      "value": 1531.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T15:00:00+00:00",
+      "value": 13.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T16:00:00+00:00",
+      "value": 12.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T17:00:00+00:00",
+      "value": 9.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T18:00:00+00:00",
+      "value": 7.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T19:00:00+00:00",
+      "value": 8.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T20:00:00+00:00",
+      "value": 9.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T21:00:00+00:00",
+      "value": 10.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T22:00:00+00:00",
+      "value": 6.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-23T23:00:00+00:00",
+      "value": 5.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T00:00:00+00:00",
+      "value": 18.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T01:00:00+00:00",
+      "value": 38.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T02:00:00+00:00",
+      "value": 65.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T03:00:00+00:00",
+      "value": 99.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T04:00:00+00:00",
+      "value": 102.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T05:00:00+00:00",
+      "value": 131.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T06:00:00+00:00",
+      "value": 1103.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T07:00:00+00:00",
+      "value": 1670.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T08:00:00+00:00",
+      "value": 1671.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T09:00:00+00:00",
+      "value": 1671.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T10:00:00+00:00",
+      "value": 1671.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T11:00:00+00:00",
+      "value": 1672.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T12:00:00+00:00",
+      "value": 1672.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T13:00:00+00:00",
+      "value": 1672.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T14:00:00+00:00",
+      "value": 1672.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T15:00:00+00:00",
+      "value": 1672.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T16:00:00+00:00",
+      "value": 1670.0
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment",
+        "saturation"
+      ],
+      "timestamp": "2026-06-24T17:00:00+00:00",
+      "value": 1262.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T18:00:00+00:00",
+      "value": 10.5
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T19:00:00+00:00",
+      "value": 9.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T20:00:00+00:00",
+      "value": 9.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T21:00:00+00:00",
+      "value": 14.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T22:00:00+00:00",
+      "value": 41.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T22:40:22+00:00",
+      "value": 56.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T23:00:00+00:00",
+      "value": 74.2
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-24T23:00:22+00:00",
+      "value": 53.9
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T00:00:23+00:00",
+      "value": 9.6
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T01:00:23+00:00",
+      "value": 10.4
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T02:00:24+00:00",
+      "value": 10.8
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T03:00:24+00:00",
+      "value": 13.3
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T04:00:25+00:00",
+      "value": 12.1
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T05:00:13+00:00",
+      "value": 13.7
+    },
+    {
+      "entity_id": "194469",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-25T06:00:24+00:00",
+      "value": 14.3
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T16:00:00+00:00",
+      "value": 6.0
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T17:00:00+00:00",
+      "value": 2.7
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T18:00:00+00:00",
+      "value": 2.7
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T19:00:00+00:00",
+      "value": 1.9
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T20:00:00+00:00",
+      "value": 2.2
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T21:00:00+00:00",
+      "value": 1.1
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T22:00:00+00:00",
+      "value": 1.5
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-20T23:00:00+00:00",
+      "value": 4.3
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T00:00:00+00:00",
+      "value": 44.8
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T01:00:00+00:00",
+      "value": 39.9
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T02:00:00+00:00",
+      "value": 14.9
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T03:00:00+00:00",
+      "value": 83.2
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T04:00:00+00:00",
+      "value": 56.6
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T05:00:00+00:00",
+      "value": 27.7
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T06:00:00+00:00",
+      "value": 27.2
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T07:00:00+00:00",
+      "value": 28.7
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T08:00:00+00:00",
+      "value": 62.0
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T09:00:00+00:00",
+      "value": 38.1
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T10:00:00+00:00",
+      "value": 82.5
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T11:00:00+00:00",
+      "value": 113.6
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T12:00:00+00:00",
+      "value": 148.8
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T13:00:00+00:00",
+      "value": 127.1
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T14:00:00+00:00",
+      "value": 88.7
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T15:00:00+00:00",
+      "value": 82.1
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T16:00:00+00:00",
+      "value": 132.1
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T17:00:00+00:00",
+      "value": 4.4
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T18:00:00+00:00",
+      "value": 5.4
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T19:00:00+00:00",
+      "value": 6.8
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T20:00:00+00:00",
+      "value": 8.6
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T21:00:00+00:00",
+      "value": 9.7
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T22:00:00+00:00",
+      "value": 8.2
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-21T23:00:00+00:00",
+      "value": 7.6
+    },
+    {
+      "entity_id": "276512",
+      "reasons": [
+        "persistent_segment"
+      ],
+      "timestamp": "2026-06-22T00:00:00+00:00",
+      "value": 8.2
+    },
+    {
+      "entity_id": "288282",
+      "reasons": [
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T08:00:00+00:00",
+      "value": 875.8
+    },
+    {
+      "entity_id": "288282",
+      "reasons": [
+        "saturation"
+      ],
+      "timestamp": "2026-06-09T09:00:00+00:00",
+      "value": 679.6
+    }
+  ],
+  "fixture_id": "purpleair-time-aware-qc-v1",
+  "input": {
+    "entities": 79,
+    "in_radius_finite_rows": 70512,
+    "queried_rows": 70512
+  },
+  "june_channel": {
+    "after_rows": 48967,
+    "before_rows": 49839,
+    "mean_after_ug_m3": 8.148847182796576,
+    "mean_before_ug_m3": 29.439469090471317
+  },
+  "metric": "pm25",
+  "parameters": {
+    "candidate_min_observations": 6,
+    "center_step_hours": 1,
+    "minimum_peer_sensors": 10,
+    "network_extreme_median_ug_m3": 100.0,
+    "peer_min_observations": 6,
+    "saturation_ug_m3": 500.0,
+    "segment_absolute_floor_ug_m3": 20.0,
+    "segment_ratio_threshold": 5.0,
+    "window_hours": 24
+  },
+  "row_evaluation": {
+    "excluded": 874,
+    "excluded_fraction": 0.012395053324256864,
+    "reason_counts_nonexclusive": {
+      "persistent_segment": 863,
+      "saturation": 657
+    },
+    "retained": 69638,
+    "total": 70512
+  },
+  "schema_version": 1,
+  "segments": [
+    {
+      "covered_end_exclusive": "2026-06-06T11:00:00+00:00",
+      "covered_start": "2026-06-05T00:00:00+00:00",
+      "decision_end_inclusive": "2026-06-05T23:00:00+00:00",
+      "decision_start": "2026-06-05T12:00:00+00:00",
+      "entity_id": "118923",
+      "excluded_row_count": 17,
+      "reason": "persistent_segment"
+    },
+    {
+      "covered_end_exclusive": "2026-07-04T22:00:37.000001+00:00",
+      "covered_start": "2026-07-04T22:00:37+00:00",
+      "decision_end_inclusive": "2026-07-04T22:00:00+00:00",
+      "decision_start": "2026-07-04T22:00:00+00:00",
+      "entity_id": "161689",
+      "excluded_row_count": 1,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-25T11:00:00+00:00",
+      "covered_start": "2026-06-01T00:00:00+00:00",
+      "decision_end_inclusive": "2026-06-24T23:00:00+00:00",
+      "decision_start": "2026-06-01T00:00:00+00:00",
+      "entity_id": "165203",
+      "excluded_row_count": 589,
+      "reason": "persistent_segment"
+    },
+    {
+      "covered_end_exclusive": "2026-06-24T23:00:00.000001+00:00",
+      "covered_start": "2026-06-01T00:00:00+00:00",
+      "decision_end_inclusive": "2026-06-24T23:00:00+00:00",
+      "decision_start": "2026-06-01T00:00:00+00:00",
+      "entity_id": "165203",
+      "excluded_row_count": 576,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-07-05T05:01:40.000001+00:00",
+      "covered_start": "2026-07-05T05:01:40+00:00",
+      "decision_end_inclusive": "2026-07-05T05:00:00+00:00",
+      "decision_start": "2026-07-05T05:00:00+00:00",
+      "entity_id": "165203",
+      "excluded_row_count": 1,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-09T14:00:00.000001+00:00",
+      "covered_start": "2026-06-09T11:00:00+00:00",
+      "decision_end_inclusive": "2026-06-09T14:00:00+00:00",
+      "decision_start": "2026-06-09T11:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 4,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-13T12:00:00.000001+00:00",
+      "covered_start": "2026-06-13T10:00:00+00:00",
+      "decision_end_inclusive": "2026-06-13T12:00:00+00:00",
+      "decision_start": "2026-06-13T10:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 3,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-18T20:00:00+00:00",
+      "covered_start": "2026-06-15T02:00:00+00:00",
+      "decision_end_inclusive": "2026-06-18T08:00:00+00:00",
+      "decision_start": "2026-06-15T14:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 90,
+      "reason": "persistent_segment"
+    },
+    {
+      "covered_end_exclusive": "2026-06-15T17:00:00.000001+00:00",
+      "covered_start": "2026-06-15T15:00:00+00:00",
+      "decision_end_inclusive": "2026-06-15T17:00:00+00:00",
+      "decision_start": "2026-06-15T15:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 3,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-16T12:00:00.000001+00:00",
+      "covered_start": "2026-06-16T10:00:00+00:00",
+      "decision_end_inclusive": "2026-06-16T12:00:00+00:00",
+      "decision_start": "2026-06-16T10:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 3,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-16T15:00:00.000001+00:00",
+      "covered_start": "2026-06-16T15:00:00+00:00",
+      "decision_end_inclusive": "2026-06-16T15:00:00+00:00",
+      "decision_start": "2026-06-16T15:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 1,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-17T10:00:00.000001+00:00",
+      "covered_start": "2026-06-17T04:00:00+00:00",
+      "decision_end_inclusive": "2026-06-17T10:00:00+00:00",
+      "decision_start": "2026-06-17T04:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 7,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-17T17:00:00.000001+00:00",
+      "covered_start": "2026-06-17T16:00:00+00:00",
+      "decision_end_inclusive": "2026-06-17T17:00:00+00:00",
+      "decision_start": "2026-06-17T16:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 2,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-18T12:00:00.000001+00:00",
+      "covered_start": "2026-06-18T06:00:00+00:00",
+      "decision_end_inclusive": "2026-06-18T12:00:00+00:00",
+      "decision_start": "2026-06-18T06:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 7,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-22T05:00:00+00:00",
+      "covered_start": "2026-06-19T10:00:00+00:00",
+      "decision_end_inclusive": "2026-06-21T17:00:00+00:00",
+      "decision_start": "2026-06-19T22:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 67,
+      "reason": "persistent_segment"
+    },
+    {
+      "covered_end_exclusive": "2026-06-20T02:00:00.000001+00:00",
+      "covered_start": "2026-06-19T22:00:00+00:00",
+      "decision_end_inclusive": "2026-06-20T02:00:00+00:00",
+      "decision_start": "2026-06-19T22:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 5,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-20T12:00:00.000001+00:00",
+      "covered_start": "2026-06-20T04:00:00+00:00",
+      "decision_end_inclusive": "2026-06-20T12:00:00+00:00",
+      "decision_start": "2026-06-20T04:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 9,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-21T12:00:00.000001+00:00",
+      "covered_start": "2026-06-21T02:00:00+00:00",
+      "decision_end_inclusive": "2026-06-21T12:00:00+00:00",
+      "decision_start": "2026-06-21T02:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 11,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-21T19:00:00.000001+00:00",
+      "covered_start": "2026-06-21T18:00:00+00:00",
+      "decision_end_inclusive": "2026-06-21T19:00:00+00:00",
+      "decision_start": "2026-06-21T18:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 2,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-25T07:00:00+00:00",
+      "covered_start": "2026-06-22T14:00:00+00:00",
+      "decision_end_inclusive": "2026-06-24T19:00:00+00:00",
+      "decision_start": "2026-06-23T02:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 67,
+      "reason": "persistent_segment"
+    },
+    {
+      "covered_end_exclusive": "2026-06-23T14:00:00.000001+00:00",
+      "covered_start": "2026-06-23T07:00:00+00:00",
+      "decision_end_inclusive": "2026-06-23T14:00:00+00:00",
+      "decision_start": "2026-06-23T07:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 8,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-24T17:00:00.000001+00:00",
+      "covered_start": "2026-06-24T06:00:00+00:00",
+      "decision_end_inclusive": "2026-06-24T17:00:00+00:00",
+      "decision_start": "2026-06-24T06:00:00+00:00",
+      "entity_id": "194469",
+      "excluded_row_count": 12,
+      "reason": "saturation"
+    },
+    {
+      "covered_end_exclusive": "2026-06-22T01:00:00+00:00",
+      "covered_start": "2026-06-20T16:00:00+00:00",
+      "decision_end_inclusive": "2026-06-21T13:00:00+00:00",
+      "decision_start": "2026-06-21T04:00:00+00:00",
+      "entity_id": "276512",
+      "excluded_row_count": 33,
+      "reason": "persistent_segment"
+    },
+    {
+      "covered_end_exclusive": "2026-06-09T09:00:00.000001+00:00",
+      "covered_start": "2026-06-09T08:00:00+00:00",
+      "decision_end_inclusive": "2026-06-09T09:00:00+00:00",
+      "decision_start": "2026-06-09T08:00:00+00:00",
+      "entity_id": "288282",
+      "excluded_row_count": 2,
+      "reason": "saturation"
+    }
+  ],
+  "snapshot_sha256": "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81",
+  "source": "purpleair",
+  "stored_field": "raw ATM; no Barkjohn correction in this evaluation",
+  "study_window": {
+    "end_exclusive": "2026-07-13T00:00:00+00:00",
+    "start": "2026-06-01T00:00:00+00:00"
+  },
+  "target": {
+    "lat": 29.7604,
+    "lon": -95.3698,
+    "radius_km": 50.0
+  },
+  "window_evaluation": {
+    "evaluated": 71118,
+    "primary_excluded_windows": 751,
+    "total": 79632,
+    "unevaluated": 8514,
+    "unevaluated_by_reason": {
+      "candidate_observation_floor": 8514
+    },
+    "unevaluated_fraction": 0.10691681735985534
+  },
+  "window_semantics": "UTC-hour centers; [center-12h, center+12h), clamped at study edges"
+}

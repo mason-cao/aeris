@@ -53,6 +53,27 @@ def _summary(sources_metrics: dict, anomaly_ts: str = "2026-06-15T12:00:00+00:00
                 "series": [[anomaly_ts, value]],
             }
         ]
+    purpleair_pm25 = (
+        summary.get("sources", {})
+        .get("purpleair", {})
+        .get("metrics", {})
+        .get("pm25")
+    )
+    if purpleair_pm25:
+        value = purpleair_pm25["nearest_in_time"]["v"]
+        purpleair_pm25["nearest_in_time"].update(
+            {"t": anomaly_ts, "entity_id": "synthetic-purpleair"}
+        )
+        purpleair_pm25["entities"] = [
+            {
+                "entity_id": "synthetic-purpleair",
+                "lat": 29.76,
+                "lon": -95.37,
+                "distance_km": 0.0,
+                "n_points": 1,
+                "series": [[anomaly_ts, value]],
+            }
+        ]
     return summary
 
 

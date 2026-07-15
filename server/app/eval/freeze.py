@@ -18,7 +18,8 @@ Output is the frozen fixture ``harness.load_anomaly_set`` consumes, with the
 criteria and freeze time recorded alongside the ids.
 
 CLI: ``python -m app.eval.freeze --start 2026-06-01 --end 2026-08-31
---top 50 --out fixtures/eval50.json [--dry-run]``
+--top 50 --snapshot-sha256 <locked-sha256> --out fixtures/eval50.json
+[--dry-run]``
 """
 
 from __future__ import annotations
@@ -26,10 +27,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
+import subprocess
 import uuid
 from collections import defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -40,7 +43,20 @@ from app.collectors.geo import distance_km
 from app.db.models import Anomaly
 from app.eval.censoring_sensitivity import censoring_manifest_payload
 from app.eval.observation_age_empirics import observation_age_manifest_payload
-from app.provenance.purpleair_qc import purpleair_qc_manifest_payload
+from app.llm.corroboration import (
+    DEFAULT_BACKGROUND_TOLERANCE,
+    DEFAULT_CHEMISTRY_TOLERANCE,
+    DEFAULT_CONCENTRATION_TOLERANCE,
+    DEFAULT_SECONDARY_TOLERANCE,
+    DEFAULT_SOURCE_TYPE_TOLERANCE,
+    DEFAULT_TEMPORAL_TOLERANCE,
+    DEFAULT_TRAP_TOLERANCE,
+    DEFAULT_WIND_TOLERANCE,
+)
+from app.provenance.purpleair_qc import (
+    LOCKED_SNAPSHOT_SHA256,
+    purpleair_qc_manifest_payload,
+)
 
 # 90 min, not 30: the ground sources report hourly, so consecutive-hour flags
 # at one station are 60 min apart — a 30 min window could never chain them and
@@ -51,6 +67,75 @@ from app.provenance.purpleair_qc import purpleair_qc_manifest_payload
 MERGE_WINDOW = timedelta(minutes=90)
 MERGE_RADIUS_KM = 10.0
 DEFAULT_TOP_N = 50
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+_SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
+_FULL_COMMIT_PATTERN = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
+
+
+def validate_snapshot_sha256(value: str) -> str:
+    """Return the canonical snapshot hash or fail before freeze selection."""
+    if _SHA256_PATTERN.fullmatch(value) is None:
+        raise ValueError("snapshot SHA-256 must be 64 lowercase hexadecimal characters")
+    if value != LOCKED_SNAPSHOT_SHA256:
+        raise ValueError(
+            "snapshot SHA-256 does not match the locked audit snapshot: "
+            f"{value} != {LOCKED_SNAPSHOT_SHA256}"
+        )
+    return value
+
+
+def validate_code_commit(value: str) -> str:
+    """Return a full Git object ID in canonical lowercase hexadecimal form."""
+    if _FULL_COMMIT_PATTERN.fullmatch(value) is None:
+        raise ValueError(
+            "code commit must be a full 40- or 64-character lowercase Git object ID"
+        )
+    return value
+
+
+def _run_git(repository_root: Path, command: list[str]) -> str:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=repository_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        detail = getattr(exc, "stderr", None) or str(exc)
+        raise RuntimeError(f"Git provenance command failed: {detail}") from exc
+    return completed.stdout
+
+
+def repository_code_commit(repository_root: Path = REPOSITORY_ROOT) -> str:
+    """Resolve clean repository HEAD; dirty code cannot claim commit provenance."""
+    status = _run_git(
+        repository_root,
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+    )
+    dirty_paths = "; ".join(line for line in status.splitlines() if line)
+    if dirty_paths:
+        raise RuntimeError(f"dirty repository cannot be frozen: {dirty_paths}")
+    commit = _run_git(
+        repository_root,
+        ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+    ).strip()
+    return validate_code_commit(commit)
+
+
+def threshold_manifest_payload() -> dict[str, dict[str, int | float]]:
+    """Serialize every live scorer-tolerance owner without copied values."""
+    return {
+        "atmospheric_trap": asdict(DEFAULT_TRAP_TOLERANCE),
+        "background_vs_event": asdict(DEFAULT_BACKGROUND_TOLERANCE),
+        "chemistry": asdict(DEFAULT_CHEMISTRY_TOLERANCE),
+        "concentration_elevation": asdict(DEFAULT_CONCENTRATION_TOLERANCE),
+        "emissions_source_type": asdict(DEFAULT_SOURCE_TYPE_TOLERANCE),
+        "secondary_formation": asdict(DEFAULT_SECONDARY_TOLERANCE),
+        "temporal_pattern": asdict(DEFAULT_TEMPORAL_TOLERANCE),
+        "wind": asdict(DEFAULT_WIND_TOLERANCE),
+    }
 
 
 def _ensure_utc(dt: datetime) -> datetime:
@@ -200,10 +285,20 @@ def selection_composition(selected: Sequence[Anomaly]) -> dict[str, int]:
     return dict(sorted(composition.items()))
 
 
-def fixture_payload(result: FreezeResult) -> dict:
+def fixture_payload(
+    result: FreezeResult,
+    *,
+    snapshot_sha256: str,
+    code_commit: str,
+) -> dict:
     """The frozen-set JSON, in the shape ``harness.load_anomaly_set`` reads."""
+    snapshot_sha256 = validate_snapshot_sha256(snapshot_sha256)
+    code_commit = validate_code_commit(code_commit)
     return {
         "frozen_at": datetime.now(timezone.utc).isoformat(),
+        "snapshot_sha256": snapshot_sha256,
+        "code_commit": code_commit,
+        "thresholds": threshold_manifest_payload(),
         "window": {
             "start": _ensure_utc(result.window_start).isoformat(),
             "end": _ensure_utc(result.window_end).isoformat(),
@@ -293,6 +388,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--top", type=int, default=DEFAULT_TOP_N)
     parser.add_argument(
+        "--snapshot-sha256",
+        required=True,
+        help="locked raw-snapshot SHA-256 represented by the analysis database",
+    )
+    parser.add_argument(
         "--out",
         default=None,
         help="path for the frozen fixture JSON (required unless --dry-run)",
@@ -313,8 +413,10 @@ async def _amain(argv: list[str] | None = None) -> int:
     # don't pay for spinning up the production asyncpg engine.
     from app.db.session import async_session, engine_lifecycle
 
+    args = _parse_args(argv)
+    snapshot_sha256 = validate_snapshot_sha256(args.snapshot_sha256)
+    code_commit = repository_code_commit(REPOSITORY_ROOT)
     async with engine_lifecycle():
-        args = _parse_args(argv)
         window_start = _parse_date(args.start)
         window_end = _parse_date(args.end)
         if "T" not in args.end:
@@ -331,7 +433,12 @@ async def _amain(argv: list[str] | None = None) -> int:
         if not args.dry_run:
             out = Path(args.out)
             out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(json.dumps(fixture_payload(result), indent=2) + "\n")
+            payload = fixture_payload(
+                result,
+                snapshot_sha256=snapshot_sha256,
+                code_commit=code_commit,
+            )
+            out.write_text(json.dumps(payload, indent=2) + "\n")
             print(f"\nFrozen set written to {out}")
         return 0
 

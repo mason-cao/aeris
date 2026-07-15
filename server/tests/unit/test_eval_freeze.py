@@ -7,9 +7,11 @@ criteria next to the ids.
 """
 
 import json
+import subprocess
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import asdict, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -25,10 +27,32 @@ from app.eval.freeze import (
     group_events,
 )
 from app.eval.harness import load_anomaly_set
+from app.llm.corroboration import (
+    DEFAULT_BACKGROUND_TOLERANCE,
+    DEFAULT_CHEMISTRY_TOLERANCE,
+    DEFAULT_CONCENTRATION_TOLERANCE,
+    DEFAULT_SECONDARY_TOLERANCE,
+    DEFAULT_SOURCE_TYPE_TOLERANCE,
+    DEFAULT_TEMPORAL_TOLERANCE,
+    DEFAULT_TRAP_TOLERANCE,
+    DEFAULT_WIND_TOLERANCE,
+)
 
 T0 = datetime(2026, 7, 2, 12, 0, tzinfo=timezone.utc)
 HOUSTON_LAT = 29.7604
 HOUSTON_LON = -95.3698
+SNAPSHOT_SHA256 = (
+    "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81"
+)
+CODE_COMMIT = "a" * 40
+
+
+def _fixture_payload(result: FreezeResult) -> dict:
+    return fixture_payload(
+        result,
+        snapshot_sha256=SNAPSHOT_SHA256,
+        code_commit=CODE_COMMIT,
+    )
 
 
 def _anomaly(
@@ -253,7 +277,220 @@ class TestFreezeEvalSet:
         assert result.missing_enrichment == [bare.id]
 
 
+class TestFreezeProvenance:
+    def test_repository_commit_requires_clean_tree_and_returns_full_head(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        calls: list[list[str]] = []
+
+        def fake_run(
+            command: list[str],
+            **_kwargs: object,
+        ) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            if command[1] == "status":
+                return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout=f"{CODE_COMMIT}\n",
+                stderr="",
+            )
+
+        monkeypatch.setattr(freeze_module.subprocess, "run", fake_run)
+
+        assert freeze_module.repository_code_commit(tmp_path) == CODE_COMMIT
+        assert calls == [
+            ["git", "status", "--porcelain", "--untracked-files=all"],
+            ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+        ]
+
+    def test_repository_commit_rejects_dirty_tree_before_resolving_head(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        calls: list[list[str]] = []
+
+        def fake_run(
+            command: list[str],
+            **_kwargs: object,
+        ) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout=" M server/app/eval/freeze.py\n?? untracked.py\n",
+                stderr="",
+            )
+
+        monkeypatch.setattr(freeze_module.subprocess, "run", fake_run)
+
+        with pytest.raises(RuntimeError, match="dirty.*freeze.py.*untracked.py"):
+            freeze_module.repository_code_commit(tmp_path)
+
+        assert calls == [
+            ["git", "status", "--porcelain", "--untracked-files=all"]
+        ]
+
+    def test_repository_commit_wraps_git_failure(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        def fail_run(
+            command: list[str],
+            **_kwargs: object,
+        ) -> subprocess.CompletedProcess[str]:
+            raise subprocess.CalledProcessError(
+                128,
+                command,
+                stderr="fatal: not a git repository",
+            )
+
+        monkeypatch.setattr(freeze_module.subprocess, "run", fail_run)
+
+        with pytest.raises(RuntimeError, match="Git provenance"):
+            freeze_module.repository_code_commit(tmp_path)
+
+    def test_repository_commit_rejects_non_full_head(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        def fake_run(
+            command: list[str],
+            **_kwargs: object,
+        ) -> subprocess.CompletedProcess[str]:
+            output = "" if command[1] == "status" else "abc123\n"
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout=output,
+                stderr="",
+            )
+
+        monkeypatch.setattr(freeze_module.subprocess, "run", fake_run)
+
+        with pytest.raises(ValueError, match="code commit"):
+            freeze_module.repository_code_commit(tmp_path)
+
+    def test_parse_args_requires_snapshot_hash_even_for_dry_run(self) -> None:
+        with pytest.raises(SystemExit):
+            freeze_module._parse_args(
+                [
+                    "--start",
+                    "2026-06-01",
+                    "--end",
+                    "2026-06-30",
+                    "--dry-run",
+                ]
+            )
+
+
 class TestFixturePayload:
+    def test_payload_carries_required_provenance_and_live_thresholds(self) -> None:
+        result = FreezeResult(
+            window_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            window_end=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            top_n=50,
+            n_anomalies=0,
+            n_events=0,
+            selected=[],
+            event_sizes={},
+            missing_enrichment=[],
+        )
+
+        payload = _fixture_payload(result)
+
+        assert payload["snapshot_sha256"] == SNAPSHOT_SHA256
+        assert payload["code_commit"] == CODE_COMMIT
+        assert payload["thresholds"] == {
+            "atmospheric_trap": asdict(DEFAULT_TRAP_TOLERANCE),
+            "background_vs_event": asdict(DEFAULT_BACKGROUND_TOLERANCE),
+            "chemistry": asdict(DEFAULT_CHEMISTRY_TOLERANCE),
+            "concentration_elevation": asdict(
+                DEFAULT_CONCENTRATION_TOLERANCE
+            ),
+            "emissions_source_type": asdict(DEFAULT_SOURCE_TYPE_TOLERANCE),
+            "secondary_formation": asdict(DEFAULT_SECONDARY_TOLERANCE),
+            "temporal_pattern": asdict(DEFAULT_TEMPORAL_TOLERANCE),
+            "wind": asdict(DEFAULT_WIND_TOLERANCE),
+        }
+
+    def test_threshold_payload_reads_mutated_tolerance_owner(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            freeze_module,
+            "DEFAULT_WIND_TOLERANCE",
+            replace(DEFAULT_WIND_TOLERANCE, bearing_deg=17.25),
+        )
+
+        thresholds = freeze_module.threshold_manifest_payload()
+
+        assert thresholds["wind"]["bearing_deg"] == 17.25
+        assert thresholds["wind"] == asdict(
+            freeze_module.DEFAULT_WIND_TOLERANCE
+        )
+
+    @pytest.mark.parametrize(
+        "snapshot_sha256",
+        (
+            "",
+            "g" * 64,
+            SNAPSHOT_SHA256.upper(),
+            "0" * 64,
+        ),
+    )
+    def test_payload_rejects_noncanonical_snapshot_hash(
+        self,
+        snapshot_sha256: str,
+    ) -> None:
+        result = FreezeResult(
+            window_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            window_end=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            top_n=50,
+            n_anomalies=0,
+            n_events=0,
+            selected=[],
+            event_sizes={},
+            missing_enrichment=[],
+        )
+
+        with pytest.raises(ValueError, match="snapshot SHA-256"):
+            fixture_payload(
+                result,
+                snapshot_sha256=snapshot_sha256,
+                code_commit=CODE_COMMIT,
+            )
+
+    @pytest.mark.parametrize(
+        "code_commit",
+        ("", "g" * 40, "a" * 39, "a" * 41),
+    )
+    def test_payload_rejects_invalid_full_commit_id(self, code_commit: str) -> None:
+        result = FreezeResult(
+            window_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            window_end=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            top_n=50,
+            n_anomalies=0,
+            n_events=0,
+            selected=[],
+            event_sizes={},
+            missing_enrichment=[],
+        )
+
+        with pytest.raises(ValueError, match="code commit"):
+            fixture_payload(
+                result,
+                snapshot_sha256=SNAPSHOT_SHA256,
+                code_commit=code_commit,
+            )
+
     def test_payload_carries_observation_age_gate_empirics(self) -> None:
         result = FreezeResult(
             window_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
@@ -266,7 +503,7 @@ class TestFixturePayload:
             missing_enrichment=[],
         )
 
-        block = fixture_payload(result)["data_quality"]["observation_age_gates"]
+        block = _fixture_payload(result)["data_quality"]["observation_age_gates"]
 
         assert block["artifact"] == "observation_age_empirics.v1.json"
         assert block["artifact_sha256"] == (
@@ -299,7 +536,7 @@ class TestFixturePayload:
             missing_enrichment=[],
         )
 
-        block = fixture_payload(result)["data_quality"][
+        block = _fixture_payload(result)["data_quality"][
             "purpleair_time_aware_qc"
         ]
 
@@ -346,7 +583,7 @@ class TestFixturePayload:
             missing_enrichment=[],
         )
 
-        block = fixture_payload(result)["data_quality"]["censoring"]
+        block = _fixture_payload(result)["data_quality"]["censoring"]
 
         assert block["artifact"] == "censoring_sensitivity.v1.json"
         assert block["artifact_sha256"] == (
@@ -422,6 +659,12 @@ class TestFixturePayload:
             "freeze_eval_set",
             fake_freeze_eval_set,
         )
+        monkeypatch.setattr(
+            freeze_module,
+            "repository_code_commit",
+            lambda _root: CODE_COMMIT,
+            raising=False,
+        )
         output = tmp_path / "eval.json"
 
         exit_code = await freeze_module._amain(
@@ -432,6 +675,8 @@ class TestFixturePayload:
                 "2026-06-01",
                 "--top",
                 "1",
+                "--snapshot-sha256",
+                SNAPSHOT_SHA256,
                 "--out",
                 str(output),
             ]
@@ -442,6 +687,52 @@ class TestFixturePayload:
         assert payload["data_quality"]["censoring"]["artifact_sha256"] == (
             "93dfccdd5106769c7e08efcf21a2b22e4461c4a1c307962f2b7594c6480d6469"
         )
+        assert payload["snapshot_sha256"] == SNAPSHOT_SHA256
+        assert payload["code_commit"] == CODE_COMMIT
+
+    @pytest.mark.asyncio
+    async def test_invalid_snapshot_fails_before_database_or_fixture_write(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        entered_engine = False
+
+        @asynccontextmanager
+        async def fake_engine_lifecycle() -> AsyncIterator[object]:
+            nonlocal entered_engine
+            entered_engine = True
+            yield object()
+
+        monkeypatch.setattr(
+            session_module,
+            "engine_lifecycle",
+            fake_engine_lifecycle,
+        )
+        monkeypatch.setattr(
+            freeze_module,
+            "repository_code_commit",
+            lambda _root: CODE_COMMIT,
+            raising=False,
+        )
+        output = tmp_path / "must-not-exist.json"
+
+        with pytest.raises(ValueError, match="snapshot SHA-256"):
+            await freeze_module._amain(
+                [
+                    "--start",
+                    "2026-06-01",
+                    "--end",
+                    "2026-06-30",
+                    "--snapshot-sha256",
+                    "0" * 64,
+                    "--out",
+                    str(output),
+                ]
+            )
+
+        assert entered_engine is False
+        assert not output.exists()
 
     def test_payload_loads_through_the_harness(self, tmp_path) -> None:
         selected = [_anomaly(), _anomaly(metric="ozone")]
@@ -455,7 +746,7 @@ class TestFixturePayload:
             event_sizes={selected[0].id: 5, selected[1].id: 1},
             missing_enrichment=[],
         )
-        payload = fixture_payload(result)
+        payload = _fixture_payload(result)
         path = tmp_path / "eval50.json"
         path.write_text(json.dumps(payload))
 

@@ -36,7 +36,7 @@ set -a && source deploy/analysis/.env.analysis && set +a
 # 4. Run the eval on Timescale (unchanged commands).
 python -m app.detection.run
 python -m app.detection.enrichment
-python -m app.eval.freeze --start 2026-06-01 --end 2026-07-12 --top 50 --out fixtures/eval50.json
+python -m app.eval.freeze --start 2026-06-01 --end 2026-07-12 --top 50 --snapshot-sha256 8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81 --out fixtures/eval50.json
 python -m app.eval.harness --anomaly-set fixtures/eval50.json
 
 # 5. Done — wipe the container + volume.

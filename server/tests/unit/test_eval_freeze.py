@@ -249,6 +249,39 @@ class TestFreezeEvalSet:
 
 
 class TestFixturePayload:
+    def test_payload_carries_observation_age_gate_empirics(self) -> None:
+        result = FreezeResult(
+            window_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            window_end=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            top_n=50,
+            n_anomalies=0,
+            n_events=0,
+            selected=[],
+            event_sizes={},
+            missing_enrichment=[],
+        )
+
+        block = fixture_payload(result)["data_quality"]["observation_age_gates"]
+
+        assert block["artifact"] == "observation_age_empirics.v1.json"
+        assert block["artifact_sha256"] == (
+            "b22bf6cbf02abf2a87c25e2fd4898a90923759107e5ed9c31211cd03fc30d27e"
+        )
+        assert block["anchor_count"] == 936
+        assert block["gates_minutes"] == {
+            "asos": 90.0,
+            "epa_aqs": 90.0,
+            "noaa_gfs": 360.0,
+            "openaq": 90.0,
+            "openweather": 90.0,
+            "purpleair": 90.0,
+            "sentinel5p": 720.0,
+            "tceq": 90.0,
+        }
+        assert block["stop_rule_violations"] == []
+        assert block["structurally_absent_sources"] == ["epa_aqs"]
+        assert len(block["metrics"]) == 36
+
     def test_payload_carries_purpleair_qc_manifest_evidence(self) -> None:
         result = FreezeResult(
             window_start=datetime(2026, 6, 1, tzinfo=timezone.utc),

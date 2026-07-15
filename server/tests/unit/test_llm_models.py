@@ -157,7 +157,28 @@ class TestClaimModel:
         assert loaded.causal is False
         assert loaded.per_channel_verdicts == {"ground_insitu": 1, "nwp": -1}
         assert loaded.partial_verifiability is False
+        assert loaded.quantitative_exclusion_reason is None
         assert loaded.low_corroboration_flag is False
+
+    @pytest.mark.asyncio
+    async def test_quantitative_exclusion_reason_roundtrips(self, db_session) -> None:
+        anomaly = _make_anomaly(metric="so2")
+        db_session.add(anomaly)
+        await db_session.flush()
+        explanation = _make_explanation(anomaly.id)
+        db_session.add(explanation)
+        await db_session.flush()
+        db_session.add(
+            _make_claim(
+                explanation.id,
+                claim_text="SO2 exceeded 1 ppb.",
+                quantitative_exclusion_reason="so2_underpowered",
+            )
+        )
+        await db_session.commit()
+
+        loaded = (await db_session.execute(select(Claim))).scalar_one()
+        assert loaded.quantitative_exclusion_reason == "so2_underpowered"
 
     @pytest.mark.asyncio
     async def test_phase1_unverified_claim_skips_phase2(self, db_session) -> None:

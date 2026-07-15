@@ -38,6 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.collectors.geo import distance_km
 from app.db.models import Anomaly
+from app.eval.censoring_sensitivity import censoring_manifest_payload
 from app.eval.observation_age_empirics import observation_age_manifest_payload
 from app.provenance.purpleair_qc import purpleair_qc_manifest_payload
 
@@ -220,6 +221,7 @@ def fixture_payload(result: FreezeResult) -> dict:
         "n_events": result.n_events,
         "composition": selection_composition(result.selected),
         "data_quality": {
+            "censoring": censoring_manifest_payload(),
             "observation_age_gates": observation_age_manifest_payload(),
             "purpleair_time_aware_qc": purpleair_qc_manifest_payload(),
         },

@@ -8,11 +8,16 @@ criteria next to the ids.
 
 import json
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
+from app.db import session as session_module
 from app.db.models import Anomaly, EnrichmentRecord
+from app.eval import freeze as freeze_module
 from app.eval.freeze import (
     FreezeResult,
     fixture_payload,
@@ -327,6 +332,115 @@ class TestFixturePayload:
         assert all(
             sensor["retained_after_last_excluded"] > 0
             for sensor in block["audited_sensors"]
+        )
+
+    def test_payload_carries_censoring_rule_and_sensitivity_evidence(self) -> None:
+        result = FreezeResult(
+            window_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            window_end=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            top_n=50,
+            n_anomalies=0,
+            n_events=0,
+            selected=[],
+            event_sizes={},
+            missing_enrichment=[],
+        )
+
+        block = fixture_payload(result)["data_quality"]["censoring"]
+
+        assert block["artifact"] == "censoring_sensitivity.v1.json"
+        assert block["artifact_sha256"] == (
+            "93dfccdd5106769c7e08efcf21a2b22e4461c4a1c307962f2b7594c6480d6469"
+        )
+        assert block["snapshot_sha256"] == (
+            "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81"
+        )
+        assert block["unit_assertion_passed"] is True
+        assert block["rules"]["primary"] == "limit_half"
+        assert block["rules"]["alternative"] == "delete"
+        assert block["rules"]["ground_so2_limit_ppb"] == 0.5
+        assert block["rules"]["so2_quantitative_exclusion_reason"] == (
+            "so2_underpowered"
+        )
+        assert len(block["metrics"]) == 10
+        tceq_so2 = next(
+            metric
+            for metric in block["metrics"]
+            if metric["source"] == "tceq" and metric["metric"] == "so2"
+        )
+        assert tceq_so2["censored_fraction"] == pytest.approx(
+            0.9685603148558249
+        )
+        assert tceq_so2["deletion_evaluable_windows"] == 304
+
+    @pytest.mark.asyncio
+    async def test_freeze_cli_writes_censoring_manifest(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        result = FreezeResult(
+            window_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            window_end=datetime(2026, 6, 2, tzinfo=timezone.utc),
+            top_n=1,
+            n_anomalies=0,
+            n_events=0,
+            selected=[],
+            event_sizes={},
+            missing_enrichment=[],
+        )
+
+        @asynccontextmanager
+        async def fake_engine_lifecycle() -> AsyncIterator[object]:
+            yield object()
+
+        @asynccontextmanager
+        async def fake_async_session() -> AsyncIterator[object]:
+            yield object()
+
+        async def fake_freeze_eval_set(
+            session: object,
+            *,
+            window_start: datetime,
+            window_end: datetime,
+            top_n: int,
+        ) -> FreezeResult:
+            assert session is not None
+            assert window_start == result.window_start
+            assert window_end == result.window_end
+            assert top_n == result.top_n
+            return result
+
+        monkeypatch.setattr(
+            session_module,
+            "engine_lifecycle",
+            fake_engine_lifecycle,
+        )
+        monkeypatch.setattr(session_module, "async_session", fake_async_session)
+        monkeypatch.setattr(
+            freeze_module,
+            "freeze_eval_set",
+            fake_freeze_eval_set,
+        )
+        output = tmp_path / "eval.json"
+
+        exit_code = await freeze_module._amain(
+            [
+                "--start",
+                "2026-06-01",
+                "--end",
+                "2026-06-01",
+                "--top",
+                "1",
+                "--out",
+                str(output),
+            ]
+        )
+
+        payload = json.loads(output.read_text(encoding="utf-8"))
+        assert exit_code == 0
+        assert payload["data_quality"]["censoring"]["artifact_sha256"] == (
+            "93dfccdd5106769c7e08efcf21a2b22e4461c4a1c307962f2b7594c6480d6469"
         )
 
     def test_payload_loads_through_the_harness(self, tmp_path) -> None:

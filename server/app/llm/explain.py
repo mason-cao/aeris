@@ -26,6 +26,7 @@ from app.llm.corroboration import (
     PARTIALLY_VERIFIABLE_TYPES,
     classify_claim,
     low_corroboration_flag,
+    quantitative_exclusion_reason,
     score_claim,
 )
 from app.llm.gemini_client import GeminiClient
@@ -232,6 +233,7 @@ def _claim_row(
             per_source_verdicts=scored.result.per_source_verdicts,
             per_channel_verdicts=scored.result.per_channel_verdicts,
             partial_verifiability=scored.partial_verifiability,
+            quantitative_exclusion_reason=scored.quantitative_exclusion_reason,
             low_corroboration_flag=low_corroboration_flag(
                 scored.result.corroboration_score,
                 evidence_n=scored.result.evidence_n,
@@ -255,6 +257,10 @@ def _claim_row(
         per_source_verdicts=None,
         per_channel_verdicts=None,
         partial_verifiability=primary in PARTIALLY_VERIFIABLE_TYPES,
+        quantitative_exclusion_reason=quantitative_exclusion_reason(
+            draft.claim_text,
+            primary,
+        ),
         low_corroboration_flag=False,
     )
 

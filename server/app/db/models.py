@@ -305,6 +305,11 @@ class Claim(Base):
     partial_verifiability: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
+    # Explicit analysis exclusion, separate from claim type and Phase-1/2
+    # verdicts. B15 uses this for underpowered SO2 concentration claims.
+    quantitative_exclusion_reason: Mapped[str | None] = mapped_column(
+        String(48), nullable=True
+    )
     low_corroboration_flag: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )

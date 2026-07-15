@@ -257,6 +257,65 @@ class ConcentrationTolerance:
 DEFAULT_CONCENTRATION_TOLERANCE = ConcentrationTolerance()
 
 
+class BaselineCensoringStrategy(str, Enum):
+    """B15 primary and sensitivity treatments for censored baselines."""
+
+    LIMIT_HALF = "limit_half"
+    DELETE = "delete"
+
+
+def baseline_censor_limit(
+    source: str,
+    metric: str,
+    *,
+    tolerance: ConcentrationTolerance = DEFAULT_CONCENTRATION_TOLERANCE,
+) -> float | None:
+    """Declared censoring limit, or None when B15 declares no treatment."""
+    if source == "sentinel5p" and metric == "s5p_so2_column":
+        return tolerance.so2_detection_limit_mol_m2
+    if channel_of(source) == "ground_insitu" or source == "purpleair":
+        return tolerance.so2_ground_detection_limit_ppb if metric == "so2" else 0.0
+    return None
+
+
+def censor_baseline_values(
+    values: list[float],
+    *,
+    limit: float | None,
+    strategy: BaselineCensoringStrategy,
+) -> list[float]:
+    """Apply B15 to baseline values without mutating stored observations."""
+    if limit is None:
+        return list(values)
+    if not math.isfinite(limit) or limit < 0.0:
+        raise ValueError("baseline censoring limit must be finite and nonnegative")
+    if strategy is BaselineCensoringStrategy.LIMIT_HALF:
+        replacement = limit / 2.0
+        return [value if value >= limit else replacement for value in values]
+    if strategy is BaselineCensoringStrategy.DELETE:
+        return [value for value in values if value >= limit]
+    raise ValueError(f"unsupported baseline censoring strategy: {strategy!r}")
+
+
+def qualitative_elevation_verdict(
+    nearest: float,
+    baseline_values: list[float],
+    *,
+    tolerance: ConcentrationTolerance = DEFAULT_CONCENTRATION_TOLERANCE,
+) -> int | None:
+    """Score the qualitative concentration band shared by B15 sensitivity."""
+    if not baseline_values:
+        return None
+    baseline = fmean(baseline_values)
+    spread = pstdev(baseline_values)
+    support_floor = baseline + tolerance.elevated_sigma * spread
+    if nearest > support_floor:
+        return SUPPORTING
+    if nearest <= baseline:
+        return CONTRADICTING
+    return SILENT
+
+
 def _anomaly_ts(summary: Mapping) -> datetime | None:
     """The anomaly timestamp from the enrichment summary, UTC-coerced."""
     raw = (summary.get("anomaly") or {}).get("timestamp")
@@ -275,24 +334,30 @@ def _pre_anomaly_values(
     *,
     gap_h: float,
     min_points: int,
-    floor: float | None = None,
+    censor_limit: float | None = None,
+    censoring_strategy: BaselineCensoringStrategy = (
+        BaselineCensoringStrategy.LIMIT_HALF
+    ),
 ) -> list[float]:
     """In-window values ending ``gap_h`` before the anomaly; [] when too few.
 
-    When ``floor`` is set, sub-floor values (detection-limit / non-physical
-    noise the nearest-in-time gate already discards) are dropped first, so a
-    baseline of regulatory zero-scatter is not pulled negative. Returns the
-    values (not just their mean) so the caller can scale its exceedance call
-    to the baseline's own spread.
+    Censored values receive the declared B15 treatment before the observation
+    floor is checked. Returns the values (not just their mean) so the caller
+    can scale its exceedance call to the baseline's own spread.
     """
     if anomaly_ts is None:
         return []
     cutoff = anomaly_ts - timedelta(hours=gap_h)
-    values = [
+    raw_values = [
         v
         for ts, v in _pooled_series(block)
-        if ts <= cutoff and (floor is None or v >= floor)
+        if ts <= cutoff
     ]
+    values = censor_baseline_values(
+        raw_values,
+        limit=censor_limit,
+        strategy=censoring_strategy,
+    )
     return values if len(values) >= min_points else []
 
 
@@ -461,6 +526,11 @@ def score_concentration_elevation(
             verdicts[source] = SILENT
             notes.append(f"{source}: no {metric} event value")
             continue
+        censor_limit = baseline_censor_limit(
+            source,
+            metric,
+            tolerance=tolerance,
+        )
         if (
             metric == "s5p_so2_column"
             and nearest < tolerance.so2_detection_limit_mol_m2
@@ -525,7 +595,7 @@ def score_concentration_elevation(
                 anomaly_ts,
                 gap_h=tolerance.baseline_gap_h,
                 min_points=tolerance.min_baseline_points,
-                floor=ground_floor,
+                censor_limit=censor_limit,
             )
             if not baseline_values:
                 verdicts[source] = SILENT
@@ -533,12 +603,12 @@ def score_concentration_elevation(
                 continue
             baseline = fmean(baseline_values)
             spread = pstdev(baseline_values)
-            support_floor = baseline + tolerance.elevated_sigma * spread
-            if nearest > support_floor:
-                verdict = SUPPORTING
-            elif nearest <= baseline:
-                verdict = CONTRADICTING
-            else:
+            verdict = qualitative_elevation_verdict(
+                nearest,
+                baseline_values,
+                tolerance=tolerance,
+            )
+            if verdict == SILENT:
                 # Above the mean but inside the sigma band: too close to call.
                 verdicts[source] = SILENT
                 notes.append(
@@ -1923,6 +1993,19 @@ PARTIALLY_VERIFIABLE_TYPES = frozenset(
     {ClaimType.CHEMISTRY, ClaimType.POINT_SOURCE_ATTRIBUTION}
 )
 
+SO2_QUANTITATIVE_EXCLUSION_REASON = "so2_underpowered"
+
+
+def quantitative_exclusion_reason(
+    claim_text: str,
+    primary: ClaimType,
+) -> str | None:
+    """B15 quantitative exclusion attached without changing claim routing."""
+    pollutant, _sentinel = _resolve_pollutant(claim_text)
+    if primary is ClaimType.CONCENTRATION_ELEVATION and pollutant == "so2":
+        return SO2_QUANTITATIVE_EXCLUSION_REASON
+    return None
+
 # Classifier-only keyword groups. Routing cues, not verdict logic — the
 # scorers re-derive what they need from the claim text themselves.
 # "Ship Channel" is deliberately not an attribution cue: it is a geographic
@@ -2026,6 +2109,7 @@ class ScoredClaim:
     evidence_summary: str
     partial_verifiability: bool
     qualitative_only: bool
+    quantitative_exclusion_reason: str | None
 
 
 def score_claim(claim_text: str, summary: Mapping) -> ScoredClaim:
@@ -2049,4 +2133,8 @@ def score_claim(claim_text: str, summary: Mapping) -> ScoredClaim:
         evidence_summary=note,
         partial_verifiability=primary in PARTIALLY_VERIFIABLE_TYPES,
         qualitative_only=primary in QUALITATIVE_ONLY_TYPES,
+        quantitative_exclusion_reason=quantitative_exclusion_reason(
+            claim_text,
+            primary,
+        ),
     )

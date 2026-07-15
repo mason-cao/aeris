@@ -284,6 +284,7 @@ async def test_generate_explanation_builds_explanation_and_claims(db_session):
     assert grounded.per_source_verdicts["openaq"] == 0
     assert grounded.per_channel_verdicts["ground_insitu"] == 0
     assert grounded.cited_sources == ["openaq"]
+    assert grounded.quantitative_exclusion_reason is None
 
     assert fabricated.step_index == 4
     assert fabricated.grounding_verdict == "unverified"
@@ -298,6 +299,7 @@ async def test_generate_explanation_builds_explanation_and_claims(db_session):
     assert fabricated.claim_type == "concentration_elevation"
     assert fabricated.matched_types == ["concentration_elevation"]
     assert fabricated.partial_verifiability is False
+    assert fabricated.quantitative_exclusion_reason == "so2_underpowered"
 
     formatted = _format_explanation(explanation, persisted=False)
     assert "cited_right" in formatted

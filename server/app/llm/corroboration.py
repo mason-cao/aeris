@@ -1197,16 +1197,13 @@ def _earliest_keyword(text: str, groups: Mapping[str, tuple[str, ...]]) -> str |
 
 @dataclass(frozen=True)
 class TrapTolerance:
-    """Draft tolerances for atmospheric_trap (pending Dr. Bracco)."""
+    """Atmospheric-trap tolerances; only the R1 fields are Bracco-locked."""
 
     pbl_m: float = 200.0    # numeric PBL-height claim within this of GFS
-    # Qualitative suppression: nearest PBL must sit this many same-hour
-    # standard deviations below the same-hour-of-day mean. Between the mean
-    # and the sigma band the verdict is silent (too close to call).
-    suppression_sigma: float = 1.0
-    # Same-hour comparison points required (besides the nearest cycle itself)
-    # before a suppression call is made; a 72 h window carries ~2 other days
-    # per cycle hour per grid cell.
+    # R1: qualitative suppression requires the event PBL to be at least two
+    # population standard deviations below its same-cell/same-hour reference.
+    suppression_sigma: float = 2.0
+    # R1 requires this many distinct reference days on the matched cell.
     min_same_hour_points: int = 2
 
 
@@ -1236,29 +1233,51 @@ def _claimed_pbl_height(text: str) -> float | None:
 
 def _same_hour_values(
     block: Mapping | None, nearest_iso: str | None
-) -> tuple[float | None, list[float]]:
-    """(nearest value's hour-of-day peers, excluding the nearest timestamp).
+) -> tuple[int | None, str | None, list[float], int]:
+    """Return the R1 same-cell/same-hour reference and distinct-day count.
 
-    Returns ``(nearest_hour, values)`` where values are every pooled reading
-    at the same UTC hour-of-day on *other* timestamps — the diurnal-cycle
-    control. Comparing a nocturnal PBL against the 72 h all-hours mean reads
-    "night", not "suppressed"; same-hour peers isolate the anomaly-day
-    departure.
+    The event-nearest entity fixes the GFS grid cell. Reference readings must
+    be on other UTC calendar dates at the same UTC hour; neither spatial
+    replicates nor extra readings on the event date can satisfy the floor.
     """
-    if not nearest_iso:
-        return None, []
+    if not nearest_iso or not block:
+        return None, None, [], 0
     try:
         nearest_ts = datetime.fromisoformat(nearest_iso)
     except (TypeError, ValueError):
-        return None, []
+        return None, None, [], 0
     if nearest_ts.tzinfo is None:
         nearest_ts = nearest_ts.replace(tzinfo=timezone.utc)
-    values = [
-        v
-        for ts, v in _pooled_series(block)
-        if ts.hour == nearest_ts.hour and ts != nearest_ts
-    ]
-    return nearest_ts.hour, values
+    else:
+        nearest_ts = nearest_ts.astimezone(timezone.utc)
+
+    nearest = block.get("nearest_in_time")
+    if not isinstance(nearest, Mapping) or nearest.get("entity_id") is None:
+        return nearest_ts.hour, None, [], 0
+    entity_id = str(nearest["entity_id"])
+
+    values: list[float] = []
+    reference_dates: set = set()
+    for entity in block.get("entities", []):
+        if str(entity.get("entity_id")) != entity_id:
+            continue
+        for raw_iso, raw_value in entity.get("series", []):
+            try:
+                ts = datetime.fromisoformat(raw_iso)
+                value = float(raw_value)
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(value):
+                continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            else:
+                ts = ts.astimezone(timezone.utc)
+            if ts.date() == nearest_ts.date() or ts.hour != nearest_ts.hour:
+                continue
+            values.append(value)
+            reference_dates.add(ts.date())
+    return nearest_ts.hour, entity_id, values, len(reference_dates)
 
 
 def score_atmospheric_trap(
@@ -1301,23 +1320,40 @@ def score_atmospheric_trap(
         note += f" claimed={claimed}"
     elif pbl_nearest is not None and has_qualitative_intent:
         nearest_iso = (pbl_block or {}).get("nearest_in_time", {}).get("t")
-        hour, peers = _same_hour_values(pbl_block, nearest_iso)
-        if len(peers) >= tolerance.min_same_hour_points:
+        hour, entity_id, peers, distinct_days = _same_hour_values(
+            pbl_block, nearest_iso
+        )
+        if entity_id is None:
+            note += " missing event grid cell; same-cell reference unavailable"
+        elif distinct_days >= tolerance.min_same_hour_points:
             peer_mean = fmean(peers)
             peer_spread = pstdev(peers)
             suppression_floor = (
                 peer_mean - tolerance.suppression_sigma * peer_spread
             )
-            if pbl_nearest < suppression_floor:
+            if peer_spread == 0.0:
+                note += (
+                    f" same-hour({hour:02d}Z) cell={entity_id} "
+                    f"mean={round(peer_mean, 1)} sigma=0.0 "
+                    f"n={distinct_days} zero-spread reference"
+                )
+            elif pbl_nearest <= suppression_floor:
                 pbl_verdict = SUPPORTING
             elif pbl_nearest >= peer_mean:
                 pbl_verdict = CONTRADICTING
-            note += (
-                f" same-hour({hour:02d}Z) mean={round(peer_mean, 1)} "
-                f"sigma={round(peer_spread, 1)} n={len(peers)}"
-            )
+            if peer_spread != 0.0:
+                note += (
+                    f" same-hour({hour:02d}Z) cell={entity_id} "
+                    f"mean={round(peer_mean, 1)} "
+                    f"sigma={round(peer_spread, 1)} "
+                    f"threshold={round(suppression_floor, 1)} "
+                    f"n={distinct_days}"
+                )
         else:
-            note += f" insufficient same-hour history (n={len(peers)})"
+            note += (
+                " insufficient same-hour same-cell distinct-day history "
+                f"(n={distinct_days})"
+            )
 
     return {"noaa_gfs": _combine(pbl_verdict)}, note
 

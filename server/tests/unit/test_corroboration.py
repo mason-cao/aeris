@@ -855,12 +855,32 @@ def _metric_from_entities(entities: list[dict]) -> dict:
 # --- atmospheric_trap (type 4) ---
 
 
-def _pbl_block(nearest_v: float, nearest_iso: str, series: list[list]) -> dict:
+def _pbl_block(
+    nearest_v: float,
+    nearest_iso: str,
+    series: list[list],
+    *,
+    entity_id: str = "cell-a",
+    other_entities: list[dict] | None = None,
+) -> dict:
     """A pbl_height metric block with an explicit nearest and pooled series."""
+    entities = [{"entity_id": entity_id, "series": series}]
+    entities.extend(other_entities or [])
     return {
-        "nearest_in_time": {"v": nearest_v, "t": nearest_iso},
-        "value_range": {"mean": sum(v for _, v in series) / len(series)},
-        "entities": [{"entity_id": "cell", "series": series}],
+        "nearest_in_time": {
+            "v": nearest_v,
+            "t": nearest_iso,
+            "entity_id": entity_id,
+        },
+        "value_range": {
+            "mean": sum(
+                v
+                for entity in entities
+                for _, v in entity["series"]
+            )
+            / sum(len(entity["series"]) for entity in entities)
+        },
+        "entities": entities,
     }
 
 
@@ -965,6 +985,180 @@ def test_trap_insufficient_same_hour_history_is_silent():
     )
     assert verdicts["noaa_gfs"] == SILENT
     assert "insufficient same-hour" in note
+
+
+def test_trap_same_cell_filter_rejects_spatial_replicates() -> None:
+    event_series = _pbl_cycles({(4, 18): 100.0, (5, 18): 0.0})
+    other_cell = {
+        "entity_id": "cell-b",
+        "series": _pbl_cycles({(6, 18): 300.0}),
+    }
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "pbl_height": _pbl_block(
+                    0.0,
+                    "2026-06-05T18:00:00+00:00",
+                    event_series,
+                    other_entities=[other_cell],
+                )
+            }
+        }
+    )
+
+    verdicts, note = score_atmospheric_trap(
+        "A shallow boundary layer trapped pollution.", summary
+    )
+
+    assert verdicts["noaa_gfs"] == SILENT
+    assert "distinct-day" in note
+    assert "n=1" in note
+
+
+def test_trap_same_day_replicates_do_not_satisfy_distinct_day_floor() -> None:
+    series = [
+        ["2026-06-04T18:00:00+00:00", 100.0],
+        ["2026-06-04T18:30:00+00:00", 300.0],
+        ["2026-06-05T18:00:00+00:00", 0.0],
+    ]
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "pbl_height": _pbl_block(
+                    0.0, "2026-06-05T18:00:00+00:00", series
+                )
+            }
+        }
+    )
+
+    verdicts, note = score_atmospheric_trap(
+        "An inversion trapped the pollution.", summary
+    )
+
+    assert verdicts["noaa_gfs"] == SILENT
+    assert "distinct-day" in note
+    assert "n=1" in note
+
+
+def test_trap_population_sd_worked_example_and_exact_boundary() -> None:
+    # peers {100, 300}: mean=200, pstdev=100, and
+    # mean - 2*pstdev = 0 = min(a, b) - |a-b|/2.
+    assert 200.0 - 2.0 * 100.0 == 100.0 - abs(100.0 - 300.0) / 2.0 == 0.0
+    series = _pbl_cycles({(4, 18): 100.0, (5, 18): 0.0, (6, 18): 300.0})
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "pbl_height": _pbl_block(
+                    0.0, "2026-06-05T18:00:00+00:00", series
+                )
+            }
+        }
+    )
+
+    verdicts, note = score_atmospheric_trap(
+        "A shallow boundary layer trapped pollution.", summary
+    )
+
+    assert verdicts["noaa_gfs"] == SUPPORTING
+    assert "threshold=0.0" in note
+    assert "n=2" in note
+
+
+def test_trap_value_just_above_two_sigma_floor_is_silent() -> None:
+    series = _pbl_cycles({(4, 18): 100.0, (5, 18): 0.1, (6, 18): 300.0})
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "pbl_height": _pbl_block(
+                    0.1, "2026-06-05T18:00:00+00:00", series
+                )
+            }
+        }
+    )
+
+    verdicts, _ = score_atmospheric_trap(
+        "A shallow boundary layer trapped pollution.", summary
+    )
+
+    assert verdicts["noaa_gfs"] == SILENT
+
+
+def test_trap_value_exactly_at_reference_mean_contradicts() -> None:
+    series = _pbl_cycles({(4, 18): 100.0, (5, 18): 200.0, (6, 18): 300.0})
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "pbl_height": _pbl_block(
+                    200.0, "2026-06-05T18:00:00+00:00", series
+                )
+            }
+        }
+    )
+
+    verdicts, _ = score_atmospheric_trap(
+        "An inversion trapped the pollution.", summary
+    )
+
+    assert verdicts["noaa_gfs"] == CONTRADICTING
+
+
+def test_trap_zero_spread_reference_is_silent() -> None:
+    series = _pbl_cycles({(4, 18): 300.0, (5, 18): 250.0, (6, 18): 300.0})
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "pbl_height": _pbl_block(
+                    250.0, "2026-06-05T18:00:00+00:00", series
+                )
+            }
+        }
+    )
+
+    verdicts, note = score_atmospheric_trap(
+        "A shallow boundary layer trapped pollution.", summary
+    )
+
+    assert verdicts["noaa_gfs"] == SILENT
+    assert "zero-spread" in note
+    assert "n=2" in note
+
+
+def test_trap_naive_and_aware_timestamps_match_in_utc() -> None:
+    series = [
+        ["2026-06-04T18:00:00+00:00", 100.0],
+        ["2026-06-05T18:00:00", 0.0],
+        ["2026-06-06T14:00:00-04:00", 300.0],
+    ]
+    summary = _summary_with(
+        {
+            "noaa_gfs": {
+                "pbl_height": _pbl_block(
+                    0.0, "2026-06-05T18:00:00", series
+                )
+            }
+        }
+    )
+
+    verdicts, note = score_atmospheric_trap(
+        "A shallow boundary layer trapped pollution.", summary
+    )
+
+    assert verdicts["noaa_gfs"] == SUPPORTING
+    assert "18Z" in note
+
+
+def test_trap_missing_event_cell_is_silent() -> None:
+    series = _pbl_cycles({(4, 18): 100.0, (5, 18): 0.0, (6, 18): 300.0})
+    block = _pbl_block(0.0, "2026-06-05T18:00:00+00:00", series)
+    del block["nearest_in_time"]["entity_id"]
+    summary = _summary_with({"noaa_gfs": {"pbl_height": block}})
+
+    verdicts, note = score_atmospheric_trap(
+        "A shallow boundary layer trapped pollution.", summary
+    )
+
+    assert verdicts["noaa_gfs"] == SILENT
+    assert "missing event grid cell" in note
 
 
 def test_trap_numeric_pbl_checked_within_tolerance():

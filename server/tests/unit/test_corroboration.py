@@ -1513,15 +1513,134 @@ def test_secondary_formation_contradicted_when_ozone_peaks_first():
     assert verdicts["openaq"] == CONTRADICTING
 
 
-def test_secondary_formation_overcast_contradicts_insolation():
+def test_secondary_formation_clear_sky_with_low_n_lag_is_all_silent() -> None:
+    no2 = _entity("n", _series(10, [40.0, 55.0]))
+    o3 = _entity("o", _series(10, [20.0, 72.0]))
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": _metric_from_entities([no2]),
+                "ozone": _metric_from_entities([o3]),
+            },
+            "openweather": {"cloud_cover": {"value_range": {"mean": 15.0}}},
+        }
+    )
+
+    verdicts, note = score_secondary_formation(
+        "Photochemical ozone formation from morning emissions.", summary
+    )
+
+    assert all(verdict == SILENT for verdict in verdicts.values())
+    assert "lag leg unavailable" in note
+
+
+def test_secondary_formation_overcast_with_empty_lag_is_all_silent() -> None:
     summary = _summary_with(
         {"openweather": {"cloud_cover": {"value_range": {"mean": 85.0}}}}
     )
-    verdicts, _ = score_secondary_formation(
+    verdicts, note = score_secondary_formation(
         "Photochemical ozone formation from morning emissions.", summary
     )
-    assert verdicts["openweather"] == CONTRADICTING
-    assert verdicts["openaq"] == SILENT
+
+    assert all(verdict == SILENT for verdict in verdicts.values())
+    assert "lag leg unavailable" in note
+
+
+def test_secondary_formation_cloud_boundary_votes_after_lag() -> None:
+    no2 = _entity("n", _series(10, [40, 55, 30, 20, 15, 12]))
+    o3 = _entity("o", _series(10, [20, 25, 30, 45, 60, 72]))
+
+    at_boundary = _summary_with(
+        {
+            "openaq": {
+                "no2": _metric_from_entities([no2]),
+                "ozone": _metric_from_entities([o3]),
+            },
+            "openweather": {"cloud_cover": {"value_range": {"mean": 50.0}}},
+        }
+    )
+    above_boundary = _summary_with(
+        {
+            "openaq": {
+                "no2": _metric_from_entities([no2]),
+                "ozone": _metric_from_entities([o3]),
+            },
+            "openweather": {
+                "cloud_cover": {"value_range": {"mean": 50.0001}}
+            },
+        }
+    )
+
+    at_verdicts, _ = score_secondary_formation("Secondary formation.", at_boundary)
+    above_verdicts, _ = score_secondary_formation(
+        "Secondary formation.", above_boundary
+    )
+
+    assert at_verdicts["openweather"] == SUPPORTING
+    assert above_verdicts["openweather"] == CONTRADICTING
+
+
+def test_secondary_formation_missing_cloud_is_silent_after_lag_vote() -> None:
+    no2 = _entity("n", _series(10, [40, 55, 30, 20, 15, 12]))
+    o3 = _entity("o", _series(10, [20, 25, 30, 45, 60, 72]))
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": _metric_from_entities([no2]),
+                "ozone": _metric_from_entities([o3]),
+            }
+        }
+    )
+
+    verdicts, note = score_secondary_formation("Secondary formation.", summary)
+
+    assert verdicts["openaq"] == SUPPORTING
+    assert verdicts["openweather"] == SILENT
+    assert "no cloud cover" in note
+
+
+def test_secondary_formation_contradicting_lag_opens_cloud_leg() -> None:
+    no2 = _entity("n", _series(10, [10, 12, 15, 30, 45, 50]))
+    o3 = _entity("o", _series(10, [60, 72, 45, 30, 22, 18]))
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": _metric_from_entities([no2]),
+                "ozone": _metric_from_entities([o3]),
+            },
+            "openweather": {"cloud_cover": {"value_range": {"mean": 25.0}}},
+        }
+    )
+
+    verdicts, _ = score_secondary_formation("Secondary formation.", summary)
+
+    assert verdicts["openaq"] == CONTRADICTING
+    assert verdicts["openweather"] == SUPPORTING
+
+
+def test_secondary_formation_naive_and_aware_anomaly_times_match() -> None:
+    no2 = _entity("n", _series(10, [40, 55, 30, 20, 15, 12]))
+    o3 = _entity("o", _series(10, [20, 25, 30, 45, 60, 72]))
+    metrics = {
+        "openaq": {
+            "no2": _metric_from_entities([no2]),
+            "ozone": _metric_from_entities([o3]),
+        },
+        "openweather": {"cloud_cover": {"value_range": {"mean": 15.0}}},
+    }
+    aware = {
+        **_summary_with(metrics),
+        "anomaly": {"timestamp": "2026-06-05T15:00:00+00:00"},
+    }
+    naive = {
+        **_summary_with(metrics),
+        "anomaly": {"timestamp": "2026-06-05T15:00:00"},
+    }
+
+    aware_result = score_secondary_formation("Secondary formation.", aware)
+    naive_result = score_secondary_formation("Secondary formation.", naive)
+
+    assert naive_result == aware_result
 
 
 def test_secondary_formation_only_reads_the_anomaly_day():

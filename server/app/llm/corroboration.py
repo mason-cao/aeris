@@ -2153,7 +2153,8 @@ def score_secondary_formation(
 ) -> tuple[dict[str, int], str]:
     """Score a photochemical-formation claim: O3 peak lags NO2 peak by >= 2 h
     (pooled ground in-situ) on a day with sufficient insolation (OpenWeather
-    cloud cover).
+    cloud cover). The insolation leg is conditional: it may vote only after
+    the chemical lag leg produced a verdict.
 
     NO2 and O3 are pooled across the ground in-situ sources (OpenAQ carries
     ozone but no in-window NO2 for Houston; TCEQ carries the NO2) and the lag
@@ -2180,6 +2181,7 @@ def score_secondary_formation(
 
     verdicts: dict[str, int] = {source: SILENT for source in _GROUND_INSITU_SOURCES}
     notes: list[str] = []
+    lag_verdict: int | None = None
 
     if len(ozone) >= tolerance.min_points and len(no2) >= tolerance.min_points:
         o3_peak = max(ozone, key=lambda pair: pair[1])[0]
@@ -2194,6 +2196,11 @@ def score_secondary_formation(
         )
     else:
         notes.append("ground in-situ: insufficient o3/no2 series on anomaly day")
+
+    if lag_verdict is None:
+        verdicts["openweather"] = SILENT
+        notes.append("openweather: insolation conditioned SILENT; lag leg unavailable")
+        return verdicts, "; ".join(notes)
 
     cloud_block = _metric_block(summary, "openweather", "cloud_cover")
     cloud_day = _local_day_slice(_pooled_series(cloud_block), anomaly_ts)

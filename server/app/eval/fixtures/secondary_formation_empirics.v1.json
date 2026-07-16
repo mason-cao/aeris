@@ -1,0 +1,369 @@
+{
+  "anchor_count": 936,
+  "anchor_location": {
+    "lat": 29.7604,
+    "lon": -95.3698,
+    "radius_km": 50.0
+  },
+  "anchor_semantics": "B2/B8 UTC-hour centers; centered endpoint-inclusive 72-hour context wholly inside the study interval",
+  "cloud_available_count": 936,
+  "cloud_available_fraction": 1.0,
+  "conditional_insolation_outcomes": {
+    "contradicting": {
+      "count": 360,
+      "rate": 0.38461538461538464
+    },
+    "silent": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "supporting": {
+      "count": 576,
+      "rate": 0.6153846153846154
+    }
+  },
+  "former_cloud_only_votes_silenced": 0,
+  "former_contradicting_votes_silenced": 0,
+  "former_insolation_outcomes": {
+    "contradicting": {
+      "count": 360,
+      "rate": 0.38461538461538464
+    },
+    "silent": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "supporting": {
+      "count": 576,
+      "rate": 0.6153846153846154
+    }
+  },
+  "former_supporting_votes_silenced": 0,
+  "in_radius_row_count": 31725,
+  "input_row_count": 31725,
+  "lag_outcomes": {
+    "contradicting": {
+      "count": 384,
+      "rate": 0.41025641025641024
+    },
+    "silent": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "supporting": {
+      "count": 552,
+      "rate": 0.5897435897435898
+    }
+  },
+  "no2_point_counts": {
+    "below_floor_count": 0,
+    "below_floor_fraction": 0.0,
+    "frequency": [
+      {
+        "anchor_count": 24,
+        "point_count": 147
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 234
+      },
+      {
+        "anchor_count": 48,
+        "point_count": 245
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 247
+      },
+      {
+        "anchor_count": 48,
+        "point_count": 249
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 251
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 255
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 258
+      },
+      {
+        "anchor_count": 48,
+        "point_count": 261
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 262
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 266
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 267
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 269
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 271
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 274
+      },
+      {
+        "anchor_count": 31,
+        "point_count": 275
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 276
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 277
+      },
+      {
+        "anchor_count": 48,
+        "point_count": 281
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 289
+      },
+      {
+        "anchor_count": 48,
+        "point_count": 290
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 295
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 299
+      },
+      {
+        "anchor_count": 72,
+        "point_count": 300
+      },
+      {
+        "anchor_count": 17,
+        "point_count": 301
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 302
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 303
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 304
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 305
+      },
+      {
+        "anchor_count": 48,
+        "point_count": 309
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 310
+      }
+    ],
+    "maximum": 310,
+    "minimum": 147,
+    "p50": 276.0,
+    "p95": 309.0
+  },
+  "ozone_point_counts": {
+    "below_floor_count": 0,
+    "below_floor_fraction": 0.0,
+    "frequency": [
+      {
+        "anchor_count": 24,
+        "point_count": 138
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 249
+      },
+      {
+        "anchor_count": 17,
+        "point_count": 306
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 322
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 330
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 336
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 338
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 339
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 351
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 353
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 357
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 366
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 370
+      },
+      {
+        "anchor_count": 72,
+        "point_count": 372
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 373
+      },
+      {
+        "anchor_count": 48,
+        "point_count": 375
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 385
+      },
+      {
+        "anchor_count": 48,
+        "point_count": 388
+      },
+      {
+        "anchor_count": 96,
+        "point_count": 389
+      },
+      {
+        "anchor_count": 7,
+        "point_count": 390
+      },
+      {
+        "anchor_count": 48,
+        "point_count": 393
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 394
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 395
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 398
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 399
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 409
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 411
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 413
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 415
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 416
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 421
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 427
+      }
+    ],
+    "maximum": 427,
+    "minimum": 138,
+    "p50": 385.0,
+    "p95": 421.0
+  },
+  "relevant_source_metrics": [
+    {
+      "metric": "no2",
+      "source": "epa_aqs"
+    },
+    {
+      "metric": "ozone",
+      "source": "epa_aqs"
+    },
+    {
+      "metric": "no2",
+      "source": "openaq"
+    },
+    {
+      "metric": "ozone",
+      "source": "openaq"
+    },
+    {
+      "metric": "cloud_cover",
+      "source": "openweather"
+    },
+    {
+      "metric": "no2",
+      "source": "tceq"
+    },
+    {
+      "metric": "ozone",
+      "source": "tceq"
+    }
+  ],
+  "schema_version": 1,
+  "snapshot_sha256": "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81",
+  "study_end_exclusive": "2026-07-13T00:00:00+00:00",
+  "study_start": "2026-06-01T00:00:00+00:00",
+  "tolerance": {
+    "clear_sky_max_cloud_pct": 50.0,
+    "min_lag_h": 2.0,
+    "min_points": 3
+  }
+}

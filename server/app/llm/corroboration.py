@@ -463,6 +463,20 @@ def _point_value(claim_text: str) -> float | None:
     return float(match.group()) if match else None
 
 
+def concentration_claim_shape(claim_text: str) -> str:
+    """Return the scorer's deterministic concentration-claim shape.
+
+    B19 uses this public classification helper to separate B17 qualitative
+    baseline abstentions from numeric/threshold claims without re-scoring a
+    claim or inferring its shape from a verdict integer.
+    """
+    if _threshold_value(claim_text) is not None:
+        return "threshold"
+    if _point_value(claim_text) is not None:
+        return "point"
+    return "qualitative"
+
+
 # A claim about a satellite column density, not a surface concentration.
 # Absolute (threshold / point) claims are only comparable to a source whose
 # stored quantity matches the claim's: "exceeded 80 ppb" against a column in
@@ -509,8 +523,9 @@ def score_concentration_elevation(
     ppb<->ug/m^3 conversion). Returns ``(per_source_verdicts, evidence_summary)``.
     """
     openaq_metric, sentinel_metric = _resolve_pollutant(claim_text)
-    threshold = _threshold_value(claim_text)
-    point = _point_value(claim_text)
+    shape = concentration_claim_shape(claim_text)
+    threshold = _threshold_value(claim_text) if shape == "threshold" else None
+    point = _point_value(claim_text) if shape == "point" else None
     anomaly_ts = _anomaly_ts(summary)
     column_claim = _is_column_claim(claim_text)
     anomaly_info = summary.get("anomaly") or {}

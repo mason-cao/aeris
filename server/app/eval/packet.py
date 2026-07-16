@@ -48,8 +48,18 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.db.models import Anomaly, EnrichmentRecord, Explanation
 from app.eval.label_cli import ClaimGroup, collect_claim_groups, presentation_order
+from app.llm.corroboration import (
+    CALM_WIND_FLOOR_STATUS,
+    CalmWindDecision,
+    ClaimType,
+    calm_wind_source_decisions,
+    classify_claim,
+)
 
-PACKET_SCHEMA_VERSION = 1
+PACKET_SCHEMA_VERSION = 2
+CALM_WIND_PACKET_NOTE = (
+    "default Unsure — wind direction unstable under calm conditions."
+)
 STATION_SOURCES = ("asos", "epa_aqs", "openaq", "purpleair", "tceq")
 WIND_SOURCES = ("asos", "noaa_gfs", "openweather")
 SOURCE_COLORS = {
@@ -127,6 +137,7 @@ class PacketBuildResult:
     manifest_path: Path
     plot_data: PacketPlotData
     claim_count: int
+    calm_wind_flag_count: int
     pdf_sha256: str
 
 
@@ -177,6 +188,59 @@ def _sha256_file(path: Path) -> str:
 
 def summary_sha256(summary: Mapping[str, Any]) -> str:
     return _sha256_bytes(_canonical_json(summary))
+
+
+@dataclass(frozen=True)
+class CalmWindClaimFlag:
+    presentation_index: int
+    claim_text_sha256: str
+    source_decisions: tuple[CalmWindDecision, ...]
+    standard_note: str = CALM_WIND_PACKET_NOTE
+    floor_status: str = CALM_WIND_FLOOR_STATUS
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "presentation_index": self.presentation_index,
+            "claim_text_sha256": self.claim_text_sha256,
+            "source_decisions": [
+                decision.to_dict() for decision in self.source_decisions
+            ],
+            "standard_note": self.standard_note,
+            "floor_status": self.floor_status,
+        }
+
+
+def calm_wind_claim_flags(
+    summary: Mapping[str, Any],
+    ordered_claims: Sequence[ClaimGroup],
+) -> tuple[CalmWindClaimFlag, ...]:
+    """Derive claim-level packet flags from the same B2 scorer decisions."""
+    flags: list[CalmWindClaimFlag] = []
+    for index, claim in enumerate(ordered_claims, start=1):
+        primary = classify_claim(claim.claim_text)[0]
+        if primary is ClaimType.TRANSPORT_DIRECTION:
+            sources = ("noaa_gfs", "openweather", "asos")
+        elif primary is ClaimType.POINT_SOURCE_ATTRIBUTION:
+            sources = ("noaa_gfs", "openweather")
+        else:
+            continue
+        decisions, _notes = calm_wind_source_decisions(summary, sources)
+        calm = tuple(
+            decisions[source]
+            for source in sources
+            if decisions[source].calm is True
+        )
+        if calm:
+            flags.append(
+                CalmWindClaimFlag(
+                    presentation_index=index,
+                    claim_text_sha256=_sha256_bytes(
+                        claim.claim_text.encode("utf-8")
+                    ),
+                    source_decisions=calm,
+                )
+            )
+    return tuple(flags)
 
 
 def _entity_rows(metric: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
@@ -581,6 +645,19 @@ def _packet_styles() -> dict[str, ParagraphStyle]:
             backColor=colors.HexColor("#F7F9FA"),
             spaceAfter=8,
         ),
+        "calm_flag": ParagraphStyle(
+            "CalmWindFlag",
+            parent=base["BodyText"],
+            fontName="Helvetica-Bold",
+            fontSize=8.5,
+            leading=12,
+            textColor=colors.HexColor("#713B18"),
+            borderColor=colors.HexColor("#D7A15D"),
+            borderWidth=0.6,
+            borderPadding=6,
+            backColor=colors.HexColor("#FFF5E6"),
+            spaceAfter=8,
+        ),
         "center": ParagraphStyle(
             "PacketCenter",
             parent=base["BodyText"],
@@ -676,6 +753,7 @@ def _claim_block(
     total: int,
     claim: ClaimGroup,
     styles: Mapping[str, ParagraphStyle],
+    calm_wind_flag: CalmWindClaimFlag | None,
 ) -> KeepTogether:
     marking = Table(
         [["Mark exactly one:", "[   ] V", "[   ] I", "[   ] U"]],
@@ -711,16 +789,37 @@ def _claim_block(
             ]
         )
     )
-    return KeepTogether(
-        [
-            Paragraph(f"Claim {index} of {total} - presentation index {index}", styles["claim_index"]),
-            Paragraph(escape(claim.claim_text), styles["claim"]),
-            marking,
-            Spacer(1, 5),
-            note,
-            Spacer(1, 12),
-        ]
-    )
+    content: list[Any] = [
+        Paragraph(
+            f"Claim {index} of {total} - presentation index {index}",
+            styles["claim_index"],
+        ),
+        Paragraph(escape(claim.claim_text), styles["claim"]),
+    ]
+    if calm_wind_flag is not None:
+        details = "; ".join(
+            (
+                f"{decision.source}: event {decision.event_speed_ms} m/s, "
+                f"raw cutoff {decision.raw_cutoff_ms} m/s, effective cutoff "
+                f"{decision.effective_cutoff_ms} m/s, n={decision.window_n}"
+            )
+            for decision in calm_wind_flag.source_decisions
+        )
+        status = (
+            calm_wind_flag.floor_status.replace("_", " ")
+            .replace("bracco", "Bracco")
+        )
+        content.append(
+            Paragraph(
+                escape(
+                    f"{calm_wind_flag.standard_note} Flagged source(s): "
+                    f"{details}. Floor status: {status}."
+                ),
+                styles["calm_flag"],
+            )
+        )
+    content.extend((marking, Spacer(1, 5), note, Spacer(1, 12)))
+    return KeepTogether(content)
 
 
 def _build_story(
@@ -728,6 +827,7 @@ def _build_story(
     summary: Mapping[str, Any],
     ordered_claims: Sequence[ClaimGroup],
     plot_data: PacketPlotData,
+    calm_wind_flags: Sequence[CalmWindClaimFlag],
     *,
     example: bool,
 ) -> list[Any]:
@@ -791,8 +891,11 @@ def _build_story(
         ]
     )
     total = len(ordered_claims)
+    flags_by_index = {
+        flag.presentation_index: flag for flag in calm_wind_flags
+    }
     story.extend(
-        _claim_block(index, total, claim, styles)
+        _claim_block(index, total, claim, styles, flags_by_index.get(index))
         for index, claim in enumerate(ordered_claims, start=1)
     )
     story.extend(
@@ -824,6 +927,7 @@ def _write_manifest(
     summary: Mapping[str, Any],
     plot_data: PacketPlotData,
     ordered_claims: Sequence[ClaimGroup],
+    calm_wind_flags: Sequence[CalmWindClaimFlag],
     pdf_sha256: str,
     *,
     example: bool,
@@ -836,6 +940,7 @@ def _write_manifest(
         "summary_sha256": summary_sha256(summary),
         "pdf_sha256": pdf_sha256,
         "plot_data": plot_data.to_dict(),
+        "calm_wind_flags": [flag.to_dict() for flag in calm_wind_flags],
         "claims": [
             {
                 "presentation_index": index,
@@ -869,6 +974,7 @@ def render_packet(
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     plot_data = extract_plot_data(summary, anomaly.timestamp)
     ordered_claims = presentation_order(list(claim_groups), anomaly.id, labeler)
+    calm_wind_flags = calm_wind_claim_flags(summary, ordered_claims)
     document = SimpleDocTemplate(
         str(output_path),
         pagesize=letter,
@@ -883,7 +989,14 @@ def render_packet(
         pageCompression=1,
     )
     document.build(
-        _build_story(anomaly, summary, ordered_claims, plot_data, example=example),
+        _build_story(
+            anomaly,
+            summary,
+            ordered_claims,
+            plot_data,
+            calm_wind_flags,
+            example=example,
+        ),
         onFirstPage=_set_pdf_metadata,
         onLaterPages=_set_pdf_metadata,
         canvasmaker=_invariant_canvas,
@@ -896,6 +1009,7 @@ def render_packet(
         summary,
         plot_data,
         ordered_claims,
+        calm_wind_flags,
         pdf_hash,
         example=example,
     )
@@ -904,6 +1018,7 @@ def render_packet(
         manifest_path=manifest_path,
         plot_data=plot_data,
         claim_count=len(ordered_claims),
+        calm_wind_flag_count=len(calm_wind_flags),
         pdf_sha256=pdf_hash,
     )
 

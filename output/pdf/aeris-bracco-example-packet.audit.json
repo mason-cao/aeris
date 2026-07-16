@@ -1,5 +1,6 @@
 {
   "anomaly_id": "12b33698-5d41-4976-bca2-4642fefa06fe",
+  "calm_wind_flags": [],
   "claims": [
     {
       "claim_text_sha256": "ae393ce838474c67ff977939da7af53a55bf44267ae4fe9a55e5e0c7cba7d653",
@@ -1531,6 +1532,6 @@
       }
     ]
   },
-  "schema_version": 1,
+  "schema_version": 2,
   "summary_sha256": "d4e0b13e9947426823805db266792ae5704bff0d38c9de3e5b1615595d97333b"
 }

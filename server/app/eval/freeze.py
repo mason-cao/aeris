@@ -52,6 +52,7 @@ from app.llm.corroboration import (
     DEFAULT_TEMPORAL_TOLERANCE,
     DEFAULT_TRAP_TOLERANCE,
     DEFAULT_WIND_TOLERANCE,
+    calm_wind_manifest_payload,
 )
 from app.provenance.purpleair_qc import (
     LOCKED_SNAPSHOT_SHA256,
@@ -124,7 +125,7 @@ def repository_code_commit(repository_root: Path = REPOSITORY_ROOT) -> str:
     return validate_code_commit(commit)
 
 
-def threshold_manifest_payload() -> dict[str, dict[str, int | float]]:
+def threshold_manifest_payload() -> dict[str, dict[str, int | float | None]]:
     """Serialize every live scorer-tolerance owner without copied values."""
     return {
         "atmospheric_trap": asdict(DEFAULT_TRAP_TOLERANCE),
@@ -316,6 +317,7 @@ def fixture_payload(
         "n_events": result.n_events,
         "composition": selection_composition(result.selected),
         "data_quality": {
+            "calm_wind_guard": calm_wind_manifest_payload(),
             "censoring": censoring_manifest_payload(),
             "observation_age_gates": observation_age_manifest_payload(),
             "purpleair_time_aware_qc": purpleair_qc_manifest_payload(),

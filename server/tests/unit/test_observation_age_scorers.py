@@ -46,6 +46,26 @@ def _nearest(value: float, dt_minutes: object) -> dict[str, Any]:
     }
 
 
+def _window_metric(
+    value: float,
+    dt_minutes: object,
+    *,
+    entity_id: str,
+) -> dict[str, Any]:
+    block = _nearest(value, dt_minutes)
+    block["nearest_in_time"]["entity_id"] = entity_id
+    block["entities"] = [
+        {
+            "entity_id": entity_id,
+            "series": [
+                ["2026-06-15T06:00:00+00:00", value],
+                ["2026-06-15T12:00:00+00:00", value],
+            ],
+        }
+    ]
+    return block
+
+
 def test_concentration_exact_gate_votes_and_one_minute_past_is_silent() -> None:
     fresh = _summary({"tceq": {"no2": _nearest(82.0, 90.0)}})
     stale = _summary({"tceq": {"no2": _nearest(82.0, 91.0)}})
@@ -86,8 +106,8 @@ def _gfs_wind_summary(u_age: float, v_age: float) -> dict:
     return _summary(
         {
             "noaa_gfs": {
-                "u_10m": _nearest(0.0, u_age),
-                "v_10m": _nearest(4.0, v_age),
+                "u_10m": _window_metric(0.0, u_age, entity_id="cell-a"),
+                "v_10m": _window_metric(4.0, v_age, entity_id="cell-a"),
             }
         }
     )
@@ -125,10 +145,24 @@ def test_openweather_direction_age_gate_applies_to_both_direction_scorers(
     claim: str,
 ) -> None:
     fresh = _summary(
-        {"openweather": {"wind_direction": _nearest(270.0, 90.0)}}
+        {
+            "openweather": {
+                "wind_direction": _nearest(270.0, 90.0),
+                "wind_speed": _window_metric(
+                    4.0, 90.0, entity_id="station-a"
+                ),
+            }
+        }
     )
     stale = _summary(
-        {"openweather": {"wind_direction": _nearest(270.0, 91.0)}}
+        {
+            "openweather": {
+                "wind_direction": _nearest(270.0, 91.0),
+                "wind_speed": _window_metric(
+                    4.0, 90.0, entity_id="station-a"
+                ),
+            }
+        }
     )
 
     fresh_verdicts, _ = scorer(claim, fresh)

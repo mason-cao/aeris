@@ -14,7 +14,13 @@ from typing import Any
 
 from pypdf import PdfReader
 
-from app.eval.packet import extract_plot_data, load_packet_source, summary_sha256
+from app.eval.label_cli import ClaimGroup, presentation_order
+from app.eval.packet import (
+    calm_wind_claim_flags,
+    extract_plot_data,
+    load_packet_source,
+    summary_sha256,
+)
 
 GENERIC_BLINDING_TERMS = (
     "confidence",
@@ -39,6 +45,7 @@ class PacketAuditReport:
     pdf_sha256: str
     station_count: int
     vector_count: int
+    calm_wind_flag_count: int
     blinding_leaks: tuple[str, ...]
 
 
@@ -79,6 +86,7 @@ def audit_packet(
     anomaly_timestamp: datetime,
     *,
     model_names: tuple[str, ...],
+    claim_groups: tuple[ClaimGroup, ...],
 ) -> PacketAuditReport:
     """Assert that a rendered packet matches stored plot data and stays blind."""
     if not pdf_path.is_file():
@@ -86,7 +94,7 @@ def audit_packet(
     if not manifest_path.is_file():
         raise PacketAuditError(f"packet audit manifest does not exist: {manifest_path}")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("schema_version") != 1:
+    if manifest.get("schema_version") != 2:
         raise PacketAuditError("unsupported packet audit schema")
 
     actual_pdf_hash = _sha256_file(pdf_path)
@@ -99,7 +107,24 @@ def audit_packet(
     if manifest.get("plot_data") != expected_plot_data:
         raise PacketAuditError("plot data does not match the stored 72-hour context")
 
+    try:
+        anomaly_id = uuid.UUID(str(manifest["anomaly_id"]))
+        labeler = str(manifest["labeler"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise PacketAuditError("invalid packet identity in audit manifest") from exc
+    ordered_claims = presentation_order(list(claim_groups), anomaly_id, labeler)
+    expected_flags = [
+        flag.to_dict()
+        for flag in calm_wind_claim_flags(summary, ordered_claims)
+    ]
+    if manifest.get("calm_wind_flags") != expected_flags:
+        raise PacketAuditError(
+            "calm-wind flags do not match the stored 72-hour context"
+        )
+
     text = extract_pdf_text(pdf_path)
+    if expected_flags and "wind direction unstable under calm conditions" not in text:
+        raise PacketAuditError("calm-wind flag text is missing from the PDF")
     metadata = extract_pdf_metadata(pdf_path)
     leaks = scan_blinding_leaks(text, metadata, model_names=model_names)
     if leaks:
@@ -109,6 +134,7 @@ def audit_packet(
         pdf_sha256=actual_pdf_hash,
         station_count=len(expected_plot_data["stations"]),
         vector_count=len(expected_plot_data["vectors"]),
+        calm_wind_flag_count=len(expected_flags),
         blinding_leaks=leaks,
     )
 
@@ -134,10 +160,12 @@ async def _amain(argv: list[str] | None = None) -> int:
         source.summary,
         source.anomaly.timestamp,
         model_names=source.model_names,
+        claim_groups=source.claim_groups,
     )
     print(
         f"audit passed: {report.station_count} stations, "
-        f"{report.vector_count} vectors, sha256 {report.pdf_sha256}"
+        f"{report.vector_count} vectors, {report.calm_wind_flag_count} "
+        f"calm-wind flags, sha256 {report.pdf_sha256}"
     )
     return 0
 

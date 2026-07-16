@@ -685,14 +685,56 @@ def test_concentration_column_threshold_not_judged_by_surface():
 # --- transport_direction (headline type 2: NOAA GFS 10m wind + OpenWeather) ---
 
 
+def _gfs_direction_metrics(u: float, v: float) -> dict:
+    timestamps = (
+        "2026-06-05T12:00:00+00:00",
+        "2026-06-05T18:00:00+00:00",
+    )
+
+    def component(value: float) -> dict:
+        return {
+            "nearest_in_time": {
+                "t": timestamps[0],
+                "v": value,
+                "entity_id": "cell-a",
+            },
+            "entities": [
+                {
+                    "entity_id": "cell-a",
+                    "series": [[timestamp, value] for timestamp in timestamps],
+                }
+            ],
+        }
+
+    return {"u_10m": component(u), "v_10m": component(v)}
+
+
+def _scalar_direction_metrics(direction: float, speed: float = 4.0) -> dict:
+    timestamps = (
+        "2026-06-05T12:00:00+00:00",
+        "2026-06-05T13:00:00+00:00",
+    )
+    return {
+        "wind_direction": {
+            "nearest_in_time": {"t": timestamps[0], "v": direction},
+        },
+        "wind_speed": {
+            "nearest_in_time": {"t": timestamps[0], "v": speed},
+            "entities": [
+                {
+                    "entity_id": "station-a",
+                    "series": [[timestamp, speed] for timestamp in timestamps],
+                }
+            ],
+        },
+    }
+
+
 def test_transport_southerly_wind_matches_gfs():
     # GFS u=0, v=4 -> wind FROM the south (180). "Southerly winds" -> from south.
     summary = _summary_with(
         {
-            "noaa_gfs": {
-                "u_10m": {"nearest_in_time": {"v": 0.0}},
-                "v_10m": {"nearest_in_time": {"v": 4.0}},
-            }
+            "noaa_gfs": _gfs_direction_metrics(0.0, 4.0)
         }
     )
     verdicts, _ = score_transport_direction(
@@ -705,10 +747,7 @@ def test_transport_northward_transport_matches_gfs():
     # Wind from the south (180) carries pollution toward the north.
     summary = _summary_with(
         {
-            "noaa_gfs": {
-                "u_10m": {"nearest_in_time": {"v": 0.0}},
-                "v_10m": {"nearest_in_time": {"v": 4.0}},
-            }
+            "noaa_gfs": _gfs_direction_metrics(0.0, 4.0)
         }
     )
     verdicts, _ = score_transport_direction(
@@ -720,10 +759,7 @@ def test_transport_northward_transport_matches_gfs():
 def test_transport_opposite_direction_contradicts():
     summary = _summary_with(
         {
-            "noaa_gfs": {
-                "u_10m": {"nearest_in_time": {"v": 0.0}},
-                "v_10m": {"nearest_in_time": {"v": 4.0}},
-            }
+            "noaa_gfs": _gfs_direction_metrics(0.0, 4.0)
         }
     )
     verdicts, _ = score_transport_direction(
@@ -735,7 +771,7 @@ def test_transport_opposite_direction_contradicts():
 def test_transport_uses_openweather_wind_direction():
     # OpenWeather reports wind FROM 175 deg (~south); "southerly" -> from 180.
     summary = _summary_with(
-        {"openweather": {"wind_direction": {"nearest_in_time": {"v": 175.0}}}}
+        {"openweather": _scalar_direction_metrics(175.0)}
     )
     verdicts, _ = score_transport_direction("Southerly flow dominated.", summary)
     assert verdicts["openweather"] == SUPPORTING
@@ -1321,10 +1357,7 @@ def test_point_source_wind_from_source_direction_supports():
     # Claimed source ESE of the anomaly; wind from ~101 deg (ESE).
     summary = _summary_with_anomaly(
         {
-            "noaa_gfs": {
-                "u_10m": {"nearest_in_time": {"v": -5.0}},
-                "v_10m": {"nearest_in_time": {"v": 1.0}},
-            }
+            "noaa_gfs": _gfs_direction_metrics(-5.0, 1.0)
         }
     )
     verdicts, _ = score_point_source_attribution(
@@ -1337,10 +1370,7 @@ def test_point_source_wind_from_source_direction_supports():
 def test_point_source_wind_from_opposite_direction_contradicts():
     summary = _summary_with_anomaly(
         {
-            "noaa_gfs": {
-                "u_10m": {"nearest_in_time": {"v": 5.0}},
-                "v_10m": {"nearest_in_time": {"v": -1.0}},
-            }
+            "noaa_gfs": _gfs_direction_metrics(5.0, -1.0)
         }
     )
     verdicts, _ = score_point_source_attribution(
@@ -1352,7 +1382,7 @@ def test_point_source_wind_from_opposite_direction_contradicts():
 
 def test_point_source_uses_openweather_direction():
     summary = _summary_with_anomaly(
-        {"openweather": {"wind_direction": {"nearest_in_time": {"v": 100.0}}}}
+        {"openweather": _scalar_direction_metrics(100.0)}
     )
     verdicts, _ = score_point_source_attribution(
         "Plume consistent with an upset near 29.73N, -95.22W.", summary

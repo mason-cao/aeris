@@ -76,6 +76,47 @@ def _summary(sources_metrics: dict, anomaly_ts: str = "2026-06-15T12:00:00+00:00
                 "series": [[anomaly_ts, value]],
             }
         ]
+    for source in ("asos", "openweather"):
+        metrics = summary.get("sources", {}).get(source, {}).get("metrics", {})
+        direction = metrics.get("wind_direction")
+        if direction is not None and "wind_speed" not in metrics:
+            direction["nearest_in_time"]["t"] = anomaly_ts
+            metrics["wind_speed"] = {
+                "nearest_in_time": {
+                    "t": anomaly_ts,
+                    "v": 5.0,
+                    "dt_minutes": 0.0,
+                    "entity_id": f"{source}-station",
+                },
+                "entities": [
+                    {
+                        "entity_id": f"{source}-station",
+                        "series": [
+                            ["2026-06-15T06:00:00+00:00", 5.0],
+                            [anomaly_ts, 5.0],
+                        ],
+                    }
+                ],
+            }
+    gfs_metrics = (
+        summary.get("sources", {}).get("noaa_gfs", {}).get("metrics", {})
+    )
+    if "u_10m" in gfs_metrics and "v_10m" in gfs_metrics:
+        for metric_name in ("u_10m", "v_10m"):
+            block = gfs_metrics[metric_name]
+            value = block["nearest_in_time"]["v"]
+            block["nearest_in_time"].update(
+                {"t": anomaly_ts, "entity_id": "gfs-cell"}
+            )
+            block["entities"] = [
+                {
+                    "entity_id": "gfs-cell",
+                    "series": [
+                        ["2026-06-15T06:00:00+00:00", value],
+                        [anomaly_ts, value],
+                    ],
+                }
+            ]
     return summary
 
 

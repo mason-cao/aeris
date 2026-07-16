@@ -12,6 +12,7 @@ import pytest
 from app.db.models import Anomaly
 from app.eval.label_cli import ClaimGroup, presentation_order
 from app.eval.packet import (
+    calm_wind_claim_flags,
     extract_plot_data,
     render_packet,
 )
@@ -270,9 +271,11 @@ def test_render_is_byte_deterministic_blind_and_uses_label_cli_order(tmp_path: P
         _summary(),
         ANOMALY_TS,
         model_names=("llama3:8b", "gpt-5.4", "gemini-3.5-flash"),
+        claim_groups=tuple(_groups()),
     )
     assert report.station_count == 4
     assert report.vector_count == 3
+    assert report.calm_wind_flag_count == 0
     assert report.blinding_leaks == ()
 
 
@@ -295,4 +298,151 @@ def test_audit_rejects_plot_manifest_tampering(tmp_path: Path) -> None:
             _summary(),
             ANOMALY_TS,
             model_names=("llama3:8b",),
+            claim_groups=tuple(_groups()),
+        )
+
+
+def test_audit_rejects_missing_packet_artifacts(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "packet.pdf"
+    manifest_path = tmp_path / "packet.audit.json"
+
+    with pytest.raises(PacketAuditError, match="PDF does not exist"):
+        audit_packet(
+            pdf_path,
+            manifest_path,
+            _summary(),
+            ANOMALY_TS,
+            model_names=(),
+            claim_groups=tuple(_groups()),
+        )
+
+    pdf_path.write_bytes(b"not read before the manifest check")
+    with pytest.raises(PacketAuditError, match="manifest does not exist"):
+        audit_packet(
+            pdf_path,
+            manifest_path,
+            _summary(),
+            ANOMALY_TS,
+            model_names=(),
+            claim_groups=tuple(_groups()),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("schema_version", 1, "unsupported packet audit schema"),
+        ("pdf_sha256", "0" * 64, "PDF hash"),
+        ("summary_sha256", "0" * 64, "stored summary"),
+    ],
+)
+def test_audit_rejects_manifest_identity_tampering(
+    tmp_path: Path,
+    field: str,
+    value: str | int,
+    message: str,
+) -> None:
+    pdf_path = tmp_path / "packet.pdf"
+    manifest_path = tmp_path / "packet.audit.json"
+    render_packet(
+        _anomaly(), _summary(), _groups(), "bracco-example", pdf_path, manifest_path
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest[field] = value
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(PacketAuditError, match=message):
+        audit_packet(
+            pdf_path,
+            manifest_path,
+            _summary(),
+            ANOMALY_TS,
+            model_names=(),
+            claim_groups=tuple(_groups()),
+        )
+
+
+def test_calm_wind_claim_flag_renders_and_audit_recomputes_it(
+    tmp_path: Path,
+) -> None:
+    summary = _summary()
+    speed = summary["sources"]["openweather"]["metrics"]["wind_speed"]
+    speed["nearest_in_time"]["v"] = 1.0
+    speed["entities"][0]["series"][0][1] = 1.0
+    ordered = presentation_order(_groups(), ANOMALY_ID, "bracco-example")
+
+    flags = calm_wind_claim_flags(summary, ordered)
+
+    assert len(flags) == 1
+    assert flags[0].source_decisions[0].source == "openweather"
+    assert flags[0].source_decisions[0].event_speed_ms == 1.0
+    assert flags[0].source_decisions[0].effective_cutoff_ms == 1.5
+    assert flags[0].floor_status == "proposed_pending_bracco_amendment"
+
+    pdf_path = tmp_path / "calm.pdf"
+    manifest_path = tmp_path / "calm.audit.json"
+    render_packet(
+        _anomaly(),
+        summary,
+        _groups(),
+        "bracco-example",
+        pdf_path,
+        manifest_path,
+    )
+    shown = " ".join(extract_pdf_text(pdf_path).split())
+    assert "default Unsure" in shown
+    assert "wind direction unstable under calm conditions" in shown
+    assert "openweather" in shown
+    assert "proposed pending Bracco amendment" in shown
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == 2
+    assert manifest["calm_wind_flags"] == [flags[0].to_dict()]
+
+    report = audit_packet(
+        pdf_path,
+        manifest_path,
+        summary,
+        ANOMALY_TS,
+        model_names=("llama3:8b", "gpt-5.4"),
+        claim_groups=tuple(_groups()),
+    )
+    assert report.calm_wind_flag_count == 1
+    assert report.blinding_leaks == ()
+
+
+def test_audit_rejects_calm_wind_flag_tampering(tmp_path: Path) -> None:
+    summary = _summary()
+    speed = summary["sources"]["openweather"]["metrics"]["wind_speed"]
+    speed["nearest_in_time"]["v"] = 1.0
+    speed["entities"][0]["series"][0][1] = 1.0
+    pdf_path = tmp_path / "calm.pdf"
+    manifest_path = tmp_path / "calm.audit.json"
+    render_packet(
+        _anomaly(),
+        summary,
+        _groups(),
+        "bracco-example",
+        pdf_path,
+        manifest_path,
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["calm_wind_flags"][0]["source_decisions"][0][
+        "effective_cutoff_ms"
+    ] = 999.0
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PacketAuditError, match="calm-wind"):
+        audit_packet(
+            pdf_path,
+            manifest_path,
+            summary,
+            ANOMALY_TS,
+            model_names=("llama3:8b",),
+            claim_groups=tuple(_groups()),
         )

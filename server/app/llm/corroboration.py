@@ -19,9 +19,10 @@ memo's 2026-06-10 addendum).
 
 from __future__ import annotations
 
+import logging
 import math
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -32,6 +33,8 @@ from app.llm.observation_age import assess_observation_age
 from app.llm.validate import strip_locators, threshold_cues, within_tolerance
 from app.provenance.openaq_pm25 import verified_monitor_entity_ids
 from app.provenance.purpleair_qc import purpleair_reading_is_eligible
+
+logger = logging.getLogger(__name__)
 
 # Per-source verdict on a single claim. A source either supports the claim,
 # contradicts it, or is silent (no data bearing on it within the window).
@@ -658,9 +661,150 @@ class WindTolerance:
     speed_ms: float = 1.5      # numeric wind-speed claim within this of measured
     stagnant_ms: float = 2.0   # qualitative "stagnant" means wind below this
     temp_c: float = 2.0        # temperature claim within this of measured
+    calm_sigma: float = 2.0
+    calm_min_points: int = 2
+    calm_floor_ms: float | None = 1.5
 
 
 DEFAULT_WIND_TOLERANCE = WindTolerance()
+
+CALM_WIND_FLOOR_STATUS = "proposed_pending_bracco_amendment"
+CALM_WIND_SHIP_STATUS = "not_shipped_pending_bracco_reply"
+
+
+@dataclass(frozen=True)
+class CalmWindDecision:
+    """One source-local B2 cutoff and event-speed decision."""
+
+    source: str
+    window_n: int
+    event_speed_ms: float | None
+    raw_cutoff_ms: float | None
+    effective_cutoff_ms: float | None
+    guard_enabled: bool
+    calm: bool | None
+    direction_votable: bool
+    reason: str
+    floor_status: str
+
+    def to_dict(self) -> dict[str, str | int | float | bool | None]:
+        return {
+            "source": self.source,
+            "window_n": self.window_n,
+            "event_speed_ms": self.event_speed_ms,
+            "raw_cutoff_ms": self.raw_cutoff_ms,
+            "effective_cutoff_ms": self.effective_cutoff_ms,
+            "guard_enabled": self.guard_enabled,
+            "calm": self.calm,
+            "direction_votable": self.direction_votable,
+            "reason": self.reason,
+            "floor_status": self.floor_status,
+        }
+
+    def evidence_note(self) -> str:
+        fields = (
+            f"event_speed={self.event_speed_ms} raw_cutoff={self.raw_cutoff_ms} "
+            f"effective_cutoff={self.effective_cutoff_ms} n={self.window_n} "
+            f"floor_status={self.floor_status}"
+        )
+        if self.calm:
+            return (
+                f"{self.source}: calm-wind guard SILENT ({fields}); "
+                "wind direction unstable under calm conditions"
+            )
+        if self.reason == "raw_cutoff_nonpositive_guard_disabled":
+            return f"{self.source}: calm-wind guard disabled LOUDLY ({fields})"
+        if not self.direction_votable:
+            return (
+                f"{self.source}: calm-wind guard unevaluable SILENT "
+                f"(reason={self.reason}; {fields})"
+            )
+        return f"{self.source}: calm-wind guard passed ({fields})"
+
+
+def calm_wind_decision(
+    source: str,
+    window_speeds: Sequence[float],
+    event_speed: float | None,
+    *,
+    tolerance: WindTolerance = DEFAULT_WIND_TOLERANCE,
+) -> CalmWindDecision:
+    """Evaluate the declared source-local B2 guard."""
+    floor = tolerance.calm_floor_ms
+    if floor is not None and (not math.isfinite(floor) or floor < 0.0):
+        raise ValueError("calm-wind floor must be finite and non-negative")
+    floor_status = CALM_WIND_FLOOR_STATUS if floor is not None else "not_configured"
+    try:
+        speeds = [float(value) for value in window_speeds]
+    except (TypeError, ValueError):
+        speeds = [math.nan]
+    if any(not math.isfinite(value) or value < 0.0 for value in speeds):
+        return CalmWindDecision(
+            source, len(speeds), None, None, None, False, None, False,
+            "invalid_window_speed", floor_status,
+        )
+    if len(speeds) < tolerance.calm_min_points:
+        return CalmWindDecision(
+            source, len(speeds), None, None, None, False, None, False,
+            "insufficient_window", floor_status,
+        )
+
+    raw_cutoff = fmean(speeds) - tolerance.calm_sigma * pstdev(speeds)
+    if floor is None and raw_cutoff <= 0.0:
+        logger.warning(
+            "%s calm-wind guard disabled: raw cutoff %.6g m/s is nonpositive "
+            "and no floor is configured",
+            source,
+            raw_cutoff,
+        )
+        return CalmWindDecision(
+            source, len(speeds), None, raw_cutoff, None, False, None, True,
+            "raw_cutoff_nonpositive_guard_disabled", floor_status,
+        )
+    effective_cutoff = max(raw_cutoff, floor) if floor is not None else raw_cutoff
+    try:
+        speed = float(event_speed) if event_speed is not None else None
+    except (TypeError, ValueError):
+        speed = None
+    if speed is None or not math.isfinite(speed) or speed < 0.0:
+        return CalmWindDecision(
+            source, len(speeds), None, raw_cutoff, effective_cutoff, True,
+            None, False, "missing_event_speed", floor_status,
+        )
+    calm = speed < effective_cutoff
+    return CalmWindDecision(
+        source=source,
+        window_n=len(speeds),
+        event_speed_ms=speed,
+        raw_cutoff_ms=raw_cutoff,
+        effective_cutoff_ms=effective_cutoff,
+        guard_enabled=True,
+        calm=calm,
+        direction_votable=not calm,
+        reason="calm" if calm else "at_or_above_cutoff",
+        floor_status=floor_status,
+    )
+
+
+def calm_wind_manifest_payload(
+    tolerance: WindTolerance = DEFAULT_WIND_TOLERANCE,
+) -> dict[str, str | int | float | bool | None]:
+    """Freeze-manifest status for the proposed B2 amendment."""
+    return {
+        "formula": "mean(speed) - calm_sigma*pstdev(speed)",
+        "calm_sigma": tolerance.calm_sigma,
+        "minimum_window_points": tolerance.calm_min_points,
+        "floor_ms": tolerance.calm_floor_ms,
+        "floor_status": (
+            CALM_WIND_FLOOR_STATUS
+            if tolerance.calm_floor_ms is not None
+            else "not_configured"
+        ),
+        "bracco_amendment_confirmed": False,
+        "ship_status": CALM_WIND_SHIP_STATUS,
+        "raw_nonpositive_without_floor": "disabled_loudly",
+        "event_comparison": "strictly_below_effective_cutoff_is_calm",
+    }
 
 _CARDINALS: dict[str, float] = {
     "north": 0.0,
@@ -741,6 +885,117 @@ def _gfs_wind_components(
     return u, v, notes
 
 
+def _window_speed_values(block: Mapping | None) -> list[float]:
+    if not block:
+        return []
+    values: list[float] = []
+    for entity in block.get("entities", []):
+        for row in entity.get("series", []):
+            if not isinstance(row, Sequence) or len(row) != 2:
+                values.append(math.nan)
+                continue
+            try:
+                values.append(float(row[1]))
+            except (TypeError, ValueError):
+                values.append(math.nan)
+    return values
+
+
+def _component_index(
+    block: Mapping | None,
+) -> tuple[dict[tuple[str, datetime], float], bool]:
+    indexed: dict[tuple[str, datetime], float] = {}
+    invalid = False
+    if not block:
+        return indexed, invalid
+    for entity in block.get("entities", []):
+        raw_entity_id = entity.get("entity_id")
+        if raw_entity_id is None:
+            invalid = True
+            continue
+        entity_id = str(raw_entity_id)
+        for row in entity.get("series", []):
+            if not isinstance(row, Sequence) or len(row) != 2:
+                invalid = True
+                continue
+            try:
+                timestamp = datetime.fromisoformat(str(row[0]).replace("Z", "+00:00"))
+                value = float(row[1])
+            except (TypeError, ValueError):
+                invalid = True
+                continue
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            else:
+                timestamp = timestamp.astimezone(timezone.utc)
+            if not math.isfinite(value):
+                invalid = True
+                continue
+            key = (entity_id, timestamp)
+            if key in indexed:
+                invalid = True
+                continue
+            indexed[key] = value
+    return indexed, invalid
+
+
+def _gfs_window_speeds(summary: Mapping) -> list[float]:
+    metrics = summary.get("sources", {}).get("noaa_gfs", {}).get("metrics", {})
+    u_values, u_invalid = _component_index(metrics.get("u_10m"))
+    v_values, v_invalid = _component_index(metrics.get("v_10m"))
+    if u_invalid or v_invalid:
+        return [math.nan]
+    return [
+        math.hypot(u_values[key], v_values[key])
+        for key in sorted(set(u_values) & set(v_values))
+    ]
+
+
+def calm_wind_source_decisions(
+    summary: Mapping,
+    sources: Sequence[str],
+    *,
+    tolerance: WindTolerance = DEFAULT_WIND_TOLERANCE,
+) -> tuple[dict[str, CalmWindDecision], tuple[str, ...]]:
+    """Build source-local B2 decisions from one stored enrichment summary."""
+    decisions: dict[str, CalmWindDecision] = {}
+    notes: list[str] = []
+    for source in sources:
+        if source == "noaa_gfs":
+            u, v, age_notes = _gfs_wind_components(summary)
+            notes.extend(age_notes)
+            event_speed = math.hypot(u, v) if u is not None and v is not None else None
+            window_speeds = _gfs_window_speeds(summary)
+        elif source in {"asos", "openweather"}:
+            speed_block = (
+                summary.get("sources", {})
+                .get(source, {})
+                .get("metrics", {})
+                .get("wind_speed")
+            )
+            raw_speed, age_note = _fresh_nearest_value(
+                source, "wind_speed", speed_block
+            )
+            if age_note is not None:
+                notes.append(age_note)
+            try:
+                event_speed = float(raw_speed) if raw_speed is not None else None
+            except (TypeError, ValueError):
+                event_speed = None
+            window_speeds = _window_speed_values(speed_block)
+        else:
+            raise ValueError(f"unsupported calm-wind source {source!r}")
+        decision = calm_wind_decision(
+            source,
+            window_speeds,
+            event_speed,
+            tolerance=tolerance,
+        )
+        decisions[source] = decision
+        notes.append(decision.evidence_note())
+    return decisions, tuple(notes)
+
+
 def score_transport_direction(
     claim_text: str,
     summary: Mapping,
@@ -778,12 +1033,24 @@ def score_transport_direction(
         if asos_dir is not None:
             measured["asos"] = float(asos_dir) % 360.0
 
+    guard_decisions: dict[str, CalmWindDecision] = {}
+    guard_notes: tuple[str, ...] = ()
+    if claimed_from is not None:
+        guard_decisions, guard_notes = calm_wind_source_decisions(
+            summary,
+            ("noaa_gfs", "openweather", "asos"),
+            tolerance=tolerance,
+        )
+
     verdicts: dict[str, int] = {}
-    notes: list[str] = age_notes
+    notes: list[str] = [*age_notes, *guard_notes]
     for source in ("noaa_gfs", "openweather", "asos"):
         if source not in measured or claimed_from is None:
             verdicts[source] = SILENT
             notes.append(f"{source}: no comparable wind direction")
+            continue
+        if not guard_decisions[source].direction_votable:
+            verdicts[source] = SILENT
             continue
         diff = _angular_diff(claimed_from, measured[source])
         verdicts[source] = (
@@ -1648,12 +1915,24 @@ def score_point_source_attribution(
         if ow_dir is not None:
             measured["openweather"] = float(ow_dir) % 360.0
 
+    guard_decisions: dict[str, CalmWindDecision] = {}
+    guard_notes: tuple[str, ...] = ()
+    if expected_from is not None:
+        guard_decisions, guard_notes = calm_wind_source_decisions(
+            summary,
+            ("noaa_gfs", "openweather"),
+            tolerance=tolerance,
+        )
+
     verdicts: dict[str, int] = {}
-    notes: list[str] = age_notes
+    notes: list[str] = [*age_notes, *guard_notes]
     for source in ("noaa_gfs", "openweather"):
         if expected_from is None or source not in measured:
             verdicts[source] = SILENT
             notes.append(f"{source}: no claimed coordinates or wind data")
+            continue
+        if not guard_decisions[source].direction_votable:
+            verdicts[source] = SILENT
             continue
         diff = _angular_diff(expected_from, measured[source])
         verdicts[source] = (

@@ -420,6 +420,26 @@ class TestFixturePayload:
             "wind": asdict(DEFAULT_WIND_TOLERANCE),
         }
 
+    def test_payload_marks_proposed_calm_wind_floor_as_not_shipped(self) -> None:
+        result = FreezeResult(
+            window_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            window_end=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            top_n=50,
+            n_anomalies=0,
+            n_events=0,
+            selected=[],
+            event_sizes={},
+            missing_enrichment=[],
+        )
+
+        block = _fixture_payload(result)["data_quality"]["calm_wind_guard"]
+
+        assert block["floor_ms"] == 1.5
+        assert block["floor_status"] == "proposed_pending_bracco_amendment"
+        assert block["bracco_amendment_confirmed"] is False
+        assert block["ship_status"] == "not_shipped_pending_bracco_reply"
+        assert block["raw_nonpositive_without_floor"] == "disabled_loudly"
+
     def test_threshold_payload_reads_mutated_tolerance_owner(
         self,
         monkeypatch: pytest.MonkeyPatch,

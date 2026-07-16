@@ -318,6 +318,9 @@ async def generate_explanation(
                     "step": step.step.value,
                     "response": step.response.model_dump(),
                     "latency_ms": step.generation.latency_ms,
+                    "prompt_tokens": step.generation.prompt_tokens,
+                    "completion_tokens": step.generation.completion_tokens,
+                    "attempts": step.generation.attempts,
                 }
                 for step in chain.steps
             ]

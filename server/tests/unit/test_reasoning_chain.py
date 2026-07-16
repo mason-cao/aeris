@@ -26,6 +26,23 @@ class ScriptedClient(LLMClient):
         )
 
 
+class PartiallyReportedUsageClient(ScriptedClient):
+    """Scripted client with one step lacking provider usage metadata."""
+
+    def __init__(self, texts: list[str]) -> None:
+        super().__init__(texts)
+        self._call_index = 0
+
+    async def _complete(self, prompt: str, schema: type[BaseModel]) -> RawCompletion:
+        self.prompts.append(prompt)
+        self._call_index += 1
+        return RawCompletion(
+            text=self._texts.pop(0),
+            prompt_tokens=None if self._call_index == 2 else 10,
+            completion_tokens=None if self._call_index == 2 else 5,
+        )
+
+
 def _step(summary: str, claims: list[dict]) -> str:
     return json.dumps({"summary": summary, "claims": claims})
 
@@ -96,3 +113,18 @@ class TestRunReasoningChain:
         assert result.total_prompt_tokens == 40
         assert result.total_completion_tokens == 20
         assert result.total_latency_ms >= 0
+
+    @pytest.mark.asyncio
+    async def test_partial_usage_makes_corresponding_totals_missing(self) -> None:
+        client = PartiallyReportedUsageClient(_full_script())
+
+        result = await run_reasoning_chain(
+            client,
+            anomaly_text="O3 92 ppb",
+            enrichment_text="openaq o3 max 0.092",
+        )
+
+        assert result.steps[1].generation.prompt_tokens is None
+        assert result.steps[1].generation.completion_tokens is None
+        assert result.total_prompt_tokens is None
+        assert result.total_completion_tokens is None

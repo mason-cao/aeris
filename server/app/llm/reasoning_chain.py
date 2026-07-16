@@ -29,8 +29,9 @@ class ReasoningChainResult:
 
 
 def _sum_optional(values: list[int | None]) -> int | None:
-    present = [v for v in values if v is not None]
-    return sum(present) if present else None
+    if not values or any(value is None for value in values):
+        return None
+    return sum(value for value in values if value is not None)
 
 
 async def run_reasoning_chain(

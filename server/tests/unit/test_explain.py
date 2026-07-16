@@ -266,6 +266,19 @@ async def test_generate_explanation_builds_explanation_and_claims(db_session):
     assert explanation.final_narrative == "Local NO2 buildup under weak dispersion."
     assert explanation.stated_confidence == 0.72
     assert len(explanation.reasoning_steps_json["steps"]) == 4
+    assert [
+        {
+            "prompt_tokens": step["prompt_tokens"],
+            "completion_tokens": step["completion_tokens"],
+            "attempts": step["attempts"],
+        }
+        for step in explanation.reasoning_steps_json["steps"]
+    ] == [
+        {"prompt_tokens": 10, "completion_tokens": 5, "attempts": 1}
+        for _ in range(4)
+    ]
+    assert explanation.prompt_tokens == 40
+    assert explanation.completion_tokens == 20
     assert len(explanation.claims) == 2
 
     grounded, fabricated = explanation.claims
@@ -340,6 +353,26 @@ async def test_persist_explanation_is_insert_only_per_model(db_session):
     ).scalar_one()
     assert n_explanations == 1
     assert n_claims == 2
+    persisted = (
+        await db_session.execute(select(Explanation))
+    ).scalar_one()
+    assert persisted.reasoning_steps_json["steps"][0]["prompt_tokens"] == 10
+
+
+@pytest.mark.asyncio
+async def test_generate_explanation_persists_parse_attempt_count(db_session):
+    anomaly = _anomaly()
+    db_session.add_all([anomaly, _record(anomaly)])
+    await db_session.commit()
+
+    explanation = await generate_explanation(
+        db_session,
+        anomaly.id,
+        ScriptedClient(["not-json", *_script()]),
+    )
+
+    steps = explanation.reasoning_steps_json["steps"]
+    assert [step["attempts"] for step in steps] == [2, 1, 1, 1]
 
 
 # --- CLI ---

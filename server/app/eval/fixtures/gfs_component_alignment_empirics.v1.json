@@ -1,0 +1,63 @@
+{
+  "anchor_count": 936,
+  "anchor_location": {
+    "lat": 29.7604,
+    "lon": -95.3698,
+    "radius_km": 50.0
+  },
+  "anchor_semantics": "B2/B8 UTC-hour centers; centered endpoint-inclusive 72-hour context wholly inside the study interval",
+  "both_b8_fresh": {
+    "count": 936,
+    "rate": 1.0
+  },
+  "both_values_present": {
+    "count": 936,
+    "rate": 1.0
+  },
+  "changed_to_silent_count": 0,
+  "changed_to_silent_fraction": 0.0,
+  "equal_timestamp_entity_mismatch": {
+    "count": 0,
+    "rate": 0.0
+  },
+  "gfs_age_gate_minutes": 360.0,
+  "in_radius_row_count": 4008,
+  "input_row_count": 4008,
+  "malformed_timestamp": {
+    "count": 0,
+    "rate": 0.0
+  },
+  "mismatch_minutes": {
+    "count": 0,
+    "maximum": null,
+    "minimum": null,
+    "p50": null,
+    "p95": null
+  },
+  "missing_timestamp": {
+    "count": 0,
+    "rate": 0.0
+  },
+  "new_pair_eligible": {
+    "count": 936,
+    "rate": 1.0
+  },
+  "old_pair_eligible": {
+    "count": 936,
+    "rate": 1.0
+  },
+  "schema_version": 1,
+  "snapshot_sha256": "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81",
+  "study_end_exclusive": "2026-07-13T00:00:00+00:00",
+  "study_start": "2026-06-01T00:00:00+00:00",
+  "timestamp_exact": {
+    "count": 936,
+    "rate": 1.0
+  },
+  "timestamp_mismatch": {
+    "count": 0,
+    "rate": 0.0
+  },
+  "u_observation_count": 2004,
+  "v_observation_count": 2004
+}

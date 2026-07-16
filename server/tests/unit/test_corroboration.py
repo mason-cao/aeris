@@ -795,8 +795,18 @@ def test_met_stagnant_supported_by_low_winds():
     summary = _summary_with(
         {
             "noaa_gfs": {
-                "u_10m": {"nearest_in_time": {"v": 0.8}},
-                "v_10m": {"nearest_in_time": {"v": 0.9}},
+                "u_10m": {
+                    "nearest_in_time": {
+                        "t": "2026-06-05T12:00:00+00:00",
+                        "v": 0.8,
+                    }
+                },
+                "v_10m": {
+                    "nearest_in_time": {
+                        "t": "2026-06-05T12:00:00+00:00",
+                        "v": 0.9,
+                    }
+                },
             },
             "openweather": {"wind_speed": {"nearest_in_time": {"v": 1.5}}},
         }
@@ -813,8 +823,18 @@ def test_met_stagnant_contradicted_by_strong_winds():
     summary = _summary_with(
         {
             "noaa_gfs": {
-                "u_10m": {"nearest_in_time": {"v": 5.0}},
-                "v_10m": {"nearest_in_time": {"v": 4.0}},
+                "u_10m": {
+                    "nearest_in_time": {
+                        "t": "2026-06-05T12:00:00+00:00",
+                        "v": 5.0,
+                    }
+                },
+                "v_10m": {
+                    "nearest_in_time": {
+                        "t": "2026-06-05T12:00:00+00:00",
+                        "v": 4.0,
+                    }
+                },
             }
         }
     )

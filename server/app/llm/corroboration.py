@@ -926,12 +926,53 @@ def _gfs_wind_components(
     summary: Mapping,
 ) -> tuple[float | None, float | None, tuple[str, ...]]:
     gfs = summary.get("sources", {}).get("noaa_gfs", {}).get("metrics", {})
-    raw_u, u_note = _fresh_nearest_value("noaa_gfs", "u_10m", gfs.get("u_10m"))
-    raw_v, v_note = _fresh_nearest_value("noaa_gfs", "v_10m", gfs.get("v_10m"))
-    notes = tuple(note for note in (u_note, v_note) if note is not None)
+    u_block = gfs.get("u_10m")
+    v_block = gfs.get("v_10m")
+    raw_u, u_note = _fresh_nearest_value("noaa_gfs", "u_10m", u_block)
+    raw_v, v_note = _fresh_nearest_value("noaa_gfs", "v_10m", v_block)
+    notes = [note for note in (u_note, v_note) if note is not None]
+    if raw_u is None or raw_v is None:
+        return None, None, tuple(notes)
+
+    def nearest_timestamp(
+        block: Mapping | None,
+    ) -> tuple[datetime | None, str]:
+        nearest = block.get("nearest_in_time") if block else None
+        raw_timestamp = nearest.get("t") if isinstance(nearest, Mapping) else None
+        if raw_timestamp is None:
+            return None, "missing"
+        try:
+            timestamp = datetime.fromisoformat(
+                str(raw_timestamp).replace("Z", "+00:00")
+            )
+        except ValueError:
+            return None, "malformed"
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        else:
+            timestamp = timestamp.astimezone(timezone.utc)
+        return timestamp, "valid"
+
+    u_timestamp, u_status = nearest_timestamp(u_block)
+    v_timestamp, v_status = nearest_timestamp(v_block)
+    if u_timestamp is None or v_timestamp is None:
+        reason = "missing_timestamp" if "missing" in {u_status, v_status} else "malformed_timestamp"
+        notes.append(
+            "noaa_gfs: u/v timestamp pairing SILENT "
+            f"(reason={reason}; u_status={u_status}; v_status={v_status})"
+        )
+        return None, None, tuple(notes)
+    if u_timestamp != v_timestamp:
+        notes.append(
+            "noaa_gfs: u/v timestamp pairing SILENT "
+            f"(reason=mismatch; u_t={u_timestamp.isoformat()}; "
+            f"v_t={v_timestamp.isoformat()})"
+        )
+        return None, None, tuple(notes)
+
     u = float(raw_u) if raw_u is not None else None
     v = float(raw_v) if raw_v is not None else None
-    return u, v, notes
+    return u, v, tuple(notes)
 
 
 def _window_speed_values(block: Mapping | None) -> list[float]:

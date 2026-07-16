@@ -1,0 +1,1076 @@
+{
+  "anchor_count": 936,
+  "anchor_location": {
+    "lat": 29.7604,
+    "lon": -95.3698,
+    "radius_km": 50.0
+  },
+  "anchor_semantics": "B2/B8 UTC-hour centers; centered endpoint-inclusive 72-hour context wholly inside the study interval",
+  "in_radius_row_count": 165075,
+  "input_row_count": 165075,
+  "pairs": [
+    {
+      "anomaly_day_outcomes": {
+        "contradicting": {
+          "count": 936,
+          "rate": 1.0
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 0,
+          "rate": 0.0
+        }
+      },
+      "anomaly_day_point_counts": {
+        "below_floor_count": 0,
+        "below_floor_fraction": 0.0,
+        "frequency": [
+          {
+            "anchor_count": 24,
+            "point_count": 138
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 249
+          },
+          {
+            "anchor_count": 17,
+            "point_count": 306
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 322
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 330
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 336
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 338
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 339
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 351
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 353
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 357
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 366
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 370
+          },
+          {
+            "anchor_count": 72,
+            "point_count": 372
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 373
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 375
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 385
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 388
+          },
+          {
+            "anchor_count": 96,
+            "point_count": 389
+          },
+          {
+            "anchor_count": 7,
+            "point_count": 390
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 393
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 394
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 395
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 398
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 399
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 409
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 411
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 413
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 415
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 416
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 421
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 427
+          }
+        ],
+        "maximum": 427,
+        "minimum": 138,
+        "p50": 385.0,
+        "p95": 421.0
+      },
+      "changed_transitions": [],
+      "changed_verdict_count": 0,
+      "changed_verdict_fraction": 0.0,
+      "eligible_observation_count": 15278,
+      "metric": "ozone",
+      "source": "openaq",
+      "whole_window_outcomes": {
+        "contradicting": {
+          "count": 936,
+          "rate": 1.0
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 0,
+          "rate": 0.0
+        }
+      }
+    },
+    {
+      "anomaly_day_outcomes": {
+        "contradicting": {
+          "count": 713,
+          "rate": 0.7617521367521367
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 223,
+          "rate": 0.23824786324786323
+        }
+      },
+      "anomaly_day_point_counts": {
+        "below_floor_count": 0,
+        "below_floor_fraction": 0.0,
+        "frequency": [
+          {
+            "anchor_count": 24,
+            "point_count": 28
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 30
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 43
+          },
+          {
+            "anchor_count": 7,
+            "point_count": 46
+          },
+          {
+            "anchor_count": 72,
+            "point_count": 47
+          },
+          {
+            "anchor_count": 41,
+            "point_count": 48
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 60
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 64
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 66
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 67
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 68
+          },
+          {
+            "anchor_count": 168,
+            "point_count": 70
+          },
+          {
+            "anchor_count": 144,
+            "point_count": 71
+          },
+          {
+            "anchor_count": 288,
+            "point_count": 72
+          }
+        ],
+        "maximum": 72,
+        "minimum": 28,
+        "p50": 70.0,
+        "p95": 72.0
+      },
+      "changed_transitions": [
+        {
+          "anchor_count": 83,
+          "anomaly_day": "supporting",
+          "whole_window": "contradicting"
+        },
+        {
+          "anchor_count": 150,
+          "anomaly_day": "contradicting",
+          "whole_window": "supporting"
+        }
+      ],
+      "changed_verdict_count": 233,
+      "changed_verdict_fraction": 0.24893162393162394,
+      "eligible_observation_count": 2627,
+      "metric": "pm10",
+      "source": "openaq",
+      "whole_window_outcomes": {
+        "contradicting": {
+          "count": 646,
+          "rate": 0.6901709401709402
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 290,
+          "rate": 0.30982905982905984
+        }
+      }
+    },
+    {
+      "anomaly_day_outcomes": {
+        "contradicting": {
+          "count": 624,
+          "rate": 0.6666666666666666
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 312,
+          "rate": 0.3333333333333333
+        }
+      },
+      "anomaly_day_point_counts": {
+        "below_floor_count": 0,
+        "below_floor_fraction": 0.0,
+        "frequency": [
+          {
+            "anchor_count": 24,
+            "point_count": 20
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 30
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 43
+          },
+          {
+            "anchor_count": 7,
+            "point_count": 46
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 62
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 67
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 68
+          },
+          {
+            "anchor_count": 168,
+            "point_count": 70
+          },
+          {
+            "anchor_count": 72,
+            "point_count": 71
+          },
+          {
+            "anchor_count": 192,
+            "point_count": 72
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 167
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 173
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 174
+          },
+          {
+            "anchor_count": 17,
+            "point_count": 180
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 197
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 203
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 240
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 246
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 250
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 254
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 256
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 260
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 264
+          }
+        ],
+        "maximum": 264,
+        "minimum": 20,
+        "p50": 72.0,
+        "p95": 264.0
+      },
+      "changed_transitions": [
+        {
+          "anchor_count": 113,
+          "anomaly_day": "supporting",
+          "whole_window": "contradicting"
+        },
+        {
+          "anchor_count": 191,
+          "anomaly_day": "contradicting",
+          "whole_window": "supporting"
+        }
+      ],
+      "changed_verdict_count": 304,
+      "changed_verdict_fraction": 0.3247863247863248,
+      "eligible_observation_count": 5013,
+      "metric": "pm25",
+      "source": "openaq",
+      "whole_window_outcomes": {
+        "contradicting": {
+          "count": 546,
+          "rate": 0.5833333333333334
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 390,
+          "rate": 0.4166666666666667
+        }
+      }
+    },
+    {
+      "anomaly_day_outcomes": {
+        "contradicting": {
+          "count": 696,
+          "rate": 0.7435897435897436
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 240,
+          "rate": 0.2564102564102564
+        }
+      },
+      "anomaly_day_point_counts": {
+        "below_floor_count": 0,
+        "below_floor_fraction": 0.0,
+        "frequency": [
+          {
+            "anchor_count": 24,
+            "point_count": 1550
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1557
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1559
+          },
+          {
+            "anchor_count": 17,
+            "point_count": 1560
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1563
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1569
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1570
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1577
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1578
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1582
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1606
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1613
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1616
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1623
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1627
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1629
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1631
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1632
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1648
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1652
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1653
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1656
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1692
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1701
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1706
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1713
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1727
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1732
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1739
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1741
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1746
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1749
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1752
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1753
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1755
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1780
+          },
+          {
+            "anchor_count": 7,
+            "point_count": 1794
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1808
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1809
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 1847
+          }
+        ],
+        "maximum": 1847,
+        "minimum": 1550,
+        "p50": 1652.0,
+        "p95": 1809.0
+      },
+      "changed_transitions": [
+        {
+          "anchor_count": 129,
+          "anomaly_day": "supporting",
+          "whole_window": "contradicting"
+        },
+        {
+          "anchor_count": 53,
+          "anomaly_day": "contradicting",
+          "whole_window": "supporting"
+        }
+      ],
+      "changed_verdict_count": 182,
+      "changed_verdict_fraction": 0.19444444444444445,
+      "eligible_observation_count": 69638,
+      "metric": "pm25",
+      "source": "purpleair",
+      "whole_window_outcomes": {
+        "contradicting": {
+          "count": 772,
+          "rate": 0.8247863247863247
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 164,
+          "rate": 0.1752136752136752
+        }
+      }
+    },
+    {
+      "anomaly_day_outcomes": {
+        "contradicting": {
+          "count": 360,
+          "rate": 0.38461538461538464
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 576,
+          "rate": 0.6153846153846154
+        }
+      },
+      "anomaly_day_point_counts": {
+        "below_floor_count": 0,
+        "below_floor_fraction": 0.0,
+        "frequency": [
+          {
+            "anchor_count": 24,
+            "point_count": 34
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 59
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 60
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 62
+          },
+          {
+            "anchor_count": 120,
+            "point_count": 63
+          },
+          {
+            "anchor_count": 103,
+            "point_count": 64
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 65
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 67
+          },
+          {
+            "anchor_count": 120,
+            "point_count": 69
+          },
+          {
+            "anchor_count": 120,
+            "point_count": 71
+          },
+          {
+            "anchor_count": 281,
+            "point_count": 72
+          }
+        ],
+        "maximum": 72,
+        "minimum": 34,
+        "p50": 69.0,
+        "p95": 72.0
+      },
+      "changed_transitions": [
+        {
+          "anchor_count": 95,
+          "anomaly_day": "supporting",
+          "whole_window": "contradicting"
+        },
+        {
+          "anchor_count": 228,
+          "anomaly_day": "contradicting",
+          "whole_window": "supporting"
+        }
+      ],
+      "changed_verdict_count": 323,
+      "changed_verdict_fraction": 0.3450854700854701,
+      "eligible_observation_count": 2783,
+      "metric": "co",
+      "source": "tceq",
+      "whole_window_outcomes": {
+        "contradicting": {
+          "count": 227,
+          "rate": 0.24252136752136752
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 709,
+          "rate": 0.7574786324786325
+        }
+      }
+    },
+    {
+      "anomaly_day_outcomes": {
+        "contradicting": {
+          "count": 672,
+          "rate": 0.717948717948718
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 264,
+          "rate": 0.28205128205128205
+        }
+      },
+      "anomaly_day_point_counts": {
+        "below_floor_count": 0,
+        "below_floor_fraction": 0.0,
+        "frequency": [
+          {
+            "anchor_count": 24,
+            "point_count": 147
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 234
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 245
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 247
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 249
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 251
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 255
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 258
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 261
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 262
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 266
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 267
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 269
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 271
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 274
+          },
+          {
+            "anchor_count": 31,
+            "point_count": 275
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 276
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 277
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 281
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 289
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 290
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 295
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 299
+          },
+          {
+            "anchor_count": 72,
+            "point_count": 300
+          },
+          {
+            "anchor_count": 17,
+            "point_count": 301
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 302
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 303
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 304
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 305
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 309
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 310
+          }
+        ],
+        "maximum": 310,
+        "minimum": 147,
+        "p50": 276.0,
+        "p95": 309.0
+      },
+      "changed_transitions": [
+        {
+          "anchor_count": 126,
+          "anomaly_day": "supporting",
+          "whole_window": "contradicting"
+        },
+        {
+          "anchor_count": 88,
+          "anomaly_day": "contradicting",
+          "whole_window": "supporting"
+        }
+      ],
+      "changed_verdict_count": 214,
+      "changed_verdict_fraction": 0.22863247863247863,
+      "eligible_observation_count": 11458,
+      "metric": "no2",
+      "source": "tceq",
+      "whole_window_outcomes": {
+        "contradicting": {
+          "count": 710,
+          "rate": 0.7585470085470085
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 226,
+          "rate": 0.24145299145299146
+        }
+      }
+    },
+    {
+      "anomaly_day_outcomes": {
+        "contradicting": {
+          "count": 792,
+          "rate": 0.8461538461538461
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 144,
+          "rate": 0.15384615384615385
+        }
+      },
+      "anomaly_day_point_counts": {
+        "below_floor_count": 0,
+        "below_floor_fraction": 0.0,
+        "frequency": [
+          {
+            "anchor_count": 24,
+            "point_count": 33
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 57
+          },
+          {
+            "anchor_count": 55,
+            "point_count": 59
+          },
+          {
+            "anchor_count": 72,
+            "point_count": 60
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 62
+          },
+          {
+            "anchor_count": 120,
+            "point_count": 63
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 64
+          },
+          {
+            "anchor_count": 24,
+            "point_count": 65
+          },
+          {
+            "anchor_count": 48,
+            "point_count": 66
+          },
+          {
+            "anchor_count": 72,
+            "point_count": 68
+          },
+          {
+            "anchor_count": 96,
+            "point_count": 69
+          },
+          {
+            "anchor_count": 65,
+            "point_count": 70
+          },
+          {
+            "anchor_count": 96,
+            "point_count": 71
+          },
+          {
+            "anchor_count": 144,
+            "point_count": 72
+          }
+        ],
+        "maximum": 72,
+        "minimum": 33,
+        "p50": 68.0,
+        "p95": 72.0
+      },
+      "changed_transitions": [
+        {
+          "anchor_count": 109,
+          "anomaly_day": "supporting",
+          "whole_window": "contradicting"
+        },
+        {
+          "anchor_count": 98,
+          "anomaly_day": "contradicting",
+          "whole_window": "supporting"
+        }
+      ],
+      "changed_verdict_count": 207,
+      "changed_verdict_fraction": 0.22115384615384615,
+      "eligible_observation_count": 2733,
+      "metric": "so2",
+      "source": "tceq",
+      "whole_window_outcomes": {
+        "contradicting": {
+          "count": 803,
+          "rate": 0.8579059829059829
+        },
+        "silent": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "supporting": {
+          "count": 133,
+          "rate": 0.1420940170940171
+        }
+      }
+    }
+  ],
+  "quality_eligible_row_count": 109530,
+  "quality_excluded_row_count": 55545,
+  "schema_version": 1,
+  "snapshot_sha256": "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81",
+  "study_end_exclusive": "2026-07-13T00:00:00+00:00",
+  "study_start": "2026-06-01T00:00:00+00:00",
+  "tolerance": {
+    "cv_localized": 0.5,
+    "cv_uniform": 0.3,
+    "min_obs_per_station": 4,
+    "min_points": 4,
+    "min_stations": 3,
+    "morning_end_h": 10,
+    "morning_start_h": 6
+  }
+}

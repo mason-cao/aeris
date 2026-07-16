@@ -1421,6 +1421,140 @@ def test_source_type_mobile_supported_by_morning_peak():
     assert verdicts["openaq"] == SUPPORTING
 
 
+def _mobile_summary(
+    series: list[list],
+    *,
+    anomaly_timestamp: str = "2026-06-05T15:00:00+00:00",
+) -> dict:
+    summary = _summary_with(
+        {
+            "openaq": {
+                "no2": _metric_from_entities([_entity("mobile", series)])
+            }
+        }
+    )
+    summary["anomaly"] = {"timestamp": anomaly_timestamp}
+    return summary
+
+
+def test_source_type_mobile_ignores_higher_peak_on_neighboring_day() -> None:
+    series = [
+        ["2026-06-04T13:00:00+00:00", 100.0],  # 08:00 CDT, previous day
+        ["2026-06-05T14:00:00+00:00", 20.0],
+        ["2026-06-05T15:00:00+00:00", 50.0],  # 10:00 CDT, outside rush
+        ["2026-06-05T16:00:00+00:00", 30.0],
+        ["2026-06-05T17:00:00+00:00", 25.0],
+    ]
+
+    verdicts, note = score_emissions_source_type(
+        "NO2 pattern consistent with rush-hour mobile traffic emissions.",
+        _mobile_summary(series),
+    )
+
+    assert verdicts["openaq"] == CONTRADICTING
+    assert "10:00 local" in note
+
+
+def test_source_type_neighboring_day_cannot_rescue_low_n_anomaly_day() -> None:
+    series = [
+        ["2026-06-04T13:00:00+00:00", 100.0],
+        ["2026-06-05T11:00:00+00:00", 20.0],
+        ["2026-06-05T12:00:00+00:00", 30.0],
+        ["2026-06-05T13:00:00+00:00", 40.0],
+    ]
+
+    verdicts, note = score_emissions_source_type(
+        "NO2 pattern consistent with rush-hour mobile traffic emissions.",
+        _mobile_summary(series),
+    )
+
+    assert verdicts["openaq"] == SILENT
+    assert "3 points" in note
+
+
+def test_source_type_mobile_exact_floor_and_rush_boundaries() -> None:
+    at_six = [
+        ["2026-06-05T11:00:00+00:00", 50.0],  # 06:00 CDT
+        ["2026-06-05T12:00:00+00:00", 30.0],
+        ["2026-06-05T13:00:00+00:00", 20.0],
+        ["2026-06-05T14:00:00+00:00", 10.0],
+    ]
+    at_ten = [
+        ["2026-06-05T12:00:00+00:00", 10.0],
+        ["2026-06-05T13:00:00+00:00", 20.0],
+        ["2026-06-05T14:00:00+00:00", 30.0],
+        ["2026-06-05T15:00:00+00:00", 50.0],  # 10:00 CDT
+    ]
+
+    six_verdicts, _ = score_emissions_source_type(
+        "NO2 rush-hour mobile traffic emissions.", _mobile_summary(at_six)
+    )
+    ten_verdicts, _ = score_emissions_source_type(
+        "NO2 rush-hour mobile traffic emissions.", _mobile_summary(at_ten)
+    )
+
+    assert six_verdicts["openaq"] == SUPPORTING
+    assert ten_verdicts["openaq"] == CONTRADICTING
+
+
+def test_source_type_mobile_empty_day_is_explicitly_silent() -> None:
+    summary = _summary_with({})
+    summary["anomaly"] = {"timestamp": "2026-06-05T15:00:00+00:00"}
+
+    verdicts, note = score_emissions_source_type(
+        "NO2 rush-hour mobile traffic emissions.", summary
+    )
+
+    assert all(verdict == SILENT for verdict in verdicts.values())
+    assert "0 points" in note
+
+
+def test_source_type_mobile_naive_and_aware_anomaly_times_match() -> None:
+    series = [
+        ["2026-06-05T11:00:00+00:00", 50.0],
+        ["2026-06-05T12:00:00+00:00", 30.0],
+        ["2026-06-05T13:00:00+00:00", 20.0],
+        ["2026-06-05T14:00:00+00:00", 10.0],
+    ]
+
+    aware = score_emissions_source_type(
+        "NO2 rush-hour mobile traffic emissions.",
+        _mobile_summary(series),
+    )
+    naive = score_emissions_source_type(
+        "NO2 rush-hour mobile traffic emissions.",
+        _mobile_summary(series, anomaly_timestamp="2026-06-05T15:00:00"),
+    )
+
+    assert naive == aware
+
+
+def test_source_type_point_branch_is_unchanged_by_anomaly_timestamp() -> None:
+    entities = [
+        _entity("a", _series(10, [80, 85, 82, 88])),
+        _entity("b", _series(10, [10, 11, 9, 12])),
+        _entity("c", _series(10, [11, 10, 12, 9])),
+    ]
+    without_timestamp = _summary_with(
+        {"openaq": {"no2": _metric_from_entities(entities)}}
+    )
+    with_timestamp = {
+        **without_timestamp,
+        "anomaly": {"timestamp": "2026-06-05T15:00:00+00:00"},
+    }
+
+    old_result = score_emissions_source_type(
+        "Persistent NO2 consistent with a Ship Channel point source.",
+        without_timestamp,
+    )
+    timestamped_result = score_emissions_source_type(
+        "Persistent NO2 consistent with a Ship Channel point source.",
+        with_timestamp,
+    )
+
+    assert timestamped_result == old_result
+
+
 def test_source_type_point_supported_by_localized_concentration():
     entities = [
         _entity("a", _series(10, [80, 85, 82, 88])),

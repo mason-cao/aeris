@@ -2059,15 +2059,18 @@ def score_emissions_source_type(
 
     verdicts: dict[str, int] = {}
     notes: list[str] = []
+    anomaly_ts = _anomaly_ts(summary) if intent == "mobile" else None
     for source in _ground_sources_for(metric):
         block = _metric_block(summary, source, metric)
 
         if intent == "mobile":
-            series = _pooled_series(block)
+            series = _local_day_slice(_pooled_series(block), anomaly_ts)
+            scope = "anomaly day" if anomaly_ts is not None else "window fallback"
             if len(series) < tolerance.min_points:
                 verdicts[source] = SILENT
                 notes.append(
-                    f"{source}: {len(series)} points, need {tolerance.min_points}"
+                    f"{source}: {len(series)} points on {scope}, "
+                    f"need {tolerance.min_points}"
                 )
                 continue
             peak_ts, _peak_v = max(series, key=lambda pair: pair[1])
@@ -2076,7 +2079,10 @@ def score_emissions_source_type(
                 tolerance.morning_start_h <= local_hour < tolerance.morning_end_h
             )
             verdicts[source] = SUPPORTING if in_rush else CONTRADICTING
-            notes.append(f"{source}: {metric} peak at {local_hour:02d}:00 local")
+            notes.append(
+                f"{source}: {metric} peak at {local_hour:02d}:00 local "
+                f"({scope})"
+            )
             continue
 
         means = _station_means(block, min_obs=tolerance.min_obs_per_station)

@@ -11,6 +11,7 @@ from app.detection.run import (
     AUX_METRIC_V,
     GroupKey,
     _load_gfs_wind_cells,
+    _detector_availability,
     _nearest_cell_value,
     _nearest_value,
     _parse_args,
@@ -578,7 +579,16 @@ class TestPersistAnomalies:
         a = _make_consensus_anomaly(
             ts=T0, severity="severe", methods=["zscore", "stl", "isolation_forest"]
         )
-        await persist_anomalies(db_session, [a])
+        availability = _detector_availability(
+            stl_skip_reason=None,
+            isolation_forest_used=True,
+        )
+        await persist_anomalies(
+            db_session,
+            [a],
+            source_entity_id=OPENAQ_PM25_IDS[0],
+            detector_availability=availability,
+        )
         row = (await db_session.execute(select(Anomaly))).scalar_one()
         assert _to_utc(row.timestamp) == T0
         assert row.metric == "pm25"
@@ -588,6 +598,62 @@ class TestPersistAnomalies:
         assert row.z_score == pytest.approx(4.5)
         assert row.methods_triggered == ["zscore", "stl", "isolation_forest"]
         assert row.severity == "severe"
+        assert row.source_entity_id == OPENAQ_PM25_IDS[0]
+        assert row.detector_availability_json == availability
+
+
+class TestDetectorAvailability:
+    def test_records_ran_without_trigger_separately_from_skipped(self) -> None:
+        result = _detector_availability(
+            stl_skip_reason=None,
+            isolation_forest_used=False,
+        )
+
+        assert result == {
+            "zscore": {"ran": True, "skip_code": None, "detail": None},
+            "stl": {"ran": True, "skip_code": None, "detail": None},
+            "isolation_forest": {
+                "ran": False,
+                "skip_code": "missing_complete_gfs_aux",
+                "detail": None,
+            },
+        }
+
+    @pytest.mark.parametrize(
+        ("reason", "skip_code"),
+        [
+            (
+                "stl skipped: cadence too coarse for diurnal decomposition",
+                "cadence_too_coarse",
+            ),
+            (
+                "stl skipped: 60 points < 193 required for cadence period 96",
+                "insufficient_points_for_cadence_period",
+            ),
+        ],
+    )
+    def test_records_exact_stl_skip_category(
+        self,
+        reason: str,
+        skip_code: str,
+    ) -> None:
+        result = _detector_availability(
+            stl_skip_reason=reason,
+            isolation_forest_used=True,
+        )
+
+        assert result["stl"] == {
+            "ran": False,
+            "skip_code": skip_code,
+            "detail": reason,
+        }
+
+    def test_unknown_stl_skip_reason_fails_loudly(self) -> None:
+        with pytest.raises(ValueError, match="unrecognized STL skip reason"):
+            _detector_availability(
+                stl_skip_reason="unexpected detector state",
+                isolation_forest_used=True,
+            )
 
 
 class TestRunDetectionEndToEnd:
@@ -613,6 +679,8 @@ class TestRunDetectionEndToEnd:
         rows = (await db_session.execute(select(Anomaly))).scalars().all()
         spike_ts = T0 + timedelta(hours=spike_idx)
         assert any(_to_utc(r.timestamp) == spike_ts for r in rows)
+        assert {row.source_entity_id for row in rows} == {OPENAQ_PM25_IDS[0]}
+        assert all(row.detector_availability_json is not None for row in rows)
 
     @pytest.mark.asyncio
     async def test_records_persist_failure_without_aborting_run(
@@ -631,7 +699,7 @@ class TestRunDetectionEndToEnd:
         ]
         await _seed(db_session, points)
 
-        async def _boom(session, anomalies):
+        async def _boom(session, anomalies, **_kwargs):
             raise RuntimeError("db write failed")
 
         monkeypatch.setattr("app.detection.run.persist_anomalies", _boom)

@@ -144,6 +144,15 @@ class Anomaly(Base):
     lon: Mapped[float] = mapped_column(Float, nullable=False)
     metric: Mapped[str] = mapped_column(String(64), nullable=False)
     source: Mapped[str] = mapped_column(String(64), nullable=False)
+    # B18 detection provenance. Legacy rows stay null; every official post-B9
+    # detector run supplies the exact pre-detector series entity and records
+    # which methods actually ran separately from which methods triggered.
+    source_entity_id: Mapped[str | None] = mapped_column(
+        String(128), nullable=True
+    )
+    detector_availability_json: Mapped[dict | None] = mapped_column(
+        JSON, nullable=True
+    )
     value: Mapped[float] = mapped_column(Float, nullable=False)
     expected_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     z_score: Mapped[float | None] = mapped_column(Float, nullable=True)

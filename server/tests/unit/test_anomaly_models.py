@@ -65,6 +65,31 @@ class TestAnomalyModel:
         assert loaded.expected_value is None
         assert loaded.z_score is None
 
+    @pytest.mark.asyncio
+    async def test_b18_trigger_and_detector_provenance_roundtrips(
+        self, db_session
+    ) -> None:
+        availability = {
+            "zscore": {"ran": True, "skip_code": None, "detail": None},
+            "stl": {"ran": True, "skip_code": None, "detail": None},
+            "isolation_forest": {
+                "ran": False,
+                "skip_code": "missing_complete_gfs_aux",
+                "detail": None,
+            },
+        }
+        anomaly = _make_anomaly(
+            source_entity_id="openaq-sensor-7",
+            detector_availability_json=availability,
+        )
+        db_session.add(anomaly)
+        await db_session.commit()
+
+        loaded = (await db_session.execute(select(Anomaly))).scalar_one()
+
+        assert loaded.source_entity_id == "openaq-sensor-7"
+        assert loaded.detector_availability_json == availability
+
 
 class TestEnrichmentRecordModel:
     @pytest.mark.asyncio

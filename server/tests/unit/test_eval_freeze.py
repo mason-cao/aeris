@@ -52,6 +52,8 @@ def _fixture_payload(result: FreezeResult) -> dict:
         result,
         snapshot_sha256=SNAPSHOT_SHA256,
         code_commit=CODE_COMMIT,
+        b18_decision="accept_unstratified",
+        b18_rationale="Synthetic review found no composition pathology.",
     )
 
 
@@ -66,6 +68,15 @@ def _anomaly(
     z_score: float | None = 4.0,
     severity: str = "moderate",
 ) -> Anomaly:
+    detector_availability = {
+        "zscore": {"ran": True, "skip_code": None, "detail": None},
+        "stl": {"ran": True, "skip_code": None, "detail": None},
+        "isolation_forest": {
+            "ran": True,
+            "skip_code": None,
+            "detail": None,
+        },
+    }
     return Anomaly(
         id=uuid.uuid4(),
         timestamp=ts,
@@ -73,6 +84,8 @@ def _anomaly(
         lon=lon,
         metric=metric,
         source=source,
+        source_entity_id=f"{source}-{metric}-entity",
+        detector_availability_json=detector_availability,
         value=100.0,
         expected_value=20.0,
         z_score=z_score,
@@ -398,6 +411,21 @@ class TestFreezeProvenance:
                     "--end",
                     "2026-06-30",
                     "--dry-run",
+                ]
+            )
+
+    def test_parse_args_requires_b18_decision_for_real_fixture(self) -> None:
+        with pytest.raises(SystemExit):
+            freeze_module._parse_args(
+                [
+                    "--start",
+                    "2026-06-01",
+                    "--end",
+                    "2026-06-30",
+                    "--snapshot-sha256",
+                    SNAPSHOT_SHA256,
+                    "--out",
+                    "eval.json",
                 ]
             )
 
@@ -769,6 +797,10 @@ class TestFixturePayload:
                 "1",
                 "--snapshot-sha256",
                 SNAPSHOT_SHA256,
+                "--b18-decision",
+                "accept_unstratified",
+                "--b18-rationale",
+                "Synthetic review found no composition pathology.",
                 "--out",
                 str(output),
             ]
@@ -818,6 +850,10 @@ class TestFixturePayload:
                     "2026-06-30",
                     "--snapshot-sha256",
                     "0" * 64,
+                    "--b18-decision",
+                    "accept_unstratified",
+                    "--b18-rationale",
+                    "Synthetic review found no composition pathology.",
                     "--out",
                     str(output),
                 ]

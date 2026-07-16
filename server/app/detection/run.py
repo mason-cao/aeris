@@ -130,6 +130,40 @@ def _engine_for(
     return _three_detector_engine(stl=STLDetector(period=period)), None
 
 
+def _detector_availability(
+    *,
+    stl_skip_reason: str | None,
+    isolation_forest_used: bool,
+) -> dict[str, dict[str, bool | str | None]]:
+    """Record which configured detectors ran, independently of triggering."""
+    if stl_skip_reason is None:
+        stl = {"ran": True, "skip_code": None, "detail": None}
+    elif "cadence too coarse" in stl_skip_reason:
+        stl = {
+            "ran": False,
+            "skip_code": "cadence_too_coarse",
+            "detail": stl_skip_reason,
+        }
+    elif "points <" in stl_skip_reason and "required" in stl_skip_reason:
+        stl = {
+            "ran": False,
+            "skip_code": "insufficient_points_for_cadence_period",
+            "detail": stl_skip_reason,
+        }
+    else:
+        raise ValueError(f"unrecognized STL skip reason: {stl_skip_reason}")
+    isolation_forest = {
+        "ran": isolation_forest_used,
+        "skip_code": None if isolation_forest_used else "missing_complete_gfs_aux",
+        "detail": None,
+    }
+    return {
+        "zscore": {"ran": True, "skip_code": None, "detail": None},
+        "stl": stl,
+        "isolation_forest": isolation_forest,
+    }
+
+
 def _three_detector_engine(*, stl: STLDetector | None) -> DetectionEngine:
     return DetectionEngine(
         zscore=ZScoreDetector(),
@@ -595,6 +629,11 @@ def _nearest_value(
 async def persist_anomalies(
     session: AsyncSession,
     anomalies: Iterable[ConsensusAnomaly],
+    *,
+    source_entity_id: str | None = None,
+    detector_availability: dict[
+        str, dict[str, bool | str | None]
+    ] | None = None,
 ) -> int:
     """Persist consensus anomalies as Anomaly rows; skip duplicates.
 
@@ -602,6 +641,12 @@ async def persist_anomalies(
     A future migration may promote this to a DB-level UniqueConstraint;
     until then we enforce it at the application layer.
     """
+    if (source_entity_id is None) != (detector_availability is None):
+        raise ValueError(
+            "source_entity_id and detector_availability must be supplied together"
+        )
+    if source_entity_id == "":
+        raise ValueError("source_entity_id must be non-empty when supplied")
     persisted = 0
     for a in anomalies:
         existing = (
@@ -624,6 +669,8 @@ async def persist_anomalies(
                 lon=a.lon,
                 metric=a.metric,
                 source=a.source,
+                source_entity_id=source_entity_id,
+                detector_availability_json=detector_availability,
                 value=a.value,
                 expected_value=a.expected_value,
                 z_score=a.z_score,
@@ -696,6 +743,10 @@ async def run_detection(
         )
         elevation = filter_elevation_nominees(raw_anomalies)
         anomalies = elevation.eligible
+        detector_availability = _detector_availability(
+            stl_skip_reason=stl_skip_reason,
+            isolation_forest_used=iso_inputs is not None,
+        )
 
         group_summary = GroupSummary(
             key=key,
@@ -731,7 +782,12 @@ async def run_detection(
             # summary. rollback() clears the failed transaction so the next
             # group can still commit.
             try:
-                summary.n_persisted += await persist_anomalies(session, anomalies)
+                summary.n_persisted += await persist_anomalies(
+                    session,
+                    anomalies,
+                    source_entity_id=key.source_entity_id,
+                    detector_availability=detector_availability,
+                )
             except Exception as exc:
                 await session.rollback()
                 group_summary.persist_error = f"{type(exc).__name__}: {exc}"

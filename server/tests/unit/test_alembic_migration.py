@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # NUMERIC-affinity column coerces to REAL/Inf on SQLite (the production bug).
 NUMERIC_LOOKING = uuid.UUID("12345678-9012-4456-8e78-901234567890")
 PRE_A6_REVISION = "a5d7e9c2b614"
+PRE_B18_REVISION = "c6f2a9d4e817"
 
 
 def _insert_anomaly(connection: Connection, anomaly_id: uuid.UUID) -> None:
@@ -137,6 +138,64 @@ def test_upgrade_head_creates_nullable_legacy_citation_outcome(sqlite_url) -> No
     try:
         columns = {column["name"]: column for column in inspect(engine).get_columns("claims")}
         assert columns["citation_outcome"]["nullable"] is True
+    finally:
+        engine.dispose()
+
+
+def test_b18_upgrade_adds_nullable_legacy_provenance_and_downgrades(
+    sqlite_url: str,
+) -> None:
+    cfg = _alembic_config(sqlite_url)
+    command.upgrade(cfg, "head")
+
+    engine = create_engine(sqlite_url)
+    try:
+        columns = {
+            column["name"]: column
+            for column in inspect(engine).get_columns("anomalies")
+        }
+        assert columns["source_entity_id"]["nullable"] is True
+        assert columns["detector_availability_json"]["nullable"] is True
+    finally:
+        engine.dispose()
+
+    command.downgrade(cfg, PRE_B18_REVISION)
+    engine = create_engine(sqlite_url)
+    try:
+        columns = {
+            column["name"] for column in inspect(engine).get_columns("anomalies")
+        }
+        assert "source_entity_id" not in columns
+        assert "detector_availability_json" not in columns
+    finally:
+        engine.dispose()
+
+
+def test_b18_upgrade_preserves_legacy_anomaly_with_null_provenance(
+    sqlite_url: str,
+) -> None:
+    cfg = _alembic_config(sqlite_url)
+    command.upgrade(cfg, PRE_B18_REVISION)
+    anomaly_id = uuid.uuid4()
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.begin() as connection:
+            _insert_anomaly(connection, anomaly_id)
+    finally:
+        engine.dispose()
+
+    command.upgrade(cfg, "head")
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.connect() as connection:
+            row = connection.execute(
+                text(
+                    "SELECT source_entity_id, detector_availability_json "
+                    "FROM anomalies WHERE id = :id"
+                ),
+                {"id": anomaly_id.hex},
+            ).one()
+        assert row == (None, None)
     finally:
         engine.dispose()
 

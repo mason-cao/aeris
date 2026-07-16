@@ -44,6 +44,7 @@ from app.db.models import Anomaly
 from app.eval.baseline_locality_empirics import baseline_locality_manifest_payload
 from app.eval.censoring_sensitivity import censoring_manifest_payload
 from app.eval.observation_age_empirics import observation_age_manifest_payload
+from app.eval.pruning_screen import pruning_manifest_payload
 from app.llm.corroboration import (
     DEFAULT_BACKGROUND_TOLERANCE,
     DEFAULT_CHEMISTRY_TOLERANCE,
@@ -492,6 +493,7 @@ def fixture_payload(
             "nomination_eligibility": nomination_manifest_payload(),
             "observation_age_gates": observation_age_manifest_payload(),
             "purpleair_time_aware_qc": purpleair_qc_manifest_payload(),
+            "variable_pruning": pruning_manifest_payload(),
         },
         "anomaly_ids": [str(a.id) for a in result.selected],
     }

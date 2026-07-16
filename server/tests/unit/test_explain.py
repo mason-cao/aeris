@@ -128,6 +128,51 @@ def _summary() -> dict:
     }
 
 
+def test_render_enrichment_text_applies_only_ratified_prompt_pruning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    summary = _summary()
+    summary["sources"]["noaa_gfs"] = {
+        "metrics": {
+            "gh_500": {
+                "unit": "m",
+                "n_points": 1,
+                "n_entities": 1,
+                "value_range": {"min": 5840.0, "max": 5840.0, "mean": 5840.0},
+                "nearest_in_time": {
+                    "t": ANOMALY_TS.isoformat(),
+                    "v": 5840.0,
+                    "distance_km": 0.0,
+                    "dt_minutes": 0.0,
+                },
+                "entities": [],
+            },
+            "pbl_height": {
+                "unit": "m",
+                "n_points": 1,
+                "n_entities": 1,
+                "value_range": {"min": 500.0, "max": 500.0, "mean": 500.0},
+                "nearest_in_time": {
+                    "t": ANOMALY_TS.isoformat(),
+                    "v": 500.0,
+                    "distance_km": 0.0,
+                    "dt_minutes": 0.0,
+                },
+                "entities": [],
+            },
+        }
+    }
+    monkeypatch.setattr(
+        "app.llm.explain.metric_is_retained",
+        lambda source, metric: (source, metric) != ("noaa_gfs", "gh_500"),
+    )
+
+    rendered = render_enrichment_text(summary)
+
+    assert "noaa_gfs gh_500" not in rendered
+    assert "noaa_gfs pbl_height" in rendered
+
+
 def _anomaly() -> Anomaly:
     return Anomaly(
         id=uuid.uuid4(),

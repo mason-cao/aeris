@@ -1,0 +1,20 @@
+{
+  "assessments": [
+    {
+      "ambiguous": false,
+      "assessment": "gh_500 (synoptic ridging/subsidence -> stagnation)",
+      "metric": "gh_500",
+      "relevant": true,
+      "source": "noaa_gfs"
+    },
+    {
+      "ambiguous": false,
+      "assessment": "precipitable_water (moisture/washout)",
+      "metric": "precipitable_water",
+      "relevant": true,
+      "source": "noaa_gfs"
+    }
+  ],
+  "run_number": 1,
+  "schema_version": 1
+}

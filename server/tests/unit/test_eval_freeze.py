@@ -730,6 +730,26 @@ class TestFixturePayload:
         )
         assert tceq_so2["deletion_evaluable_windows"] == 304
 
+    def test_payload_embeds_complete_ratified_pruning_screen(self) -> None:
+        result = FreezeResult(
+            window_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            window_end=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            top_n=50,
+            n_anomalies=0,
+            n_events=0,
+            selected=[],
+            event_sizes={},
+            missing_enrichment=[],
+        )
+
+        block = _fixture_payload(result)["data_quality"]["variable_pruning"]
+
+        assert block["artifact"] == "pruning_screen.run-001.json"
+        assert block["screen"]["real_screen_executed"] is True
+        assert block["screen"]["mechanism_review_complete"] is True
+        assert block["screen"]["drop_metric_keys"] == []
+        assert len(block["screen"]["cells"]) == 360
+
     @pytest.mark.asyncio
     async def test_freeze_cli_writes_censoring_manifest(
         self,

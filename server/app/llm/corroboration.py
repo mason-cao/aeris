@@ -1511,6 +1511,89 @@ def _ground_sources_for(metric: str | None) -> tuple[str, ...]:
     return _GROUND_INSITU_SOURCES
 
 
+def phase2_metric_owners() -> dict[tuple[str, str], tuple[str, ...]]:
+    """Every source/metric pair a live Phase-2 path or locked guard can read.
+
+    B3 derives its exempt inventory from this scorer-owned registry instead of
+    duplicating an allowlist in the pruning tool. Pollutant entries are built
+    from the same alias and satellite-column mappings used by claim routing;
+    fixed meteorology entries name the exact consuming scorer or locked guard.
+    """
+    owners: dict[tuple[str, str], set[str]] = {}
+
+    def add(source: str, metric: str, *functions: str) -> None:
+        owners.setdefault((source, metric), set()).update(functions)
+
+    pollutant_metrics = sorted({metric for _pattern, metric in _POLLUTANT_PATTERNS})
+    general_ground_owners = (
+        "score_concentration_elevation",
+        "score_temporal_pattern",
+        "score_emissions_source_type",
+        "score_background_vs_event",
+    )
+    for source in _GROUND_INSITU_SOURCES:
+        for metric in pollutant_metrics:
+            add(source, metric, *general_ground_owners)
+        for metric in ("no2", "ozone"):
+            add(source, metric, "score_chemistry", "score_secondary_formation")
+    add("purpleair", "pm25", *general_ground_owners)
+    for metric in sorted(set(_SENTINEL_COLUMN.values())):
+        add(
+            "sentinel5p",
+            metric,
+            "score_concentration_elevation",
+            "score_temporal_pattern",
+        )
+    add("sentinel5p", "s5p_hcho_column", "score_chemistry")
+
+    for metric in ("u_10m", "v_10m"):
+        add(
+            "noaa_gfs",
+            metric,
+            "score_transport_direction",
+            "score_meteorological_state",
+            "score_point_source_attribution",
+            "calm_wind_source_decisions",
+            "locked_rule_B2",
+        )
+    add(
+        "noaa_gfs",
+        "pbl_height",
+        "score_atmospheric_trap",
+        "locked_rule_R1",
+    )
+
+    add(
+        "openweather",
+        "wind_direction",
+        "score_transport_direction",
+        "score_point_source_attribution",
+    )
+    add(
+        "openweather",
+        "wind_speed",
+        "score_meteorological_state",
+        "calm_wind_source_decisions",
+        "locked_rule_B2",
+    )
+    add("openweather", "temperature", "score_meteorological_state")
+    add("openweather", "cloud_cover", "score_secondary_formation")
+
+    add("asos", "wind_direction", "score_transport_direction")
+    add(
+        "asos",
+        "wind_speed",
+        "score_meteorological_state",
+        "calm_wind_source_decisions",
+        "locked_rule_B2",
+    )
+    add("asos", "temperature", "score_meteorological_state")
+    return {
+        key: tuple(sorted(functions))
+        for key, functions in sorted(owners.items())
+    }
+
+
 def _window_mean(block: Mapping | None) -> float | None:
     if not block:
         return None

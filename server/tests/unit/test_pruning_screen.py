@@ -23,7 +23,7 @@ from app.provenance.openaq_pm25 import LOCKED_SNAPSHOT_SHA256
 
 
 START = datetime(2026, 6, 1, tzinfo=UTC)
-THRESHOLDS = PruningThresholds(bootstrap_resamples=199)
+THRESHOLDS = PruningThresholds(bootstrap_resamples=199, min_pairs=4)
 
 
 def _candidate(
@@ -351,7 +351,7 @@ def test_json_and_markdown_are_byte_deterministic(tmp_path: Path) -> None:
     assert json.loads(first.read_text(encoding="utf-8")) == manifest
     assert render_markdown(manifest) == render_markdown(manifest)
     assert "| gh_500 | noaa_gfs | gh_500 |" in render_markdown(manifest)
-    assert manifest["threshold_status"] == "declared — pending Mason ratification"
+    assert manifest["threshold_status"] == "ratified by Mason — 2026-07-16"
 
 
 def test_cli_validation_failure_leaves_output_absent(tmp_path: Path) -> None:

@@ -21,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Anomaly, Claim, EnrichmentRecord, Explanation
+from app.eval.pruning_screen import metric_is_retained
 from app.llm.client_base import LLMClient
 from app.llm.corroboration import (
     PARTIALLY_VERIFIABLE_TYPES,
@@ -175,6 +176,8 @@ def render_enrichment_text(summary: Mapping) -> str:
     for source in sorted(summary.get("sources", {})):
         block = summary["sources"][source]
         for metric in sorted(block.get("metrics", {})):
+            if not metric_is_retained(source, metric):
+                continue
             data = block["metrics"][metric]
             entity_label, means_label = _entity_terms(source)
             unit = data.get("unit")

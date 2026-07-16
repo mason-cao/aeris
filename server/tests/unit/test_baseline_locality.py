@@ -11,7 +11,9 @@ from app.llm.corroboration import (
     SILENT,
     SUPPORTING,
     qualitative_elevation_verdict,
+    score_chemistry,
     score_concentration_elevation,
+    score_temporal_pattern,
 )
 
 
@@ -119,7 +121,7 @@ def test_one_second_inside_gap_is_excluded_and_below_floor_is_silent() -> None:
 
     assert verdict == SILENT
     assert "baseline_n=2" in note
-    assert "insufficient" in note
+    assert "reason=matched baseline n < 3" in note
 
 
 @pytest.mark.parametrize("nearest_entity_id", [None, "unknown"])
@@ -197,6 +199,151 @@ def test_absolute_claim_does_not_require_station_baseline() -> None:
 
     assert verdicts["tceq"] == SUPPORTING
     assert "baseline" not in note
+
+
+def _sentinel_no2_summary(
+    *,
+    nearest_value: float = 2.1e-4,
+    nearest_timestamp: str = "2026-06-05T12:00:00+00:00",
+    dt_minutes: float = 0.0,
+    entities: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "anomaly": {
+            "timestamp": "2026-06-05T12:00:00+00:00",
+            "source": "noaa_gfs",
+            "metric": "pbl_height",
+        },
+        "sources": {
+            "sentinel5p": {
+                "metrics": {
+                    "s5p_no2_column": {
+                        "unit": "mol/m^2",
+                        "nearest_in_time": {
+                            "t": nearest_timestamp,
+                            "v": nearest_value,
+                            "dt_minutes": dt_minutes,
+                            "entity_id": "granule-event",
+                        },
+                        "entities": [] if entities is None else entities,
+                    }
+                }
+            }
+        },
+    }
+
+
+def test_sentinel_qualitative_low_n_is_distinct_from_no_window_data() -> None:
+    low_n_summary = _sentinel_no2_summary(
+        nearest_timestamp="2026-06-05T08:00:00+00:00",
+        dt_minutes=240.0,
+        entities=[
+            _entity(
+                "granule-event",
+                [["2026-06-05T08:00:00+00:00", 2.1e-4]],
+            )
+        ],
+    )
+
+    low_n_verdicts, low_n_note = score_concentration_elevation(
+        "Tropospheric NO2 was elevated.", low_n_summary
+    )
+    no_data_verdicts, no_data_note = score_concentration_elevation(
+        "Tropospheric NO2 was elevated.",
+        {
+            "schema_version": 1,
+            "anomaly": {"timestamp": "2026-06-05T12:00:00+00:00"},
+            "sources": {},
+        },
+    )
+
+    assert low_n_verdicts["sentinel5p"] == SILENT
+    assert "baseline_n=1; reason=matched baseline n < 3" in low_n_note
+    assert "sentinel5p: no s5p_no2_column in window" not in low_n_note
+    assert no_data_verdicts["sentinel5p"] == SILENT
+    assert "sentinel5p: no s5p_no2_column in window" in no_data_note
+    assert "matched baseline n < 3" not in no_data_note
+
+
+@pytest.mark.parametrize(
+    ("claim", "sentinel_note"),
+    [
+        (
+            "The NO2 column was 0.0002 mol/m2.",
+            "sentinel5p: s5p_no2_column nearest=0.00021 vs claimed=0.0002",
+        ),
+        (
+            "The NO2 column exceeded 0.0002 mol/m2.",
+            "sentinel5p: s5p_no2_column nearest=0.00021 vs over-threshold=0.0002",
+        ),
+    ],
+)
+def test_sentinel_absolute_paths_remain_exact(
+    claim: str,
+    sentinel_note: str,
+) -> None:
+    result = score_concentration_elevation(claim, _sentinel_no2_summary())
+
+    assert result == (
+        {
+            "openaq": SILENT,
+            "tceq": SILENT,
+            "epa_aqs": SILENT,
+            "sentinel5p": SUPPORTING,
+        },
+        "openaq: no no2 in window; tceq: no no2 in window; "
+        f"epa_aqs: no no2 in window; {sentinel_note}",
+    )
+
+
+def test_sentinel_hcho_chemistry_path_remains_exact() -> None:
+    summary = {
+        "schema_version": 1,
+        "sources": {
+            "sentinel5p": {
+                "metrics": {
+                    "s5p_hcho_column": {
+                        "nearest_in_time": {"v": 8e-5, "dt_minutes": 0.0},
+                        "value_range": {"mean": 4e-5},
+                    }
+                }
+            }
+        },
+    }
+
+    assert score_chemistry(
+        "Elevated HCHO points to fresh VOC emissions.", summary
+    ) == (
+        {"sentinel5p": SUPPORTING},
+        "sentinel5p: hcho up vs window mean",
+    )
+
+
+def test_sentinel_temporal_path_remains_exact() -> None:
+    entities = [
+        _entity(
+            f"granule-{index}",
+            [[f"2026-06-05T{hour:02d}:00:00+00:00", value]],
+        )
+        for index, (hour, value) in enumerate(
+            ((6, 1e-4), (8, 2e-4), (10, 3e-4), (12, 4e-4)),
+            start=1,
+        )
+    ]
+    summary = _sentinel_no2_summary(entities=entities)
+
+    assert score_temporal_pattern("NO2 column levels rose into the event.", summary) == (
+        {
+            "openaq": SILENT,
+            "tceq": SILENT,
+            "epa_aqs": SILENT,
+            "sentinel5p": SUPPORTING,
+        },
+        "openaq: 0 points < 4; tceq: 0 points < 4; "
+        "epa_aqs: 0 points < 4; sentinel5p: s5p_no2_column "
+        "first_half=0.00 second_half=0.00 observed=up claimed=up",
+    )
 
 
 def test_old_pooled_baseline_would_contradict_spatial_case() -> None:

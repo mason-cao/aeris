@@ -399,7 +399,7 @@ def _station_pre_anomaly_values(
     )
     baseline_n = len(values)
     if baseline_n < min_points:
-        return [], baseline_n, "insufficient_station_points"
+        return [], baseline_n, f"matched baseline n < {min_points}"
     return values, baseline_n, None
 
 

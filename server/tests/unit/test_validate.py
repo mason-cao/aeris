@@ -1,6 +1,9 @@
 from app.llm.parser import ClaimDraft
 from app.llm.prompt import SOURCE_NAMES
 from app.llm.validate import (
+    CITATION_REASON_ABSENT,
+    CITATION_REASON_BLANK,
+    CITATION_REASON_UNRECOGNIZED,
     CITED_RIGHT,
     CITED_WRONG,
     GROUNDED,
@@ -45,6 +48,15 @@ class TestCheckGrounding:
         assert cited_right.citation_outcome == CITED_RIGHT
         assert cited_wrong.citation_outcome == CITED_WRONG
         assert uncited.citation_outcome == UNCITED
+        assert cited_right.citation_failure_reasons == []
+        assert cited_wrong.citation_failure_reasons == [
+            {
+                "index": 0,
+                "citation": "sentinel5p",
+                "reason": CITATION_REASON_ABSENT,
+            }
+        ]
+        assert uncited.citation_failure_reasons == []
         assert cited_right.verdict == GROUNDED
         assert cited_wrong.verdict == UNVERIFIED
         assert uncited.verdict == GROUNDED
@@ -93,6 +105,9 @@ class TestCheckGrounding:
 
         assert result.verdict == UNVERIFIED
         assert result.citation_outcome == CITED_WRONG
+        assert result.citation_failure_reasons == [
+            {"index": 0, "citation": "", "reason": CITATION_REASON_BLANK}
+        ]
 
     def test_cited_non_source_word_does_not_pass(self) -> None:
         # "afternoon" appears in the context but is not a data source. A raw
@@ -105,6 +120,13 @@ class TestCheckGrounding:
         )
 
         assert result.verdict == UNVERIFIED
+        assert result.citation_failure_reasons == [
+            {
+                "index": 0,
+                "citation": "afternoon",
+                "reason": CITATION_REASON_UNRECOGNIZED,
+            }
+        ]
 
     def test_blank_citation_alongside_real_one_is_filtered(self) -> None:
         # A stray empty string mixed with a valid, present source must be
@@ -117,6 +139,34 @@ class TestCheckGrounding:
 
         assert result.verdict == GROUNDED
         assert result.citation_outcome == CITED_RIGHT
+        assert result.citation_failure_reasons == [
+            {"index": 1, "citation": "", "reason": CITATION_REASON_BLANK}
+        ]
+
+    def test_citation_failures_preserve_input_order_and_distinct_reasons(
+        self,
+    ) -> None:
+        result = check_grounding(
+            "ozone was elevated in the afternoon",
+            CONTEXT,
+            cited_sources=["", "mystery-feed", "sentinel5p"],
+        )
+
+        assert result.verdict == UNVERIFIED
+        assert result.citation_outcome == CITED_WRONG
+        assert result.citation_failure_reasons == [
+            {"index": 0, "citation": "", "reason": CITATION_REASON_BLANK},
+            {
+                "index": 1,
+                "citation": "mystery-feed",
+                "reason": CITATION_REASON_UNRECOGNIZED,
+            },
+            {
+                "index": 2,
+                "citation": "sentinel5p",
+                "reason": CITATION_REASON_ABSENT,
+            },
+        ]
 
 
 class TestNumericGrounding:

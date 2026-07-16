@@ -300,6 +300,11 @@ class Claim(Base):
     citation_outcome: Mapped[str | None] = mapped_column(
         String(16), nullable=True
     )
+    # B19 audit provenance. One ordered record per blank or failed citation;
+    # nullable only so rows created before the migration remain readable.
+    citation_failure_reasons_json: Mapped[list | None] = mapped_column(
+        JSON, nullable=True
+    )
     # Phase 1 — retrieval-grounded factuality check (validate.py)
     grounding_verdict: Mapped[str] = mapped_column(String(16), nullable=False)
     grounding_evidence_ref: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -311,6 +316,11 @@ class Claim(Base):
     )
     # Phase 2 — cross-source corroboration scorer (corroboration.py)
     corroboration_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Exact scorer note, including age-gate and matched-baseline silence
+    # reasons. Null means Phase 2 did not run (or a legacy pre-B19 row).
+    corroboration_evidence_summary: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
     evidence_n: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     per_source_verdicts: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Channel-collapsed verdicts behind corroboration_score/evidence_n; stored

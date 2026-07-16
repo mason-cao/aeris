@@ -24,6 +24,9 @@ UNVERIFIED = "unverified"
 CITED_RIGHT = "cited_right"
 CITED_WRONG = "cited_wrong"
 UNCITED = "uncited"
+CITATION_REASON_BLANK = "blank-only"
+CITATION_REASON_UNRECOGNIZED = "unrecognized-source"
+CITATION_REASON_ABSENT = "recognized-but-absent-from-context"
 
 # Aligned with the Phase 2 concentration_elevation tolerance (±25%) so the
 # Phase 1 -> Phase 2 delta can't be attributed to a strictness gap.
@@ -165,6 +168,7 @@ class GroundingResult:
     verdict: str
     evidence_ref: dict | None
     citation_outcome: str
+    citation_failure_reasons: list[dict[str, int | str]]
     # The claim asserts a causal relation (see _CAUSAL_RE). Metadata, not a
     # gate: persisted so grounded/unverified x causal/descriptive is reportable.
     causal: bool = False
@@ -328,6 +332,32 @@ def _cited_source_grounded(source: str, context_tokens: set[str]) -> bool:
     )
 
 
+def _citation_failure_reason(
+    source: str,
+    context_tokens: set[str],
+) -> str | None:
+    """Return the declared B19 reason when one citation string fails.
+
+    Recognition and context presence use the same canonical alias map as the
+    Phase-1 citation gate. A citation naming multiple recognized sources keeps
+    the gate's existing any-present semantics; this function records a failure
+    only when none of the recognized names is present in the context.
+    """
+    if not source.strip():
+        return CITATION_REASON_BLANK
+    citation_tokens = set(_TERM_RE.findall(source.lower()))
+    recognized = [
+        aliases
+        for aliases in SOURCE_ALIASES.values()
+        if aliases & citation_tokens
+    ]
+    if not recognized:
+        return CITATION_REASON_UNRECOGNIZED
+    if not any(aliases & context_tokens for aliases in recognized):
+        return CITATION_REASON_ABSENT
+    return None
+
+
 def check_grounding(
     claim_text: str,
     context_text: str,
@@ -341,14 +371,25 @@ def check_grounding(
 
     sources_present = True
     citation_outcome = UNCITED
+    citation_failure_reasons: list[dict[str, int | str]] = []
     if cited_sources:
+        context_tokens = set(_TERM_RE.findall(context_text.lower()))
+        citation_failure_reasons = [
+            {
+                "index": index,
+                "citation": source,
+                "reason": reason,
+            }
+            for index, source in enumerate(cited_sources)
+            if (reason := _citation_failure_reason(source, context_tokens))
+            is not None
+        ]
         cited = [src for src in cited_sources if src and src.strip()]
         if not cited:
             # The claim asserted a citation but named only empty strings; a
             # malformed citation must not vacuously satisfy the source check.
             sources_present = False
         else:
-            context_tokens = set(_TERM_RE.findall(context_text.lower()))
             sources_present = all(
                 _cited_source_grounded(src, context_tokens) for src in cited
             )
@@ -379,12 +420,14 @@ def check_grounding(
             GROUNDED,
             evidence_ref,
             citation_outcome=citation_outcome,
+            citation_failure_reasons=citation_failure_reasons,
             causal=causal,
         )
     return GroundingResult(
         UNVERIFIED,
         None,
         citation_outcome=citation_outcome,
+        citation_failure_reasons=citation_failure_reasons,
         causal=causal,
     )
 

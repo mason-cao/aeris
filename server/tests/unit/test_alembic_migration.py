@@ -20,6 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 NUMERIC_LOOKING = uuid.UUID("12345678-9012-4456-8e78-901234567890")
 PRE_A6_REVISION = "a5d7e9c2b614"
 PRE_B18_REVISION = "c6f2a9d4e817"
+PRE_B19_EVIDENCE_REVISION = "f7a9c3e2d1b4"
 
 
 def _insert_anomaly(connection: Connection, anomaly_id: uuid.UUID) -> None:
@@ -75,6 +76,25 @@ def _insert_expert_label(
             "anomaly_id": anomaly_id.hex,
             "labeler": labeler,
         },
+    )
+
+
+def _insert_claim(
+    connection: Connection,
+    *,
+    row_id: uuid.UUID,
+    explanation_id: uuid.UUID,
+) -> None:
+    connection.execute(
+        text(
+            "INSERT INTO claims "
+            "(id, explanation_id, step_index, claim_type, claim_text, "
+            "grounding_verdict, skipped_phase2, evidence_n, "
+            "partial_verifiability, low_corroboration_flag) VALUES "
+            "(:id, :explanation_id, 1, 'concentration_elevation', "
+            "'synthetic claim', 'grounded', 0, 1, 0, 0)"
+        ),
+        {"id": row_id.hex, "explanation_id": explanation_id.hex},
     )
 
 
@@ -196,6 +216,70 @@ def test_b18_upgrade_preserves_legacy_anomaly_with_null_provenance(
                 {"id": anomaly_id.hex},
             ).one()
         assert row == (None, None)
+    finally:
+        engine.dispose()
+
+
+def test_b19_evidence_upgrade_adds_nullable_columns_and_preserves_legacy_claim(
+    sqlite_url: str,
+) -> None:
+    cfg = _alembic_config(sqlite_url)
+    command.upgrade(cfg, PRE_B19_EVIDENCE_REVISION)
+    anomaly_id = uuid.uuid4()
+    explanation_id = uuid.uuid4()
+    claim_id = uuid.uuid4()
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.begin() as connection:
+            _insert_anomaly(connection, anomaly_id)
+            _insert_explanation(
+                connection,
+                row_id=explanation_id,
+                anomaly_id=anomaly_id,
+                model_name="legacy-model",
+            )
+            _insert_claim(
+                connection,
+                row_id=claim_id,
+                explanation_id=explanation_id,
+            )
+    finally:
+        engine.dispose()
+
+    command.upgrade(cfg, "head")
+    engine = create_engine(sqlite_url)
+    try:
+        columns = {
+            column["name"]: column
+            for column in inspect(engine).get_columns("claims")
+        }
+        assert columns["citation_failure_reasons_json"]["nullable"] is True
+        assert columns["corroboration_evidence_summary"]["nullable"] is True
+        with engine.connect() as connection:
+            row = connection.execute(
+                text(
+                    "SELECT citation_failure_reasons_json, "
+                    "corroboration_evidence_summary FROM claims WHERE id = :id"
+                ),
+                {"id": claim_id.hex},
+            ).one()
+        assert row == (None, None)
+    finally:
+        engine.dispose()
+
+    command.downgrade(cfg, PRE_B19_EVIDENCE_REVISION)
+    engine = create_engine(sqlite_url)
+    try:
+        columns = {
+            column["name"] for column in inspect(engine).get_columns("claims")
+        }
+        assert "citation_failure_reasons_json" not in columns
+        assert "corroboration_evidence_summary" not in columns
+        with engine.connect() as connection:
+            assert connection.execute(
+                text("SELECT claim_text FROM claims WHERE id = :id"),
+                {"id": claim_id.hex},
+            ).scalar_one() == "synthetic claim"
     finally:
         engine.dispose()
 

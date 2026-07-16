@@ -285,6 +285,7 @@ async def test_generate_explanation_builds_explanation_and_claims(db_session):
     assert grounded.step_index == 1
     assert grounded.grounding_verdict == "grounded"
     assert grounded.citation_outcome == "cited_right"
+    assert grounded.citation_failure_reasons_json == []
     assert grounded.skipped_phase2 is False
     assert grounded.claim_type == "concentration_elevation"
     assert grounded.matched_types[0] == "concentration_elevation"
@@ -293,6 +294,8 @@ async def test_generate_explanation_builds_explanation_and_claims(db_session):
     # channel (openaq no2), whose tautological support is demoted to silent —
     # no independent channel corroborates, so the score is honestly None.
     assert grounded.corroboration_score is None
+    assert grounded.corroboration_evidence_summary
+    assert "trigger" in grounded.corroboration_evidence_summary.lower()
     assert grounded.evidence_n == 0
     assert grounded.per_source_verdicts["openaq"] == 0
     assert grounded.per_channel_verdicts["ground_insitu"] == 0
@@ -302,9 +305,11 @@ async def test_generate_explanation_builds_explanation_and_claims(db_session):
     assert fabricated.step_index == 4
     assert fabricated.grounding_verdict == "unverified"
     assert fabricated.citation_outcome == "uncited"
+    assert fabricated.citation_failure_reasons_json == []
     assert fabricated.skipped_phase2 is True
     assert fabricated.causal is False
     assert fabricated.corroboration_score is None
+    assert fabricated.corroboration_evidence_summary is None
     assert fabricated.evidence_n == 0
     # Typed even though never scored: which types get fabricated is a result.
     # "ship channel" is a geographic reference, not an attribution cue, so

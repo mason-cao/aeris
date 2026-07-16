@@ -80,11 +80,13 @@ def _make_claim(explanation_id, **overrides) -> Claim:
         claim_text="Ground-level O3 exceeded 90 ppb in the afternoon.",
         cited_sources=["openaq"],
         citation_outcome="cited_right",
+        citation_failure_reasons_json=[],
         grounding_verdict="grounded",
         grounding_evidence_ref={"source": "openaq", "metric": "o3", "value": 0.092},
         causal=False,
         skipped_phase2=False,
         corroboration_score=0.5,
+        corroboration_evidence_summary="openaq voted support from 2 readings",
         evidence_n=2,
         per_source_verdicts={"openaq": 1, "sentinel5p": 0, "gfs": -1, "openweather": 1},
         per_channel_verdicts={"ground_insitu": 1, "nwp": -1},
@@ -170,9 +172,13 @@ class TestClaimModel:
         assert loaded.claim_type == "concentration_elevation"
         assert loaded.grounding_verdict == "grounded"
         assert loaded.citation_outcome == "cited_right"
+        assert loaded.citation_failure_reasons_json == []
         assert loaded.grounding_evidence_ref["metric"] == "o3"
         assert loaded.skipped_phase2 is False
         assert loaded.corroboration_score == pytest.approx(0.5)
+        assert loaded.corroboration_evidence_summary == (
+            "openaq voted support from 2 readings"
+        )
         assert loaded.evidence_n == 2
         assert loaded.per_source_verdicts["gfs"] == -1
         assert loaded.matched_types == ["concentration_elevation", "temporal_pattern"]
@@ -215,8 +221,16 @@ class TestClaimModel:
                 explanation.id,
                 grounding_verdict="unverified",
                 grounding_evidence_ref=None,
+                citation_failure_reasons_json=[
+                    {
+                        "index": 0,
+                        "citation": "sentinel5p",
+                        "reason": "recognized-but-absent-from-context",
+                    }
+                ],
                 skipped_phase2=True,
                 corroboration_score=None,
+                corroboration_evidence_summary=None,
                 evidence_n=0,
                 per_source_verdicts=None,
             )
@@ -226,8 +240,16 @@ class TestClaimModel:
         loaded = (await db_session.execute(select(Claim))).scalar_one()
         assert loaded.grounding_verdict == "unverified"
         assert loaded.grounding_evidence_ref is None
+        assert loaded.citation_failure_reasons_json == [
+            {
+                "index": 0,
+                "citation": "sentinel5p",
+                "reason": "recognized-but-absent-from-context",
+            }
+        ]
         assert loaded.skipped_phase2 is True
         assert loaded.corroboration_score is None
+        assert loaded.corroboration_evidence_summary is None
 
     @pytest.mark.asyncio
     async def test_cascades_when_explanation_deleted(self, db_session) -> None:

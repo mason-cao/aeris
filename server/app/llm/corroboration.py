@@ -2415,6 +2415,56 @@ class ClaimType(str, Enum):
     UNCLASSIFIED = "unclassified"
 
 
+def direction_data_sources(
+    claim_text: str,
+    summary: Mapping,
+    claim_type: ClaimType | str,
+) -> tuple[str, ...]:
+    """Sources with a fresh comparable direction value for B19 eligibility.
+
+    This reports only data presence. It deliberately does not apply the B2
+    calm-wind guard: a direction observation remains present even when calm
+    conditions make its vote abstain.
+    """
+    primary = ClaimType(claim_type)
+    present: list[str] = []
+    if primary is ClaimType.TRANSPORT_DIRECTION:
+        if _claimed_from_bearing(claim_text) is None:
+            return ()
+        u, v, _notes = _gfs_wind_components(summary)
+        if u is not None and v is not None:
+            present.append("noaa_gfs")
+        for source in ("openweather", "asos"):
+            direction, _note = _fresh_nearest_value(
+                source,
+                "wind_direction",
+                _metric_block(summary, source, "wind_direction"),
+            )
+            if direction is not None:
+                present.append(source)
+        return tuple(present)
+    if primary is ClaimType.POINT_SOURCE_ATTRIBUTION:
+        anomaly = summary.get("anomaly") or {}
+        coordinates = _claimed_coordinates(claim_text.lower())
+        if (
+            coordinates is None
+            or anomaly.get("lat") is None
+            or anomaly.get("lon") is None
+        ):
+            return ()
+        u, v, _notes = _gfs_wind_components(summary)
+        if u is not None and v is not None:
+            present.append("noaa_gfs")
+        direction, _note = _fresh_nearest_value(
+            "openweather",
+            "wind_direction",
+            _metric_block(summary, "openweather", "wind_direction"),
+        )
+        if direction is not None:
+            present.append("openweather")
+    return tuple(present)
+
+
 # Headline types get inferential statistics (N>=20 target); the rest are
 # descriptive only.
 HEADLINE_TYPES = frozenset(

@@ -153,6 +153,7 @@ def _valid_inputs() -> dict[str, object]:
         "cells": _cells(selected_ids),
         "claims": claims,
         "b8_observations": _b8_observations(selected_ids),
+        "b8_absences": [],
         "calm_wind_decisions": _calm_decisions(selected_ids),
         "manual_atomicity": _manual_decisions(claims),
         "provenance": {
@@ -628,6 +629,53 @@ def test_calm_wind_rates_use_claim_rows_and_exact_text_units() -> None:
         "denominator": 1,
         "fraction": 1.0,
     }
+
+
+def test_speed_based_calm_flag_remains_visible_without_direction_data() -> None:
+    inputs = _valid_inputs()
+    claims = inputs["claims"]
+    assert isinstance(claims, list)
+    claim = claims[0]
+    claim["claim_type"] = "transport_direction"
+    claim["matched_types"] = ["transport_direction"]
+    claim["claim_text"] = "Southerly winds transported pollution northward."
+    claim["direction_data_present"] = False
+    claim["calm_wind_flagged"] = True
+    inputs["manual_atomicity"] = _manual_decisions(claims)
+
+    report = build_funnel_report(**inputs)
+
+    calm = report["tables"]["calm_wind"]
+    assert calm["claim_rows"]["all"]["numerator"] == 1
+    assert calm["claim_rows"]["eligible_direction"] == {
+        "numerator": 0,
+        "denominator": 0,
+        "fraction": None,
+    }
+
+
+def test_b8_structural_absences_are_reported_outside_stale_denominator() -> None:
+    inputs = _valid_inputs()
+    inputs["b8_absences"] = [
+        {
+            "anomaly_id": ANOMALY_IDS[0],
+            "source": "asos",
+            "metric": None,
+            "reason": "source-absent-from-window",
+        },
+        {
+            "anomaly_id": ANOMALY_IDS[0],
+            "source": "openaq",
+            "metric": "ozone",
+            "reason": "nearest-event-value-absent",
+        },
+    ]
+
+    report = build_funnel_report(**inputs)
+
+    b8 = report["tables"]["b8_real_location"]
+    assert b8["sources"]["asos"]["denominator"] == 0
+    assert b8["structural_absences"] == inputs["b8_absences"]
 
 
 def test_json_and_markdown_are_byte_identical_and_zero_denominator_is_n0() -> None:

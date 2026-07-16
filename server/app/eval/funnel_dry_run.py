@@ -705,6 +705,7 @@ def summarize_b8_rate(
 
 def _summarize_b8_observations(
     observations: object,
+    absences: object,
     selected_ids: set[str],
 ) -> tuple[dict[str, Any], list[str]]:
     if not isinstance(observations, list):
@@ -774,6 +775,63 @@ def _summarize_b8_observations(
         for source, summary in sources.items()
         if summary["hourly_hard_stop"] is True
     ]
+    if not isinstance(absences, list):
+        raise FunnelAuditError("B8 structural absences must be an array")
+    normalized_absences: list[dict[str, str | None]] = []
+    seen_absences: set[tuple[str, str, str | None, str]] = set()
+    allowed_absence_reasons = {
+        "source-absent-from-window",
+        "nearest-event-value-absent",
+    }
+    for position, raw in enumerate(absences, start=1):
+        absence = _required_mapping(raw, f"B8 structural absence {position}")
+        anomaly_id = _required_string(
+            absence.get("anomaly_id"),
+            f"B8 structural absence {position} anomaly_id",
+        )
+        source = _required_string(
+            absence.get("source"), f"B8 structural absence {position} source"
+        )
+        raw_metric = absence.get("metric")
+        metric = (
+            None
+            if raw_metric is None
+            else _required_string(
+                raw_metric, f"B8 structural absence {position} metric"
+            )
+        )
+        reason = _required_string(
+            absence.get("reason"), f"B8 structural absence {position} reason"
+        )
+        if anomaly_id not in selected_ids:
+            raise FunnelAuditError(
+                f"B8 structural absence references unselected anomaly {anomaly_id}"
+            )
+        if source not in counts:
+            raise FunnelAuditError(
+                f"B8 structural absence has unknown source {source}"
+            )
+        if reason not in allowed_absence_reasons:
+            raise FunnelAuditError(
+                f"B8 structural absence has unknown reason {reason}"
+            )
+        if (reason == "source-absent-from-window") != (metric is None):
+            raise FunnelAuditError(
+                "B8 source absence must use metric=null and metric absence must "
+                "name its metric"
+            )
+        key = (anomaly_id, source, metric, reason)
+        if key in seen_absences:
+            raise FunnelAuditError(f"duplicate B8 structural absence: {key}")
+        seen_absences.add(key)
+        normalized_absences.append(
+            {
+                "anomaly_id": anomaly_id,
+                "source": source,
+                "metric": metric,
+                "reason": reason,
+            }
+        )
     return {
         "population": (
             "selected-anomaly source/metric blocks with a stored nearest "
@@ -784,6 +842,14 @@ def _summarize_b8_observations(
             rows,
             key=lambda row: (
                 row["source"], row["metric"], row["anomaly_id"]
+            ),
+        ),
+        "structural_absences": sorted(
+            normalized_absences,
+            key=lambda row: (
+                str(row["source"]),
+                str(row["metric"] or ""),
+                str(row["anomaly_id"]),
             ),
         ),
     }, hard_stops
@@ -932,9 +998,7 @@ def _normalize_claims(
             raise FunnelAuditError(
                 f"malformed outcome: claim {claim_id} boolean audit fields"
             )
-        if calm_flagged and (
-            claim_type not in _DIRECTION_TYPES or not direction_present
-        ):
+        if calm_flagged and claim_type not in _DIRECTION_TYPES:
             raise FunnelAuditError(
                 f"malformed outcome: claim {claim_id} calm flag is ineligible"
             )
@@ -1360,6 +1424,7 @@ def build_funnel_report(
     cells: object,
     claims: object,
     b8_observations: object,
+    b8_absences: object,
     calm_wind_decisions: object,
     manual_atomicity: object,
     provenance: object,
@@ -1393,6 +1458,7 @@ def build_funnel_report(
     )
     b8, b8_stops = _summarize_b8_observations(
         b8_observations,
+        b8_absences,
         selected_set,
     )
     calm_context = _validate_calm_decisions(calm_wind_decisions, selected_ids)
@@ -1724,6 +1790,22 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         lines.append(
             f"| {source} | {row['gate_minutes']} | {_format_rate(rate)} | "
             f"{'yes' if row['hourly_hard_stop'] else 'no'} |"
+        )
+
+    lines += [
+        "",
+        _heading("B8 structural absences", counts),
+        "",
+        "| Anomaly | Source | Metric | Reason |",
+        "|---|---|---|---|",
+    ]
+    absences = tables["b8_real_location"]["structural_absences"]
+    if not absences:
+        lines.append("| n=0 | n=0 | n=0 | n=0 |")
+    for row in absences:
+        lines.append(
+            f"| {row['anomaly_id']} | {row['source']} | "
+            f"{row['metric']} | {row['reason']} |"
         )
 
     lines += [

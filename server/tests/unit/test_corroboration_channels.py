@@ -261,7 +261,11 @@ class TestScorerChannelInclusion:
                 for h, v in enumerate(baseline)
             ]
             return {
-                "nearest_in_time": {"v": nearest, "dt_minutes": 0.0},
+                "nearest_in_time": {
+                    "v": nearest,
+                    "dt_minutes": 0.0,
+                    "entity_id": "e",
+                },
                 "entities": [{"entity_id": "e", "series": series}],
             }
 

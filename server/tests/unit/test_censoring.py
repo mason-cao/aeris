@@ -91,6 +91,7 @@ def _so2_summary(nearest: float) -> dict:
                             "t": "2026-06-05T05:00:00+00:00",
                             "v": nearest,
                             "dt_minutes": 0.0,
+                            "entity_id": "monitor",
                         },
                         "entities": [
                             {

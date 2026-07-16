@@ -440,6 +440,36 @@ class TestFixturePayload:
         assert block["ship_status"] == "not_shipped_pending_bracco_reply"
         assert block["raw_nonpositive_without_floor"] == "disabled_loudly"
 
+    def test_payload_hash_links_station_baseline_evidence(self) -> None:
+        result = FreezeResult(
+            window_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            window_end=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            top_n=50,
+            n_anomalies=0,
+            n_events=0,
+            selected=[],
+            event_sizes={},
+            missing_enrichment=[],
+        )
+
+        block = _fixture_payload(result)["data_quality"]["baseline_locality"]
+        metrics = {
+            (row["source"], row["metric"]): row for row in block["metrics"]
+        }
+
+        assert block["snapshot_sha256"] == SNAPSHOT_SHA256
+        assert block["artifact"] == "baseline_locality_empirics.v1.json"
+        assert block["artifact_sha256"] == (
+            "101c10a3516168bfd75b6f985b84fe59c3e8b5e17557d24c5ee2f66cef57e2bc"
+        )
+        assert block["rules"]["baseline_locality"] == "nearest_event_entity"
+        assert block["rules"]["pooled_fallback"] is False
+        assert metrics[("tceq", "no2")]["pooled_supporting"] == 478
+        assert metrics[("tceq", "no2")]["matched_supporting"] == 197
+        assert metrics[("sentinel5p", "s5p_no2_column")][
+            "matched_evaluable_count"
+        ] == 0
+
     def test_threshold_payload_reads_mutated_tolerance_owner(
         self,
         monkeypatch: pytest.MonkeyPatch,

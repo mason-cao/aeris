@@ -41,6 +41,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.collectors.geo import distance_km
 from app.db.models import Anomaly
+from app.eval.baseline_locality_empirics import baseline_locality_manifest_payload
 from app.eval.censoring_sensitivity import censoring_manifest_payload
 from app.eval.observation_age_empirics import observation_age_manifest_payload
 from app.llm.corroboration import (
@@ -317,6 +318,7 @@ def fixture_payload(
         "n_events": result.n_events,
         "composition": selection_composition(result.selected),
         "data_quality": {
+            "baseline_locality": baseline_locality_manifest_payload(),
             "calm_wind_guard": calm_wind_manifest_payload(),
             "censoring": censoring_manifest_payload(),
             "observation_age_gates": observation_age_manifest_payload(),

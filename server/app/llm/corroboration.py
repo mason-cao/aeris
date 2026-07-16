@@ -331,37 +331,76 @@ def _anomaly_ts(summary: Mapping) -> datetime | None:
     return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
 
 
-def _pre_anomaly_values(
+def _station_pre_anomaly_values(
     block: Mapping | None,
     anomaly_ts: datetime | None,
     *,
+    entity_id: str | None,
     gap_h: float,
     min_points: int,
     censor_limit: float | None = None,
     censoring_strategy: BaselineCensoringStrategy = (
         BaselineCensoringStrategy.LIMIT_HALF
     ),
-) -> list[float]:
-    """In-window values ending ``gap_h`` before the anomaly; [] when too few.
+) -> tuple[list[float], int, str | None]:
+    """Return the B17 nearest-event-entity baseline and its eligibility state.
 
     Censored values receive the declared B15 treatment before the observation
-    floor is checked. Returns the values (not just their mean) so the caller
-    can scale its exceedance call to the baseline's own spread.
+    floor is checked. No other entity may rescue a missing or insufficient
+    matched series.
     """
     if anomaly_ts is None:
-        return []
-    cutoff = anomaly_ts - timedelta(hours=gap_h)
-    raw_values = [
-        v
-        for ts, v in _pooled_series(block)
-        if ts <= cutoff
+        return [], 0, "missing_anomaly_timestamp"
+    if not isinstance(entity_id, str) or not entity_id:
+        return [], 0, "missing_nearest_entity_id"
+    if not block:
+        return [], 0, "missing_metric_block"
+    raw_entities = block.get("entities")
+    if not isinstance(raw_entities, (list, tuple)):
+        return [], 0, "malformed_entity_collection"
+    matching = [
+        entity
+        for entity in raw_entities
+        if isinstance(entity, Mapping) and entity.get("entity_id") == entity_id
     ]
+    if not matching:
+        return [], 0, "nearest_entity_not_found"
+    if len(matching) != 1:
+        return [], 0, "duplicate_nearest_entity"
+
+    series = matching[0].get("series")
+    if not isinstance(series, (list, tuple)):
+        return [], 0, "malformed_station_series"
+    cutoff = anomaly_ts.astimezone(timezone.utc) - timedelta(hours=gap_h)
+    raw_values: list[float] = []
+    for row in series:
+        if not isinstance(row, (list, tuple)) or len(row) != 2:
+            return [], 0, "malformed_station_series"
+        try:
+            timestamp = datetime.fromisoformat(
+                str(row[0]).replace("Z", "+00:00")
+            )
+            value = float(row[1])
+        except (TypeError, ValueError):
+            return [], 0, "malformed_station_series"
+        if not math.isfinite(value):
+            return [], 0, "malformed_station_series"
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        else:
+            timestamp = timestamp.astimezone(timezone.utc)
+        if timestamp <= cutoff:
+            raw_values.append(value)
+
     values = censor_baseline_values(
         raw_values,
         limit=censor_limit,
         strategy=censoring_strategy,
     )
-    return values if len(values) >= min_points else []
+    baseline_n = len(values)
+    if baseline_n < min_points:
+        return [], baseline_n, "insufficient_station_points"
+    return values, baseline_n, None
 
 
 def _resolve_pollutant(claim_text: str) -> tuple[str | None, str | None]:
@@ -593,16 +632,24 @@ def score_concentration_elevation(
                 f"{source}: {metric} nearest={nearest} vs claimed={point}"
             )
         else:
-            baseline_values = _pre_anomaly_values(
-                data,
-                anomaly_ts,
-                gap_h=tolerance.baseline_gap_h,
-                min_points=tolerance.min_baseline_points,
-                censor_limit=censor_limit,
+            nearest_entity_id = data.get("nearest_in_time", {}).get("entity_id")
+            baseline_values, baseline_n, baseline_reason = (
+                _station_pre_anomaly_values(
+                    data,
+                    anomaly_ts,
+                    entity_id=nearest_entity_id,
+                    gap_h=tolerance.baseline_gap_h,
+                    min_points=tolerance.min_baseline_points,
+                    censor_limit=censor_limit,
+                )
             )
             if not baseline_values:
                 verdicts[source] = SILENT
-                notes.append(f"{source}: {metric} no pre-anomaly baseline")
+                notes.append(
+                    f"{source}: {metric} no station-matched pre-anomaly "
+                    f"baseline (entity_id={nearest_entity_id}; "
+                    f"baseline_n={baseline_n}; reason={baseline_reason})"
+                )
                 continue
             baseline = fmean(baseline_values)
             spread = pstdev(baseline_values)
@@ -617,13 +664,15 @@ def score_concentration_elevation(
                 notes.append(
                     f"{source}: {metric} nearest={nearest} within noise band "
                     f"of pre-anomaly baseline={round(baseline, 4)} "
-                    f"(+{tolerance.elevated_sigma} sigma={round(spread, 4)})"
+                    f"(+{tolerance.elevated_sigma} sigma={round(spread, 4)}; "
+                    f"entity_id={nearest_entity_id}; baseline_n={baseline_n})"
                 )
                 continue
             notes.append(
                 f"{source}: {metric} nearest={nearest} "
                 f"vs pre-anomaly baseline={round(baseline, 4)} "
-                f"(+{tolerance.elevated_sigma} sigma={round(spread, 4)})"
+                f"(+{tolerance.elevated_sigma} sigma={round(spread, 4)}; "
+                f"entity_id={nearest_entity_id}; baseline_n={baseline_n})"
             )
         # Trigger-channel asymmetry: detection already selected on the trigger
         # channel reading elevated, so its support is tautological (demoted to

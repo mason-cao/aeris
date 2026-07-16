@@ -463,7 +463,7 @@ def test_concentration_threshold_ignores_clock_times():
         "NO2 exceeded typical levels at 14:00.", summary
     )
     assert verdicts["openaq"] == SILENT
-    assert "no pre-anomaly baseline" in note
+    assert "no station-matched pre-anomaly baseline" in note
 
 
 def test_concentration_sentinel_column_supports_no2_claim():
@@ -474,7 +474,10 @@ def test_concentration_sentinel_column_supports_no2_claim():
                     "s5p_no2_column": {
                         "unit": "mol/m^2",
                         "value_range": {"min": 4.0e-5, "max": 9.0e-5, "mean": 6.0e-5},
-                        "nearest_in_time": {"v": 8.5e-5},
+                        "nearest_in_time": {
+                            "v": 8.5e-5,
+                            "entity_id": "granules",
+                        },
                         "entities": [
                             {
                                 "entity_id": "granules",

@@ -59,6 +59,7 @@ from app.provenance.purpleair_qc import (
     LOCKED_SNAPSHOT_SHA256,
     purpleair_qc_manifest_payload,
 )
+from app.provenance.nomination import nomination_manifest_payload
 
 # 90 min, not 30: the ground sources report hourly, so consecutive-hour flags
 # at one station are 60 min apart — a 30 min window could never chain them and
@@ -321,6 +322,7 @@ def fixture_payload(
             "baseline_locality": baseline_locality_manifest_payload(),
             "calm_wind_guard": calm_wind_manifest_payload(),
             "censoring": censoring_manifest_payload(),
+            "nomination_eligibility": nomination_manifest_payload(),
             "observation_age_gates": observation_age_manifest_payload(),
             "purpleair_time_aware_qc": purpleair_qc_manifest_payload(),
         },

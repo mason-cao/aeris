@@ -1,0 +1,2973 @@
+{
+  "audit_counts": {
+    "archive_mapped_by_provider": {
+      "AirGradient": {
+        "entities": 25,
+        "rows": 3310
+      },
+      "AirNow": {
+        "entities": 12,
+        "rows": 1786
+      },
+      "Clarity": {
+        "entities": 55,
+        "rows": 16765
+      }
+    },
+    "archive_without_inline_metadata": {
+      "entities": 92,
+      "rows": 21861
+    },
+    "inline_by_provider": {
+      "AirGradient": {
+        "entities": 26,
+        "rows": 17627
+      },
+      "AirNow": {
+        "entities": 12,
+        "rows": 3227
+      },
+      "Clarity": {
+        "entities": 55,
+        "rows": 16969
+      }
+    },
+    "resolved_by_class": {
+      "non_monitor_sensor": {
+        "entities": 81,
+        "rows": 54671
+      },
+      "unmappable_archive": {
+        "entities": 0,
+        "rows": 0
+      },
+      "verified_monitor": {
+        "entities": 12,
+        "rows": 5013
+      }
+    }
+  },
+  "audit_counts_by_metric": {
+    "ozone": {
+      "archive_mapped_by_provider": {
+        "AirNow": {
+          "entities": 18,
+          "rows": 3304
+        }
+      },
+      "archive_without_inline_metadata": {
+        "entities": 18,
+        "rows": 3304
+      },
+      "inline_by_provider": {
+        "AirNow": {
+          "entities": 18,
+          "rows": 11974
+        }
+      },
+      "resolved_by_class": {
+        "non_monitor_sensor": {
+          "entities": 0,
+          "rows": 0
+        },
+        "unmappable_archive": {
+          "entities": 0,
+          "rows": 0
+        },
+        "verified_monitor": {
+          "entities": 18,
+          "rows": 15278
+        }
+      }
+    },
+    "pm10": {
+      "archive_mapped_by_provider": {
+        "AirNow": {
+          "entities": 3,
+          "rows": 520
+        }
+      },
+      "archive_without_inline_metadata": {
+        "entities": 3,
+        "rows": 520
+      },
+      "inline_by_provider": {
+        "AirNow": {
+          "entities": 3,
+          "rows": 2107
+        }
+      },
+      "resolved_by_class": {
+        "non_monitor_sensor": {
+          "entities": 0,
+          "rows": 0
+        },
+        "unmappable_archive": {
+          "entities": 0,
+          "rows": 0
+        },
+        "verified_monitor": {
+          "entities": 3,
+          "rows": 2627
+        }
+      }
+    },
+    "pm25": {
+      "archive_mapped_by_provider": {
+        "AirGradient": {
+          "entities": 25,
+          "rows": 3310
+        },
+        "AirNow": {
+          "entities": 12,
+          "rows": 1786
+        },
+        "Clarity": {
+          "entities": 55,
+          "rows": 16765
+        }
+      },
+      "archive_without_inline_metadata": {
+        "entities": 92,
+        "rows": 21861
+      },
+      "inline_by_provider": {
+        "AirGradient": {
+          "entities": 26,
+          "rows": 17627
+        },
+        "AirNow": {
+          "entities": 12,
+          "rows": 3227
+        },
+        "Clarity": {
+          "entities": 55,
+          "rows": 16969
+        }
+      },
+      "resolved_by_class": {
+        "non_monitor_sensor": {
+          "entities": 81,
+          "rows": 54671
+        },
+        "unmappable_archive": {
+          "entities": 0,
+          "rows": 0
+        },
+        "verified_monitor": {
+          "entities": 12,
+          "rows": 5013
+        }
+      }
+    }
+  },
+  "classification_rule": {
+    "archive_mapping": "exact (metric, source_entity_id) equality",
+    "entity_key": "source_entity_id (OpenAQ sensor ID)",
+    "non_monitor_sensor": "provider IN [AirGradient, Clarity] AND isMonitor=false",
+    "unmappable_archive_disposition": "exclude_regulatory_ground_monitor",
+    "verified_monitor": "provider=AirNow AND isMonitor=true AND instrument_names=[Government Monitor]"
+  },
+  "eligible_entity_counts": {
+    "ozone": 18,
+    "pm10": 3,
+    "pm25": 12
+  },
+  "eligible_entity_ids_by_metric": {
+    "ozone": [
+      "1319333",
+      "2039",
+      "2046",
+      "2800",
+      "287",
+      "3055",
+      "310",
+      "311",
+      "312",
+      "319",
+      "320",
+      "3214",
+      "325",
+      "332",
+      "3378",
+      "339",
+      "3723",
+      "5077791"
+    ],
+    "pm10": [
+      "13380082",
+      "15852419",
+      "271"
+    ],
+    "pm25": [
+      "15851865",
+      "15852418",
+      "2031",
+      "2040",
+      "2071327",
+      "2071331",
+      "2071333",
+      "2071339",
+      "2648",
+      "268",
+      "3379",
+      "5077638"
+    ]
+  },
+  "entities": [
+    {
+      "archive_rows": 225,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "268",
+      "inline_rows": 725,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 203,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2031",
+      "inline_rows": 141,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 199,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2040",
+      "inline_rows": 143,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 71,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2648",
+      "inline_rows": 142,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 223,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "3379",
+      "inline_rows": 633,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 202,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2071327",
+      "inline_rows": 141,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 199,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2071331",
+      "inline_rows": 142,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 47,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2071333",
+      "inline_rows": 1,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 201,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2071339",
+      "inline_rows": 143,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "5077638",
+      "inline_rows": 143,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 273,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8966939",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 268,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8966947",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 201,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967001",
+      "inline_rows": 283,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 266,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967005",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 219,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967015",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 271,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967021",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 120,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967065",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 278,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967093",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 268,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967119",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 272,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967123",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 828,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967193",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 321,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967217",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 118,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967237",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 261,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967273",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 268,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967363",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 262,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967373",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 264,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967413",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 849,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967479",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 270,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "9201801",
+      "inline_rows": 70,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 267,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "9201803",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 836,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "9416627",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 262,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "9489522",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "10107877",
+      "inline_rows": 722,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 266,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "10252270",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "10762809",
+      "inline_rows": 722,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 226,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "11638043",
+      "inline_rows": 722,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "11987924",
+      "inline_rows": 707,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 270,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12178865",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 117,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12256170",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 216,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12286630",
+      "inline_rows": 717,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 117,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12296914",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 117,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12337668",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12428299",
+      "inline_rows": 721,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 116,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12516879",
+      "inline_rows": 288,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 272,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13418566",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 259,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13787194",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 828,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13787195",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 270,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13787197",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 216,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13906493",
+      "inline_rows": 715,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 267,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13955813",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 262,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13955814",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 252,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13955815",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 269,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13955816",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14103803",
+      "inline_rows": 720,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 264,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140746",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 270,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140747",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 816,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140748",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 270,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140749",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 265,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140750",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 267,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140751",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 272,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140752",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 269,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140753",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14152710",
+      "inline_rows": 722,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14152860",
+      "inline_rows": 719,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 263,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14157975",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 261,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14157976",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 267,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14157977",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14404954",
+      "inline_rows": 719,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15121349",
+      "inline_rows": 719,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15399615",
+      "inline_rows": 719,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 118,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15472101",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 91,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15539682",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 121,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15539683",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15546602",
+      "inline_rows": 719,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 270,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15588190",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 267,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15588191",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 261,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15588192",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 266,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15588193",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 963,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15596557",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15614377",
+      "inline_rows": 719,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15666344",
+      "inline_rows": 719,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 2,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15838483",
+      "inline_rows": 1,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "15851865",
+      "inline_rows": 141,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "15852418",
+      "inline_rows": 732,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15971878",
+      "inline_rows": 606,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15990898",
+      "inline_rows": 720,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16026701",
+      "inline_rows": 701,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16028791",
+      "inline_rows": 666,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16123962",
+      "inline_rows": 721,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16301542",
+      "inline_rows": 715,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 21,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16564662",
+      "inline_rows": 721,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 21,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16564667",
+      "inline_rows": 721,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 0,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16648860",
+      "inline_rows": 554,
+      "instrument_names": [
+        "N/A",
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    }
+  ],
+  "fixture_id": "openaq-regulatory-entity-provenance-v2",
+  "instrument_metadata_revisions": [
+    {
+      "entity_id": "16648860",
+      "is_monitor": false,
+      "observed_instrument_name_sets": [
+        {
+          "instrument_names": [
+            "N/A"
+          ],
+          "rows": 1
+        },
+        {
+          "instrument_names": [
+            "Unknown AirGradient Sensor"
+          ],
+          "rows": 553
+        }
+      ],
+      "provider": "AirGradient"
+    }
+  ],
+  "instrument_metadata_revisions_by_metric": [
+    {
+      "entity_id": "16648860",
+      "is_monitor": false,
+      "metric": "pm25",
+      "observed_instrument_name_sets": [
+        {
+          "instrument_names": [
+            "N/A"
+          ],
+          "rows": 1
+        },
+        {
+          "instrument_names": [
+            "Unknown AirGradient Sensor"
+          ],
+          "rows": 553
+        }
+      ],
+      "provider": "AirGradient"
+    }
+  ],
+  "metric": "pm25",
+  "metric_entities": [
+    {
+      "archive_rows": 223,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "287",
+      "inline_rows": 689,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 225,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "310",
+      "inline_rows": 699,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 223,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "311",
+      "inline_rows": 697,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 160,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "312",
+      "inline_rows": 691,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 224,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "319",
+      "inline_rows": 687,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 222,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "320",
+      "inline_rows": 691,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 224,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "325",
+      "inline_rows": 490,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 224,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "332",
+      "inline_rows": 695,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 225,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "339",
+      "inline_rows": 687,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 221,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2039",
+      "inline_rows": 686,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 198,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2046",
+      "inline_rows": 508,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 214,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2800",
+      "inline_rows": 688,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 71,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "3055",
+      "inline_rows": 692,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 69,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "3214",
+      "inline_rows": 690,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 224,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "3378",
+      "inline_rows": 605,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 215,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "3723",
+      "inline_rows": 698,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 71,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "1319333",
+      "inline_rows": 689,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 71,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "5077791",
+      "inline_rows": 692,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "ozone",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 225,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "271",
+      "inline_rows": 725,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm10",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 223,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "13380082",
+      "inline_rows": 650,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm10",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "15852419",
+      "inline_rows": 732,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm10",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 225,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "268",
+      "inline_rows": 725,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 203,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2031",
+      "inline_rows": 141,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 199,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2040",
+      "inline_rows": 143,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 71,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2648",
+      "inline_rows": 142,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 223,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "3379",
+      "inline_rows": 633,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 202,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2071327",
+      "inline_rows": 141,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 199,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2071331",
+      "inline_rows": 142,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 47,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2071333",
+      "inline_rows": 1,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 201,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "2071339",
+      "inline_rows": 143,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "5077638",
+      "inline_rows": 143,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 273,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8966939",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 268,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8966947",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 201,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967001",
+      "inline_rows": 283,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 266,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967005",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 219,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967015",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 271,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967021",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 120,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967065",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 278,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967093",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 268,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967119",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 272,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967123",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 828,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967193",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 321,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967217",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 118,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967237",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 261,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967273",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 268,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967363",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 262,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967373",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 264,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967413",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 849,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "8967479",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 270,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "9201801",
+      "inline_rows": 70,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 267,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "9201803",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 836,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "9416627",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 262,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "9489522",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "10107877",
+      "inline_rows": 722,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 266,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "10252270",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "10762809",
+      "inline_rows": 722,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 226,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "11638043",
+      "inline_rows": 722,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "11987924",
+      "inline_rows": 707,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 270,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12178865",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 117,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12256170",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 216,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12286630",
+      "inline_rows": 717,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 117,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12296914",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 117,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12337668",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12428299",
+      "inline_rows": 721,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 116,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "12516879",
+      "inline_rows": 288,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 272,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13418566",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 259,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13787194",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 828,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13787195",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 270,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13787197",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 216,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13906493",
+      "inline_rows": 715,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 267,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13955813",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 262,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13955814",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 252,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13955815",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 269,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "13955816",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14103803",
+      "inline_rows": 720,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 264,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140746",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 270,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140747",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 816,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140748",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 270,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140749",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 265,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140750",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 267,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140751",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 272,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140752",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 269,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14140753",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14152710",
+      "inline_rows": 722,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14152860",
+      "inline_rows": 719,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 263,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14157975",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 261,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14157976",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 267,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14157977",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "14404954",
+      "inline_rows": 719,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15121349",
+      "inline_rows": 719,
+      "instrument_names": [
+        "AirGradient Open Air Generation 1 (O-1PST)"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15399615",
+      "inline_rows": 719,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 118,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15472101",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 91,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15539682",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 121,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15539683",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15546602",
+      "inline_rows": 719,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 270,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15588190",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 267,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15588191",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 261,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15588192",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 266,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15588193",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 963,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15596557",
+      "inline_rows": 314,
+      "instrument_names": [
+        "Clarity Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "Clarity"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15614377",
+      "inline_rows": 719,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15666344",
+      "inline_rows": 719,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 2,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15838483",
+      "inline_rows": 1,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "15851865",
+      "inline_rows": 141,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "verified_monitor",
+      "disposition": "include_regulatory_ground_monitor",
+      "entity_id": "15852418",
+      "inline_rows": 732,
+      "instrument_names": [
+        "Government Monitor"
+      ],
+      "is_monitor": true,
+      "metric": "pm25",
+      "provider": "AirNow"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15971878",
+      "inline_rows": 606,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "15990898",
+      "inline_rows": 720,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16026701",
+      "inline_rows": 701,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16028791",
+      "inline_rows": 666,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 227,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16123962",
+      "inline_rows": 721,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 72,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16301542",
+      "inline_rows": 715,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 21,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16564662",
+      "inline_rows": 721,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 21,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16564667",
+      "inline_rows": 721,
+      "instrument_names": [
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    },
+    {
+      "archive_rows": 0,
+      "classification": "non_monitor_sensor",
+      "disposition": "exclude_regulatory_ground_monitor",
+      "entity_id": "16648860",
+      "inline_rows": 554,
+      "instrument_names": [
+        "N/A",
+        "Unknown AirGradient Sensor"
+      ],
+      "is_monitor": false,
+      "metric": "pm25",
+      "provider": "AirGradient"
+    }
+  ],
+  "nominating_metrics": [
+    "ozone",
+    "pm10",
+    "pm25"
+  ],
+  "schema_version": 2,
+  "snapshot_sha256": "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81",
+  "source": "openaq",
+  "study_window": {
+    "end_exclusive": "2026-07-13T00:00:00Z",
+    "start": "2026-06-01T00:00:00Z"
+  },
+  "unmappable_archive_entities": [],
+  "unmappable_archive_entities_by_metric": []
+}

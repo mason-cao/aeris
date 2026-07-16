@@ -114,11 +114,48 @@ def test_low_corroboration_flag_requires_strong_negative_and_two_sources():
 
 def _summary_with(metrics_by_source: dict) -> dict:
     """A minimal enrichment summary carrying {source: {metric: {...}}}."""
-    for metrics in metrics_by_source.values():
-        for block in metrics.values():
+    for source, metrics in metrics_by_source.items():
+        for metric, block in metrics.items():
             nearest = block.get("nearest_in_time")
             if isinstance(nearest, dict) and nearest.get("v") is not None:
                 nearest.setdefault("dt_minutes", 0.0)
+            if source != "openaq" or metric not in {"pm25", "pm10", "ozone"}:
+                continue
+            eligible_ids = sorted(verified_monitor_entity_ids(metric), key=int)
+            entities = block.get("entities")
+            if isinstance(entities, list):
+                remapped: dict[str, str] = {}
+                for index, entity in enumerate(entities):
+                    old_id = str(entity.get("entity_id", ""))
+                    new_id = eligible_ids[index]
+                    entity["entity_id"] = new_id
+                    remapped[old_id] = new_id
+                if isinstance(nearest, dict):
+                    nearest_id = str(nearest.get("entity_id", ""))
+                    nearest["entity_id"] = remapped.get(
+                        nearest_id,
+                        eligible_ids[0],
+                    )
+                continue
+            if not isinstance(nearest, dict) or nearest.get("v") is None:
+                continue
+            timestamp = nearest.setdefault("t", "2026-06-05T15:00:00+00:00")
+            nearest["entity_id"] = eligible_ids[0]
+            nearest.setdefault("distance_km", 0.1)
+            nearest_value = float(nearest["v"])
+            declared_mean = block.get("value_range", {}).get("mean")
+            series = [[timestamp, nearest_value]]
+            if isinstance(declared_mean, (int, float)):
+                companion = 2.0 * float(declared_mean) - nearest_value
+                series.insert(0, ["2026-06-05T14:00:00+00:00", companion])
+            block["entities"] = [
+                {
+                    "entity_id": eligible_ids[0],
+                    "distance_km": 0.1,
+                    "n_points": len(series),
+                    "series": series,
+                }
+            ]
     return {
         "schema_version": 1,
         "sources": {

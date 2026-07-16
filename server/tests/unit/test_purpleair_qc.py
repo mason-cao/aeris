@@ -195,7 +195,7 @@ def _scoring_summary(timestamp: datetime) -> dict[str, Any]:
     }
 
 
-def test_same_predicate_filters_detection_enrichment_and_scoring(
+def test_b9_excludes_nomination_while_qc_filters_enrichment_and_scoring(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     timestamp = START + timedelta(hours=48)
@@ -203,9 +203,6 @@ def test_same_predicate_filters_detection_enrichment_and_scoring(
     def eligible(entity_id: str, observed_at: datetime) -> bool:
         return entity_id != "bad"
 
-    monkeypatch.setattr(
-        detection_module, "purpleair_reading_is_eligible", eligible
-    )
     monkeypatch.setattr(
         enrichment_module, "purpleair_reading_is_eligible", eligible
     )
@@ -218,7 +215,7 @@ def test_same_predicate_filters_detection_enrichment_and_scoring(
         _point(entity_id="good", timestamp=timestamp, value=10.0),
     ]
     groups = detection_module.group_points_by_series(points)
-    assert {key.source_entity_id for key in groups} == {"good"}
+    assert groups == {}
 
     anomaly = Anomaly(
         timestamp=timestamp,
@@ -247,4 +244,3 @@ def test_same_predicate_filters_detection_enrichment_and_scoring(
     )
     assert verdicts["purpleair"] == corroboration_module.CONTRADICTING
     assert "observed=down claimed=up" in note
-

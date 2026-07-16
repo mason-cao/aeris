@@ -18,12 +18,16 @@ from app.eval.secondary_formation_empirics import (
     render_markdown,
 )
 from app.llm.corroboration import CONTRADICTING, SILENT, SUPPORTING
-from app.provenance.openaq_pm25 import LOCKED_SNAPSHOT_SHA256
+from app.provenance.openaq_pm25 import (
+    LOCKED_SNAPSHOT_SHA256,
+    verified_monitor_entity_ids,
+)
 
 
 EVENT = datetime(2026, 6, 5, 15, tzinfo=UTC)
 LAT = 29.7604
 LON = -95.3698
+OPENAQ_OZONE_MONITOR_ID = min(verified_monitor_entity_ids("ozone"), key=int)
 
 
 def _observation(
@@ -37,6 +41,8 @@ def _observation(
     lat: float = LAT,
     lon: float = LON,
 ) -> FormationObservation:
+    if entity_id is None and source == "openaq" and metric == "ozone":
+        entity_id = OPENAQ_OZONE_MONITOR_ID
     return FormationObservation(
         source=source,
         metric=metric,

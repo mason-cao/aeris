@@ -8,7 +8,7 @@ rows idempotently.
 
 Usage::
 
-    python -m app.detection.run                          # all data
+    python -m app.detection.run                          # all B9-eligible data
     python -m app.detection.run --source openaq          # filter by source
     python -m app.detection.run --metric pm25            # filter by metric
     python -m app.detection.run --since 2026-05-01       # only recent
@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import math
 import statistics
 from collections import defaultdict
@@ -31,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.collectors.geo import distance_km
 from app.db.models import Anomaly, DataPoint
-from app.provenance.purpleair_qc import purpleair_reading_is_eligible
+from app.provenance.nomination import series_is_nomination_eligible
 
 from .consensus import ConsensusAnomaly
 from .engine import DetectionEngine
@@ -150,7 +151,11 @@ class GroupKey:
 class GroupSummary:
     key: GroupKey
     n_points: int
+    n_raw_anomalies: int = 0
     n_anomalies: int = 0
+    n_direction_excluded: int = 0
+    n_missing_expected_excluded: int = 0
+    expected_value_source_counts: dict[str, int] = field(default_factory=dict)
     n_severe: int = 0
     n_moderate: int = 0
     n_minor: int = 0
@@ -163,9 +168,65 @@ class GroupSummary:
 class RunSummary:
     n_groups_examined: int = 0
     n_groups_run: int = 0
+    n_raw_anomalies_emitted: int = 0
     n_anomalies_emitted: int = 0
+    n_direction_excluded: int = 0
+    n_missing_expected_excluded: int = 0
+    expected_value_source_counts: dict[str, int] = field(default_factory=dict)
     n_persisted: int = 0
     groups: list[GroupSummary] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ElevationNominationResult:
+    """Strict-direction filter output and detector-expectation accounting."""
+
+    eligible: list[ConsensusAnomaly]
+    raw_count: int
+    eligible_count: int
+    direction_excluded_count: int
+    missing_expected_excluded_count: int
+    expected_value_source_counts: dict[str, int]
+
+
+def _expected_value_source(anomaly: ConsensusAnomaly) -> str:
+    if anomaly.zscore_detail is not None:
+        return "zscore_rolling_mean"
+    if anomaly.stl_detail is not None:
+        return "stl_trend_plus_seasonal"
+    if anomaly.expected_value is None or not math.isfinite(anomaly.expected_value):
+        if anomaly.isolation_forest_detail is not None:
+            return "isolation_forest_only_undefined"
+        return "undefined_without_detector_detail"
+    return "defined_without_detector_detail"
+
+
+def filter_elevation_nominees(
+    anomalies: Sequence[ConsensusAnomaly],
+) -> ElevationNominationResult:
+    """Keep only strict high-side consensuses with a finite expectation."""
+    eligible: list[ConsensusAnomaly] = []
+    direction_excluded = 0
+    missing_expected = 0
+    source_counts: dict[str, int] = defaultdict(int)
+    for anomaly in anomalies:
+        source_counts[_expected_value_source(anomaly)] += 1
+        expected = anomaly.expected_value
+        if expected is None or not math.isfinite(expected):
+            missing_expected += 1
+            continue
+        if not anomaly.value > expected:
+            direction_excluded += 1
+            continue
+        eligible.append(anomaly)
+    return ElevationNominationResult(
+        eligible=eligible,
+        raw_count=len(anomalies),
+        eligible_count=len(eligible),
+        direction_excluded_count=direction_excluded,
+        missing_expected_excluded_count=missing_expected,
+        expected_value_source_counts=dict(sorted(source_counts.items())),
+    )
 
 
 async def load_points(
@@ -200,13 +261,10 @@ def group_points_by_series(
     for p in points:
         if p.metric not in primary_metrics:
             continue
-        if (
-            p.source == "purpleair"
-            and p.metric == "pm25"
-            and not purpleair_reading_is_eligible(
-                p.source_entity_id,
-                p.timestamp,
-            )
+        if not series_is_nomination_eligible(
+            p.source,
+            p.metric,
+            p.source_entity_id,
         ):
             continue
         key = GroupKey(
@@ -628,7 +686,7 @@ async def run_detection(
             session, group_points, aux_cache=aux_cache
         )
         engine, stl_skip_reason = _engine_for(series)
-        anomalies = engine.run(
+        raw_anomalies = engine.run(
             series,
             metric=key.metric,
             source=key.source,
@@ -636,11 +694,19 @@ async def run_detection(
             lon=group_points[0].lon,
             isolation_forest_inputs=iso_inputs,
         )
+        elevation = filter_elevation_nominees(raw_anomalies)
+        anomalies = elevation.eligible
 
         group_summary = GroupSummary(
             key=key,
             n_points=len(group_points),
+            n_raw_anomalies=elevation.raw_count,
             n_anomalies=len(anomalies),
+            n_direction_excluded=elevation.direction_excluded_count,
+            n_missing_expected_excluded=(
+                elevation.missing_expected_excluded_count
+            ),
+            expected_value_source_counts=elevation.expected_value_source_counts,
             n_severe=sum(1 for a in anomalies if a.severity == "severe"),
             n_moderate=sum(1 for a in anomalies if a.severity == "moderate"),
             n_minor=sum(1 for a in anomalies if a.severity == "minor"),
@@ -649,7 +715,16 @@ async def run_detection(
         )
         summary.groups.append(group_summary)
         summary.n_groups_run += 1
+        summary.n_raw_anomalies_emitted += elevation.raw_count
         summary.n_anomalies_emitted += len(anomalies)
+        summary.n_direction_excluded += elevation.direction_excluded_count
+        summary.n_missing_expected_excluded += (
+            elevation.missing_expected_excluded_count
+        )
+        for expected_source, count in elevation.expected_value_source_counts.items():
+            summary.expected_value_source_counts[expected_source] = (
+                summary.expected_value_source_counts.get(expected_source, 0) + count
+            )
         if not dry_run:
             # Record a per-group persist failure and continue: one group's DB
             # error must not abort the run and discard every other group's
@@ -661,6 +736,9 @@ async def run_detection(
                 await session.rollback()
                 group_summary.persist_error = f"{type(exc).__name__}: {exc}"
 
+    summary.expected_value_source_counts = dict(
+        sorted(summary.expected_value_source_counts.items())
+    )
     return summary
 
 
@@ -720,11 +798,16 @@ def _format_summary(summary: RunSummary) -> str:
     lines = [
         f"Groups examined: {summary.n_groups_examined}",
         f"Groups run:      {summary.n_groups_run}",
-        f"Anomalies:       {summary.n_anomalies_emitted}",
+        f"Raw consensuses: {summary.n_raw_anomalies_emitted}",
+        f"Elevated:        {summary.n_anomalies_emitted}",
+        f"Direction drop:  {summary.n_direction_excluded}",
+        f"No expectation:  {summary.n_missing_expected_excluded}",
         f"Persisted:       {summary.n_persisted}",
+        "Expected-value sources: "
+        + json.dumps(summary.expected_value_source_counts, sort_keys=True),
         "",
         f"{'source':<14} {'metric':<14} {'entity':<28} {'n':>6} "
-        f"{'sev':>4} {'mod':>4} {'min':>4} {'IF':>3}  status",
+        f"{'raw':>4} {'up':>4} {'dir':>4} {'noexp':>5} {'IF':>3}  status",
     ]
     for g in summary.groups:
         if g.persist_error:
@@ -737,7 +820,9 @@ def _format_summary(summary: RunSummary) -> str:
         lines.append(
             f"{g.key.source:<14} {g.key.metric:<14} "
             f"{g.key.source_entity_id[:28]:<28} {g.n_points:>6} "
-            f"{g.n_severe:>4} {g.n_moderate:>4} {g.n_minor:>4} "
+            f"{g.n_raw_anomalies:>4} {g.n_anomalies:>4} "
+            f"{g.n_direction_excluded:>4} "
+            f"{g.n_missing_expected_excluded:>5} "
             f"{if_used:>3}  {status}"
         )
     return "\n".join(lines)

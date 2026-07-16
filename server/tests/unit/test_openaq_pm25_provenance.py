@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import sqlite3
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -15,6 +19,7 @@ from app.llm.corroboration import (
 )
 from app.provenance.openaq_pm25 import (
     LOCKED_SNAPSHOT_SHA256,
+    derive_openaq_pm25_fixture,
     load_openaq_pm25_fixture,
     verified_monitor_entity_ids,
 )
@@ -156,6 +161,128 @@ def test_fixture_matches_snapshot_audit_counts() -> None:
     ]
     assert len(_entities()) == 93
     assert len(verified_monitor_entity_ids()) == 12
+
+
+def _synthetic_database(path: Path) -> str:
+    connection = sqlite3.connect(path)
+    try:
+        connection.execute(
+            """
+            CREATE TABLE data_points (
+                id TEXT PRIMARY KEY,
+                source TEXT NOT NULL,
+                metric TEXT NOT NULL,
+                source_entity_id TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                raw_json TEXT NOT NULL
+            )
+            """
+        )
+        rows: list[tuple[str, str, str, str, str, str]] = []
+        row_id = 0
+
+        def add(
+            metric: str,
+            entity_id: str,
+            payload: dict[str, object],
+        ) -> None:
+            nonlocal row_id
+            row_id += 1
+            rows.append(
+                (
+                    str(row_id),
+                    "openaq",
+                    metric,
+                    entity_id,
+                    f"2026-06-15T{row_id:02d}:00:00Z",
+                    json.dumps(payload),
+                )
+            )
+
+        def location(
+            provider: str,
+            is_monitor: bool,
+            instrument: str,
+        ) -> dict[str, object]:
+            return {
+                "location": {
+                    "provider": {"name": provider},
+                    "isMonitor": is_monitor,
+                    "instruments": [{"name": instrument}],
+                }
+            }
+
+        for metric in ("ozone", "pm10", "pm25"):
+            entity_id = f"{metric}-monitor"
+            add(metric, entity_id, location("AirNow", True, "Government Monitor"))
+            add(metric, entity_id, {"archive": {"path": "historical"}})
+        add("pm25", "clarity", location("Clarity", False, "Clarity Sensor"))
+        add(
+            "pm25",
+            "airgradient",
+            location("AirGradient", False, "N/A"),
+        )
+        add(
+            "pm25",
+            "airgradient",
+            location("AirGradient", False, "Unknown AirGradient Sensor"),
+        )
+        add("pm25", "archive-only", {"archive": {"path": "unmapped"}})
+        connection.executemany(
+            "INSERT INTO data_points VALUES (?, ?, ?, ?, ?, ?)",
+            rows,
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_multimetric_derivation_is_read_only_deterministic_and_exact(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "synthetic.db"
+    expected_hash = _synthetic_database(database)
+
+    first = derive_openaq_pm25_fixture(database, expected_sha256=expected_hash)
+    second = derive_openaq_pm25_fixture(database, expected_sha256=expected_hash)
+
+    assert first == second
+    assert hashlib.sha256(database.read_bytes()).hexdigest() == expected_hash
+    assert first["schema_version"] == 2
+    assert first["eligible_entity_counts"] == {
+        "ozone": 1,
+        "pm10": 1,
+        "pm25": 1,
+    }
+    assert first["eligible_entity_ids_by_metric"] == {
+        "ozone": ["ozone-monitor"],
+        "pm10": ["pm10-monitor"],
+        "pm25": ["pm25-monitor"],
+    }
+    assert first["unmappable_archive_entities_by_metric"] == [
+        {"metric": "pm25", "entity_id": "archive-only", "archive_rows": 1}
+    ]
+    assert first["instrument_metadata_revisions_by_metric"] == [
+        {
+            "metric": "pm25",
+            "entity_id": "airgradient",
+            "provider": "AirGradient",
+            "is_monitor": False,
+            "observed_instrument_name_sets": [
+                {"instrument_names": ["N/A"], "rows": 1},
+                {
+                    "instrument_names": ["Unknown AirGradient Sensor"],
+                    "rows": 1,
+                },
+            ],
+        }
+    ]
+    assert first["audit_counts_by_metric"]["pm25"]["resolved_by_class"] == {
+        "verified_monitor": {"rows": 2, "entities": 1},
+        "non_monitor_sensor": {"rows": 3, "entities": 2},
+        "unmappable_archive": {"rows": 1, "entities": 1},
+    }
 
 
 @pytest.mark.parametrize("provider", ["Clarity", "AirGradient"])

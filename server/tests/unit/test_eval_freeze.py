@@ -59,6 +59,7 @@ def _anomaly(
     *,
     ts: datetime = T0,
     metric: str = "pm25",
+    source: str = "openaq",
     lat: float = HOUSTON_LAT,
     lon: float = HOUSTON_LON,
     methods: list[str] | None = None,
@@ -71,7 +72,7 @@ def _anomaly(
         lat=lat,
         lon=lon,
         metric=metric,
-        source="openaq",
+        source=source,
         value=100.0,
         expected_value=20.0,
         z_score=z_score,
@@ -94,6 +95,17 @@ class TestGroupEvents:
     def test_different_metrics_never_merge(self) -> None:
         events = group_events([_anomaly(metric="pm25"), _anomaly(metric="ozone")])
         assert len(events) == 2
+
+    def test_same_metric_cross_source_events_still_merge(self) -> None:
+        events = group_events(
+            [
+                _anomaly(source="openaq"),
+                _anomaly(source="tceq", ts=T0 + timedelta(minutes=5)),
+            ]
+        )
+
+        assert len(events) == 1
+        assert {anomaly.source for anomaly in events[0]} == {"openaq", "tceq"}
 
     def test_distant_stations_do_not_merge(self) -> None:
         # ~28 km apart at the same instant: separate events.
@@ -419,6 +431,36 @@ class TestFixturePayload:
             "temporal_pattern": asdict(DEFAULT_TEMPORAL_TOLERANCE),
             "wind": asdict(DEFAULT_WIND_TOLERANCE),
         }
+
+    def test_payload_carries_b9_nomination_fixture_and_rule(self) -> None:
+        result = FreezeResult(
+            window_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            window_end=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            top_n=50,
+            n_anomalies=0,
+            n_events=0,
+            selected=[],
+            event_sizes={},
+            missing_enrichment=[],
+        )
+
+        block = _fixture_payload(result)["data_quality"]["nomination_eligibility"]
+
+        assert block["fixture_id"] == "openaq-regulatory-entity-provenance-v2"
+        assert block["schema_version"] == 2
+        assert block["artifact"] == "openaq_regulatory_entity_provenance.v2.json"
+        assert block["snapshot_sha256"] == SNAPSHOT_SHA256
+        assert block["covered_metrics"] == ["ozone", "pm10", "pm25"]
+        assert block["eligible_entity_counts"] == {
+            "ozone": 18,
+            "pm10": 3,
+            "pm25": 12,
+        }
+        assert block["nominating_metrics_by_source"] == {
+            "openaq": ["ozone", "pm10", "pm25"],
+            "tceq": ["co", "no2", "so2"],
+        }
+        assert block["strict_elevation_rule"] == "value > expected_value"
 
     def test_payload_marks_proposed_calm_wind_floor_as_not_shipped(self) -> None:
         result = FreezeResult(

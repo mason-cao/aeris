@@ -21,6 +21,7 @@ from app.detection.run import (
     persist_anomalies,
     run_detection,
 )
+from app.provenance.openaq_pm25 import verified_monitor_entity_ids
 
 
 def _to_utc(dt: datetime) -> datetime:
@@ -34,6 +35,8 @@ def _to_utc(dt: datetime) -> datetime:
 HOUSTON_LAT = 29.7604
 HOUSTON_LON = -95.3698
 T0 = datetime(2026, 5, 1, 0, 0, tzinfo=timezone.utc)
+OPENAQ_PM25_IDS = sorted(verified_monitor_entity_ids("pm25"), key=int)
+OPENAQ_OZONE_ID = min(verified_monitor_entity_ids("ozone"), key=int)
 
 
 def _dp(
@@ -42,7 +45,7 @@ def _dp(
     value: float,
     metric: str = "pm25",
     source: str = "openaq",
-    entity: str = "openaq-sensor-1",
+    entity: str = OPENAQ_PM25_IDS[0],
     lat: float = HOUSTON_LAT,
     lon: float = HOUSTON_LON,
     unit: str = "ug/m3",
@@ -115,18 +118,36 @@ def _make_consensus_anomaly(
 class TestGroupPointsBySeries:
     def test_groups_by_source_metric_entity(self) -> None:
         pts = [
-            _dp(ts=T0, value=20.0, source="openaq", metric="pm25", entity="A"),
-            _dp(ts=T0 + timedelta(hours=1), value=21.0, source="openaq", metric="pm25", entity="A"),
-            _dp(ts=T0, value=30.0, source="openaq", metric="pm25", entity="B"),
-            _dp(ts=T0, value=10.0, source="openaq", metric="no2", entity="A"),
+            _dp(
+                ts=T0,
+                value=20.0,
+                source="openaq",
+                metric="pm25",
+                entity=OPENAQ_PM25_IDS[0],
+            ),
+            _dp(
+                ts=T0 + timedelta(hours=1),
+                value=21.0,
+                source="openaq",
+                metric="pm25",
+                entity=OPENAQ_PM25_IDS[0],
+            ),
+            _dp(
+                ts=T0,
+                value=30.0,
+                source="openaq",
+                metric="pm25",
+                entity=OPENAQ_PM25_IDS[1],
+            ),
+            _dp(ts=T0, value=10.0, source="tceq", metric="no2", entity="A"),
         ]
         groups = group_points_by_series(pts)
         assert set(groups.keys()) == {
-            GroupKey("openaq", "pm25", "A"),
-            GroupKey("openaq", "pm25", "B"),
-            GroupKey("openaq", "no2", "A"),
+            GroupKey("openaq", "pm25", OPENAQ_PM25_IDS[0]),
+            GroupKey("openaq", "pm25", OPENAQ_PM25_IDS[1]),
+            GroupKey("tceq", "no2", "A"),
         }
-        assert len(groups[GroupKey("openaq", "pm25", "A")]) == 2
+        assert len(groups[GroupKey("openaq", "pm25", OPENAQ_PM25_IDS[0])]) == 2
 
     def test_excludes_non_primary_metrics(self) -> None:
         # u_10m / v_10m / pbl_height are auxiliary, not primary detection metrics.
@@ -147,9 +168,17 @@ class TestGroupPointsBySeries:
     def test_includes_openaq_ozone(self) -> None:
         # OpenAQ normalizes both "o3" and "ozone" parameters to the metric
         # name "ozone"; detection must group it, not drop it.
-        pts = [_dp(ts=T0, value=55.0, source="openaq", metric="ozone", entity="A")]
+        pts = [
+            _dp(
+                ts=T0,
+                value=55.0,
+                source="openaq",
+                metric="ozone",
+                entity=OPENAQ_OZONE_ID,
+            )
+        ]
         groups = group_points_by_series(pts)
-        assert GroupKey("openaq", "ozone", "A") in groups
+        assert GroupKey("openaq", "ozone", OPENAQ_OZONE_ID) in groups
 
     def test_excludes_sentinel5p_entirely(self) -> None:
         # Satellite columns are corroboration evidence, not detection targets:
@@ -412,14 +441,18 @@ class TestBuildAuxInputsCache:
         near = "gfs:29.76,-95.37"
         far = "gfs:30.50,-95.37"
         s1 = [
-            _dp(ts=T0 + timedelta(hours=i), value=20.0 + i, entity="openaq-1")
+            _dp(
+                ts=T0 + timedelta(hours=i),
+                value=20.0 + i,
+                entity=OPENAQ_PM25_IDS[0],
+            )
             for i in range(5)
         ]
         s2 = [
             _dp(
                 ts=T0 + timedelta(hours=i),
                 value=40.0 + i,
-                entity="openaq-2",
+                entity=OPENAQ_PM25_IDS[1],
                 lat=HOUSTON_LAT + 0.6,
             )
             for i in range(5)
@@ -464,14 +497,18 @@ class TestBuildAuxInputsCache:
 
         n = 55
         s1 = [
-            _dp(ts=T0 + timedelta(hours=i), value=_seasonal(i), entity="openaq-1")
+            _dp(
+                ts=T0 + timedelta(hours=i),
+                value=_seasonal(i),
+                entity=OPENAQ_PM25_IDS[0],
+            )
             for i in range(n)
         ]
         s2 = [
             _dp(
                 ts=T0 + timedelta(hours=i),
                 value=_seasonal(i) + 5.0,
-                entity="openaq-2",
+                entity=OPENAQ_PM25_IDS[1],
                 lat=HOUSTON_LAT + 0.6,
             )
             for i in range(n)
@@ -654,7 +691,7 @@ class TestRunDetectionEndToEnd:
         # Seed two sources of PM2.5; filter to one.
         openaq = [
             _dp(ts=T0 + timedelta(hours=i), value=_seasonal(i),
-                source="openaq", entity="openaq-1")
+                source="openaq", entity=OPENAQ_PM25_IDS[0])
             for i in range(60)
         ]
         purpleair = [
@@ -664,7 +701,7 @@ class TestRunDetectionEndToEnd:
         ]
         # Inject a spike in each
         openaq[30] = _dp(ts=T0 + timedelta(hours=30), value=300.0,
-                         source="openaq", entity="openaq-1")
+                         source="openaq", entity=OPENAQ_PM25_IDS[0])
         purpleair[30] = _dp(ts=T0 + timedelta(hours=30), value=300.0,
                             source="purpleair", entity="pa-1")
         await _seed(db_session, openaq + purpleair)

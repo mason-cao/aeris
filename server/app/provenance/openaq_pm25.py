@@ -1,4 +1,4 @@
-"""Derive and load the B6 OpenAQ PM2.5 entity-provenance fixture."""
+"""Derive and load the B6/B9 OpenAQ regulatory-monitor provenance fixture."""
 
 from __future__ import annotations
 
@@ -19,15 +19,18 @@ LOCKED_SNAPSHOT_SHA256: Final = (
 STUDY_START: Final = "2026-06-01T00:00:00Z"
 STUDY_END_EXCLUSIVE: Final = "2026-07-13T00:00:00Z"
 FIXTURE_PATH: Final = (
-    Path(__file__).parent / "fixtures" / "openaq_pm25_entity_provenance.v1.json"
+    Path(__file__).parent
+    / "fixtures"
+    / "openaq_regulatory_entity_provenance.v2.json"
 )
+NOMINATING_METRICS: Final = ("ozone", "pm10", "pm25")
 
 VERIFIED_MONITOR: Final = "verified_monitor"
 NON_MONITOR_SENSOR: Final = "non_monitor_sensor"
 UNMAPPABLE_ARCHIVE: Final = "unmappable_archive"
 
-_INCLUDE_DISPOSITION: Final = "include_ground_insitu_pm25"
-_EXCLUDE_DISPOSITION: Final = "exclude_ground_insitu_pm25"
+_INCLUDE_DISPOSITION: Final = "include_regulatory_ground_monitor"
+_EXCLUDE_DISPOSITION: Final = "exclude_regulatory_ground_monitor"
 _NON_MONITOR_PROVIDERS: Final = frozenset({"AirGradient", "Clarity"})
 _MetadataValue = TypeVar("_MetadataValue")
 
@@ -133,36 +136,172 @@ def _count_rows(
     }
 
 
+def _entity_sort_key(entity_id: str) -> tuple[bool, int | str]:
+    return (
+        not entity_id.isdigit(),
+        int(entity_id) if entity_id.isdigit() else entity_id,
+    )
+
+
+def _build_metric_entities(
+    accumulators: Mapping[str, _EntityAccumulator],
+    *,
+    metric: str,
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+]:
+    entities: list[dict[str, Any]] = []
+    unmappable_archive_entities: list[dict[str, Any]] = []
+    instrument_metadata_revisions: list[dict[str, Any]] = []
+    for entity_id in sorted(accumulators, key=_entity_sort_key):
+        accumulator = accumulators[entity_id]
+        if accumulator.inline_rows == 0:
+            row = {
+                "metric": metric,
+                "entity_id": entity_id,
+                "provider": None,
+                "is_monitor": None,
+                "instrument_names": [],
+                "classification": UNMAPPABLE_ARCHIVE,
+                "disposition": _EXCLUDE_DISPOSITION,
+                "inline_rows": 0,
+                "archive_rows": accumulator.archive_rows,
+            }
+            unmappable_archive_entities.append(
+                {
+                    "metric": metric,
+                    "entity_id": entity_id,
+                    "archive_rows": accumulator.archive_rows,
+                }
+            )
+        else:
+            provider = _single_metadata_value(
+                accumulator.providers,
+                entity_id=entity_id,
+                field_name=f"{metric} provider metadata",
+            )
+            is_monitor = _single_metadata_value(
+                accumulator.monitor_flags,
+                entity_id=entity_id,
+                field_name=f"{metric} isMonitor metadata",
+            )
+            instrument_sets = tuple(sorted(accumulator.instrument_set_counts))
+            instrument_names = tuple(
+                sorted({name for names in instrument_sets for name in names})
+            )
+            classification, disposition = _classification(
+                entity_id=entity_id,
+                provider=provider,
+                is_monitor=is_monitor,
+                instrument_sets=instrument_sets,
+            )
+            if len(instrument_sets) > 1:
+                instrument_metadata_revisions.append(
+                    {
+                        "metric": metric,
+                        "entity_id": entity_id,
+                        "provider": provider,
+                        "is_monitor": is_monitor,
+                        "observed_instrument_name_sets": [
+                            {
+                                "instrument_names": list(names),
+                                "rows": accumulator.instrument_set_counts[names],
+                            }
+                            for names in instrument_sets
+                        ],
+                    }
+                )
+            row = {
+                "metric": metric,
+                "entity_id": entity_id,
+                "provider": provider,
+                "is_monitor": is_monitor,
+                "instrument_names": list(instrument_names),
+                "classification": classification,
+                "disposition": disposition,
+                "inline_rows": accumulator.inline_rows,
+                "archive_rows": accumulator.archive_rows,
+            }
+        entities.append(row)
+    return entities, unmappable_archive_entities, instrument_metadata_revisions
+
+
+def _audit_counts(entities: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    inline_by_provider: dict[str, dict[str, int]] = {}
+    archive_mapped_by_provider: dict[str, dict[str, int]] = {}
+    for provider in sorted(
+        {str(row["provider"]) for row in entities if row["provider"] is not None}
+    ):
+        provider_rows = [row for row in entities if row["provider"] == provider]
+        inline_by_provider[provider] = {
+            "rows": sum(int(row["inline_rows"]) for row in provider_rows),
+            "entities": sum(
+                1 for row in provider_rows if int(row["inline_rows"]) > 0
+            ),
+        }
+        mapped_archive_rows = [
+            row for row in provider_rows if int(row["archive_rows"]) > 0
+        ]
+        archive_mapped_by_provider[provider] = {
+            "rows": sum(int(row["archive_rows"]) for row in mapped_archive_rows),
+            "entities": len(mapped_archive_rows),
+        }
+    archive_entities = [row for row in entities if int(row["archive_rows"]) > 0]
+    return {
+        "inline_by_provider": inline_by_provider,
+        "archive_without_inline_metadata": {
+            "rows": sum(int(row["archive_rows"]) for row in archive_entities),
+            "entities": len(archive_entities),
+        },
+        "archive_mapped_by_provider": archive_mapped_by_provider,
+        "resolved_by_class": {
+            classification: _count_rows(
+                entities, key="classification", value=classification
+            )
+            for classification in (
+                VERIFIED_MONITOR,
+                NON_MONITOR_SENSOR,
+                UNMAPPABLE_ARCHIVE,
+            )
+        },
+    }
+
+
 def derive_openaq_pm25_fixture(
     database: Path,
     *,
     expected_sha256: str = LOCKED_SNAPSHOT_SHA256,
 ) -> dict[str, Any]:
-    """Derive the immutable-window entity table from a read-only SQLite DB."""
+    """Derive one immutable-window table for every B9 OpenAQ metric."""
     before_hash = _sha256(database)
     if before_hash != expected_sha256:
         raise ValueError(
             f"snapshot SHA-256 mismatch before read: {before_hash} != {expected_sha256}"
         )
 
-    accumulators: dict[str, _EntityAccumulator] = defaultdict(_EntityAccumulator)
+    accumulators: dict[tuple[str, str], _EntityAccumulator] = defaultdict(
+        _EntityAccumulator
+    )
     uri = f"{database.resolve().as_uri()}?mode=ro"
     connection = sqlite3.connect(uri, uri=True)
     try:
         connection.execute("PRAGMA query_only = ON")
         cursor = connection.execute(
             """
-            SELECT source_entity_id, raw_json
+            SELECT metric, source_entity_id, raw_json
             FROM data_points
             WHERE source = 'openaq'
-              AND metric = 'pm25'
+              AND metric IN ('ozone', 'pm10', 'pm25')
               AND datetime(timestamp) >= datetime(?)
               AND datetime(timestamp) < datetime(?)
-            ORDER BY source_entity_id, timestamp, id
+            ORDER BY metric, source_entity_id, timestamp, id
             """,
             (STUDY_START, STUDY_END_EXCLUSIVE),
         )
-        for raw_entity_id, raw_json in cursor:
+        for raw_metric, raw_entity_id, raw_json in cursor:
+            metric = str(raw_metric)
             entity_id = str(raw_entity_id)
             try:
                 payload = json.loads(raw_json)
@@ -171,7 +310,7 @@ def derive_openaq_pm25_fixture(
                     f"OpenAQ entity {entity_id} has invalid raw_json"
                 ) from exc
             raw = _as_mapping(payload, field_name="OpenAQ raw_json")
-            accumulator = accumulators[entity_id]
+            accumulator = accumulators[(metric, entity_id)]
             if "location" in raw:
                 location = _as_mapping(
                     raw["location"], field_name="OpenAQ raw_json.location"
@@ -194,7 +333,8 @@ def derive_openaq_pm25_fixture(
                 accumulator.archive_rows += 1
             else:
                 raise ValueError(
-                    f"OpenAQ entity {entity_id} row has neither location nor archive metadata"
+                    f"OpenAQ entity {entity_id} row has neither location nor "
+                    "archive metadata"
                 )
     finally:
         connection.close()
@@ -205,124 +345,58 @@ def derive_openaq_pm25_fixture(
                 f"{after_hash} != {expected_sha256}"
             )
 
-    entities: list[dict[str, Any]] = []
-    unmappable_archive_entities: list[dict[str, Any]] = []
-    instrument_metadata_revisions: list[dict[str, Any]] = []
-    for entity_id in sorted(
-        accumulators,
-        key=lambda item: (not item.isdigit(), int(item) if item.isdigit() else item),
-    ):
-        accumulator = accumulators[entity_id]
-        if accumulator.inline_rows == 0:
-            row = {
-                "entity_id": entity_id,
-                "provider": None,
-                "is_monitor": None,
-                "instrument_names": [],
-                "classification": UNMAPPABLE_ARCHIVE,
-                "disposition": _EXCLUDE_DISPOSITION,
-                "inline_rows": 0,
-                "archive_rows": accumulator.archive_rows,
-            }
-            unmappable_archive_entities.append(
-                {"entity_id": entity_id, "archive_rows": accumulator.archive_rows}
-            )
-        else:
-            provider = _single_metadata_value(
-                accumulator.providers,
-                entity_id=entity_id,
-                field_name="provider metadata",
-            )
-            is_monitor = _single_metadata_value(
-                accumulator.monitor_flags,
-                entity_id=entity_id,
-                field_name="isMonitor metadata",
-            )
-            instrument_sets = tuple(sorted(accumulator.instrument_set_counts))
-            instrument_names = tuple(
-                sorted({name for names in instrument_sets for name in names})
-            )
-            classification, disposition = _classification(
-                entity_id=entity_id,
-                provider=provider,
-                is_monitor=is_monitor,
-                instrument_sets=instrument_sets,
-            )
-            if len(instrument_sets) > 1:
-                instrument_metadata_revisions.append(
-                    {
-                        "entity_id": entity_id,
-                        "provider": provider,
-                        "is_monitor": is_monitor,
-                        "observed_instrument_name_sets": [
-                            {
-                                "instrument_names": list(names),
-                                "rows": accumulator.instrument_set_counts[names],
-                            }
-                            for names in instrument_sets
-                        ],
-                    }
-                )
-            row = {
-                "entity_id": entity_id,
-                "provider": provider,
-                "is_monitor": is_monitor,
-                "instrument_names": list(instrument_names),
-                "classification": classification,
-                "disposition": disposition,
-                "inline_rows": accumulator.inline_rows,
-                "archive_rows": accumulator.archive_rows,
-            }
-        entities.append(row)
-
-    inline_by_provider: dict[str, dict[str, int]] = {}
-    archive_mapped_by_provider: dict[str, dict[str, int]] = {}
-    for provider in sorted(
-        {str(row["provider"]) for row in entities if row["provider"] is not None}
-    ):
-        provider_rows = [row for row in entities if row["provider"] == provider]
-        inline_by_provider[provider] = {
-            "rows": sum(int(row["inline_rows"]) for row in provider_rows),
-            "entities": sum(1 for row in provider_rows if int(row["inline_rows"]) > 0),
+    metric_entities: list[dict[str, Any]] = []
+    all_unmappable: list[dict[str, Any]] = []
+    all_revisions: list[dict[str, Any]] = []
+    audit_counts_by_metric: dict[str, dict[str, Any]] = {}
+    for metric in NOMINATING_METRICS:
+        metric_accumulators = {
+            entity_id: accumulator
+            for (row_metric, entity_id), accumulator in accumulators.items()
+            if row_metric == metric
         }
-        mapped_archive_rows = [
-            row for row in provider_rows if int(row["archive_rows"]) > 0
-        ]
-        archive_mapped_by_provider[provider] = {
-            "rows": sum(int(row["archive_rows"]) for row in mapped_archive_rows),
-            "entities": len(mapped_archive_rows),
-        }
+        entities, unmappable, revisions = _build_metric_entities(
+            metric_accumulators,
+            metric=metric,
+        )
+        metric_entities.extend(entities)
+        all_unmappable.extend(unmappable)
+        all_revisions.extend(revisions)
+        audit_counts_by_metric[metric] = _audit_counts(entities)
 
-    archive_entities = [row for row in entities if int(row["archive_rows"]) > 0]
-    audit_counts = {
-        "inline_by_provider": inline_by_provider,
-        "archive_without_inline_metadata": {
-            "rows": sum(int(row["archive_rows"]) for row in archive_entities),
-            "entities": len(archive_entities),
-        },
-        "archive_mapped_by_provider": archive_mapped_by_provider,
-        "resolved_by_class": {
-            classification: _count_rows(
-                entities, key="classification", value=classification
-            )
-            for classification in (
-                VERIFIED_MONITOR,
-                NON_MONITOR_SENSOR,
-                UNMAPPABLE_ARCHIVE,
-            )
-        },
+    pm25_entities = [
+        row for row in metric_entities if row["metric"] == "pm25"
+    ]
+    pm25_unmappable = [
+        {key: value for key, value in row.items() if key != "metric"}
+        for row in all_unmappable
+        if row["metric"] == "pm25"
+    ]
+    pm25_revisions = [
+        {key: value for key, value in row.items() if key != "metric"}
+        for row in all_revisions
+        if row["metric"] == "pm25"
+    ]
+    eligible_entity_ids_by_metric = {
+        metric: sorted(
+            str(row["entity_id"])
+            for row in metric_entities
+            if row["metric"] == metric
+            and row["classification"] == VERIFIED_MONITOR
+        )
+        for metric in NOMINATING_METRICS
     }
 
     return {
-        "schema_version": 1,
-        "fixture_id": "openaq-pm25-entity-provenance-v1",
+        "schema_version": 2,
+        "fixture_id": "openaq-regulatory-entity-provenance-v2",
         "snapshot_sha256": expected_sha256,
         "study_window": {
             "start": STUDY_START,
             "end_exclusive": STUDY_END_EXCLUSIVE,
         },
         "source": "openaq",
-        "metric": "pm25",
+        "nominating_metrics": list(NOMINATING_METRICS),
         "classification_rule": {
             "entity_key": "source_entity_id (OpenAQ sensor ID)",
             "verified_monitor": (
@@ -332,13 +406,23 @@ def derive_openaq_pm25_fixture(
             "non_monitor_sensor": (
                 "provider IN [AirGradient, Clarity] AND isMonitor=false"
             ),
-            "archive_mapping": "exact source_entity_id equality",
+            "archive_mapping": "exact (metric, source_entity_id) equality",
             "unmappable_archive_disposition": _EXCLUDE_DISPOSITION,
         },
-        "audit_counts": audit_counts,
-        "entities": entities,
-        "instrument_metadata_revisions": instrument_metadata_revisions,
-        "unmappable_archive_entities": unmappable_archive_entities,
+        "eligible_entity_ids_by_metric": eligible_entity_ids_by_metric,
+        "eligible_entity_counts": {
+            metric: len(entity_ids)
+            for metric, entity_ids in eligible_entity_ids_by_metric.items()
+        },
+        "audit_counts_by_metric": audit_counts_by_metric,
+        "metric_entities": metric_entities,
+        "instrument_metadata_revisions_by_metric": all_revisions,
+        "unmappable_archive_entities_by_metric": all_unmappable,
+        "metric": "pm25",
+        "audit_counts": audit_counts_by_metric["pm25"],
+        "entities": pm25_entities,
+        "instrument_metadata_revisions": pm25_revisions,
+        "unmappable_archive_entities": pm25_unmappable,
     }
 
 
@@ -353,25 +437,36 @@ def write_openaq_pm25_fixture(payload: Mapping[str, Any], output: Path) -> None:
 
 @lru_cache(maxsize=1)
 def load_openaq_pm25_fixture() -> dict[str, Any]:
-    """Load and minimally validate the committed v1 provenance fixture."""
+    """Load and validate the one active multi-metric B6/B9 fixture."""
     payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-    fixture = dict(_as_mapping(payload, field_name="OpenAQ PM2.5 fixture"))
-    if fixture.get("schema_version") != 1:
-        raise ValueError("unsupported OpenAQ PM2.5 provenance fixture schema")
+    fixture = dict(_as_mapping(payload, field_name="OpenAQ provenance fixture"))
+    if fixture.get("schema_version") != 2:
+        raise ValueError("unsupported OpenAQ provenance fixture schema")
+    if fixture.get("fixture_id") != "openaq-regulatory-entity-provenance-v2":
+        raise ValueError("unexpected OpenAQ provenance fixture ID")
     if fixture.get("snapshot_sha256") != LOCKED_SNAPSHOT_SHA256:
-        raise ValueError("OpenAQ PM2.5 fixture does not match the locked snapshot")
-    raw_entities = fixture.get("entities")
+        raise ValueError("OpenAQ fixture does not match the locked snapshot")
+    if fixture.get("nominating_metrics") != list(NOMINATING_METRICS):
+        raise ValueError("OpenAQ fixture nominating metrics do not match B9")
+    raw_entities = fixture.get("metric_entities")
     if not isinstance(raw_entities, list):
-        raise ValueError("OpenAQ PM2.5 fixture entities must be a list")
-    entity_ids: set[str] = set()
+        raise ValueError("OpenAQ fixture metric_entities must be a list")
+    entity_keys: set[tuple[str, str]] = set()
+    computed_eligible: dict[str, list[str]] = {
+        metric: [] for metric in NOMINATING_METRICS
+    }
     for raw_entity in raw_entities:
-        entity = _as_mapping(raw_entity, field_name="OpenAQ PM2.5 fixture entity")
+        entity = _as_mapping(raw_entity, field_name="OpenAQ fixture entity")
+        metric = entity.get("metric")
+        if metric not in NOMINATING_METRICS:
+            raise ValueError(f"OpenAQ fixture entity has invalid metric: {metric}")
         entity_id = entity.get("entity_id")
         if not isinstance(entity_id, str) or not entity_id:
-            raise ValueError("OpenAQ PM2.5 fixture entity ID is missing")
-        if entity_id in entity_ids:
-            raise ValueError(f"duplicate OpenAQ PM2.5 fixture entity: {entity_id}")
-        entity_ids.add(entity_id)
+            raise ValueError("OpenAQ fixture entity ID is missing")
+        entity_key = (metric, entity_id)
+        if entity_key in entity_keys:
+            raise ValueError(f"duplicate OpenAQ fixture entity: {entity_key}")
+        entity_keys.add(entity_key)
         classification = entity.get("classification")
         if classification not in {
             VERIFIED_MONITOR,
@@ -379,7 +474,7 @@ def load_openaq_pm25_fixture() -> dict[str, Any]:
             UNMAPPABLE_ARCHIVE,
         }:
             raise ValueError(
-                f"OpenAQ PM2.5 fixture entity {entity_id} has invalid class"
+                f"OpenAQ fixture entity {metric}/{entity_id} has invalid class"
             )
         if classification == VERIFIED_MONITOR and (
             entity.get("provider") != "AirNow"
@@ -388,30 +483,42 @@ def load_openaq_pm25_fixture() -> dict[str, Any]:
             or entity.get("disposition") != _INCLUDE_DISPOSITION
         ):
             raise ValueError(
-                f"OpenAQ PM2.5 fixture entity {entity_id} is not a verified monitor"
+                f"OpenAQ fixture entity {metric}/{entity_id} is not verified"
             )
+        if classification == VERIFIED_MONITOR:
+            computed_eligible[metric].append(entity_id)
         if classification != VERIFIED_MONITOR and (
             entity.get("disposition") != _EXCLUDE_DISPOSITION
         ):
             raise ValueError(
-                f"OpenAQ PM2.5 fixture entity {entity_id} is not excluded"
+                f"OpenAQ fixture entity {metric}/{entity_id} is not excluded"
             )
+    computed_eligible = {
+        metric: sorted(entity_ids)
+        for metric, entity_ids in computed_eligible.items()
+    }
+    if fixture.get("eligible_entity_ids_by_metric") != computed_eligible:
+        raise ValueError("OpenAQ fixture eligible entity allowlists are inconsistent")
+    if fixture.get("eligible_entity_counts") != {
+        metric: len(entity_ids)
+        for metric, entity_ids in computed_eligible.items()
+    }:
+        raise ValueError("OpenAQ fixture eligible entity counts are inconsistent")
     return fixture
 
 
-@lru_cache(maxsize=1)
-def verified_monitor_entity_ids() -> frozenset[str]:
-    """OpenAQ sensor IDs permitted to enter the ground in-situ PM2.5 leg."""
-    return frozenset(
-        str(entity["entity_id"])
-        for entity in load_openaq_pm25_fixture()["entities"]
-        if entity["classification"] == VERIFIED_MONITOR
-    )
+@lru_cache(maxsize=None)
+def verified_monitor_entity_ids(metric: str = "pm25") -> frozenset[str]:
+    """Exact OpenAQ entity allowlist for one B9 nominating metric."""
+    if metric not in NOMINATING_METRICS:
+        return frozenset()
+    fixture = load_openaq_pm25_fixture()
+    return frozenset(fixture["eligible_entity_ids_by_metric"][metric])
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Derive the B6 OpenAQ PM2.5 entity-provenance fixture."
+        description="Derive the active B6/B9 OpenAQ entity-provenance fixture."
     )
     parser.add_argument("--database", required=True, type=Path)
     parser.add_argument(

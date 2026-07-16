@@ -31,7 +31,10 @@ from typing import cast
 
 from app.llm.observation_age import assess_observation_age
 from app.llm.validate import strip_locators, threshold_cues, within_tolerance
-from app.provenance.openaq_pm25 import verified_monitor_entity_ids
+from app.provenance.openaq_pm25 import (
+    NOMINATING_METRICS as OPENAQ_REGULATORY_METRICS,
+    verified_monitor_entity_ids,
+)
 from app.provenance.purpleair_qc import purpleair_reading_is_eligible
 
 logger = logging.getLogger(__name__)
@@ -551,9 +554,13 @@ def score_concentration_elevation(
         data = _metric_block(summary, source, metric)
         if not data or data.get("nearest_in_time", {}).get("v") is None:
             verdicts[source] = SILENT
-            if source == "openaq" and metric == "pm25" and raw_data:
+            if (
+                source == "openaq"
+                and metric in OPENAQ_REGULATORY_METRICS
+                and raw_data
+            ):
                 notes.append(
-                    "openaq: no verified-monitor pm25 observation in window"
+                    f"openaq: no verified-monitor {metric} observation in window"
                 )
             else:
                 notes.append(f"{source}: no {metric} in window")
@@ -1270,18 +1277,21 @@ def _metric_block(summary: Mapping, source: str, metric: str) -> Mapping | None:
     block = summary.get("sources", {}).get(source, {}).get("metrics", {}).get(metric)
     if not block:
         return None
-    if source == "openaq" and metric == "pm25":
-        return _verified_openaq_pm25_block(summary, block)
+    if source == "openaq" and metric in OPENAQ_REGULATORY_METRICS:
+        return _verified_openaq_block(summary, block, metric=metric)
     if source == "purpleair" and metric == "pm25":
         return _eligible_purpleair_pm25_block(summary, block)
     return block
 
 
-def _verified_openaq_pm25_block(
-    summary: Mapping, block: Mapping
+def _verified_openaq_block(
+    summary: Mapping,
+    block: Mapping,
+    *,
+    metric: str,
 ) -> Mapping | None:
-    """Rebuild an OpenAQ PM2.5 block from verified monitor entities only."""
-    eligible_ids = verified_monitor_entity_ids()
+    """Rebuild an OpenAQ metric block from its exact B6 v2 allowlist."""
+    eligible_ids = verified_monitor_entity_ids(metric)
     raw_entities = block.get("entities")
     if not isinstance(raw_entities, list):
         return None

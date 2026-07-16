@@ -33,6 +33,8 @@ class GeminiClient(LLMClient):
     Cloud comparison baseline only (Gemini 3 Thinking). Decoding is
     constrained via ``responseJsonSchema``; thought parts are dropped from
     the response so only the answer text reaches the JSON parser.
+    ``completion_tokens`` records billable output usage: visible candidate
+    tokens plus separately reported thinking tokens.
     ``model_version`` is filled in from the ``modelVersion`` the API reports.
     """
 
@@ -111,8 +113,19 @@ class GeminiClient(LLMClient):
                 f"{self.model_name} returned no usable content (reason={reason})"
             )
         usage = data.get("usageMetadata", {})
+        candidate_tokens = usage.get("candidatesTokenCount")
+        raw_thought_tokens = usage.get("thoughtsTokenCount", 0)
+        if (
+            type(candidate_tokens) is int
+            and candidate_tokens >= 0
+            and type(raw_thought_tokens) is int
+            and raw_thought_tokens >= 0
+        ):
+            billable_output_tokens = candidate_tokens + raw_thought_tokens
+        else:
+            billable_output_tokens = None
         return RawCompletion(
             text=text,
             prompt_tokens=usage.get("promptTokenCount"),
-            completion_tokens=usage.get("candidatesTokenCount"),
+            completion_tokens=billable_output_tokens,
         )

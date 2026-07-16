@@ -18,7 +18,11 @@ from typing import Any, Final
 
 import numpy as np
 
-from app.eval.harness import DEFAULT_MODELS, USD_PER_MTOK
+from app.eval.harness import (
+    DEFAULT_MODELS,
+    USD_PER_MTOK,
+    USD_PER_MTOK_PROVENANCE,
+)
 from app.llm.corroboration import (
     CALM_WIND_FLOOR_STATUS,
     ClaimType,
@@ -1184,6 +1188,15 @@ def _audit_cells(
         }
     costs = {
         "status": "available" if pricing_complete else "n/a",
+        "estimate_scope": (
+            "standard paid text-token list prices; excludes free-tier/account "
+            "credits, cached-input discounts, taxes, and negotiated terms"
+        ),
+        "pricing_provenance": {
+            model: dict(USD_PER_MTOK_PROVENANCE[model])
+            for model in models
+            if model in USD_PER_MTOK_PROVENANCE
+        },
         "per_model": per_model_cost,
     }
     return (
@@ -1827,6 +1840,22 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         lines.append(
             f"| {model} | {row['prompt_tokens']} | "
             f"{row['completion_tokens']} | {estimate} |"
+        )
+    lines += [
+        "",
+        f"Estimate scope: {report['costs']['estimate_scope']}",
+        "",
+        "| Priced model | Input $/MTok | Output $/MTok | Accessed | Billing basis | Source |",
+        "|---|---:|---:|---|---|---|",
+    ]
+    pricing_provenance = report["costs"]["pricing_provenance"]
+    for model in sorted(pricing_provenance):
+        provenance = pricing_provenance[model]
+        rates = report["costs"]["per_model"][model]["usd_per_mtok"]
+        lines.append(
+            f"| {model} | {rates['prompt']} | {rates['completion']} | "
+            f"{provenance['accessed']} | {provenance['billing_basis']} | "
+            f"{provenance['source_url']} |"
         )
     lines += [
         "",

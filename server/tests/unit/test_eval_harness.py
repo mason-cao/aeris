@@ -17,6 +17,8 @@ from app.db.models import Anomaly, EnrichmentRecord, Explanation
 from app.eval.harness import (
     DEFAULT_MODELS,
     ModelSweepSummary,
+    USD_PER_MTOK,
+    USD_PER_MTOK_PROVENANCE,
     _format_summaries,
     _parse_args,
     load_anomaly_set,
@@ -360,6 +362,24 @@ async def test_unexpected_error_is_recorded_and_isolated(db_session):
 
 
 # --- cost / latency accounting ---
+
+
+def test_exact_official_cloud_rates_and_provenance_are_declared() -> None:
+    assert USD_PER_MTOK == {
+        "gemini-3.5-flash": (1.50, 9.00),
+        "gpt-5.4": (2.50, 15.00),
+    }
+    assert USD_PER_MTOK_PROVENANCE["gpt-5.4"] == {
+        "accessed": "2026-07-16",
+        "billing_basis": "standard paid text tokens; output includes reasoning tokens",
+        "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4",
+    }
+    assert USD_PER_MTOK_PROVENANCE["gemini-3.5-flash"] == {
+        "accessed": "2026-07-16",
+        "billing_basis": "standard paid text tokens; output includes thinking tokens",
+        "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+    }
+    assert "llama3:8b" not in USD_PER_MTOK
 
 
 @pytest.mark.asyncio

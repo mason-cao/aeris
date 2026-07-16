@@ -270,7 +270,19 @@ def test_valid_report_has_exact_cells_dual_units_and_go_status() -> None:
     }
     assert report["cell_audit"]["completed_cells"] == 15
     assert report["selection"]["plain_top_five_anomaly_ids"] == ANOMALY_IDS[:5]
-    assert report["costs"]["status"] == "n/a"
+    assert report["costs"]["status"] == "available"
+    assert report["costs"]["per_model"]["gpt-5.4"]["estimated_cost_usd"] == (
+        pytest.approx(0.08)
+    )
+    assert report["costs"]["per_model"]["gemini-3.5-flash"][
+        "estimated_cost_usd"
+    ] == pytest.approx(0.048)
+    assert report["costs"]["per_model"]["llama3:8b"][
+        "estimated_cost_usd"
+    ] is None
+    assert report["costs"]["pricing_provenance"]["gemini-3.5-flash"][
+        "billing_basis"
+    ].endswith("thinking tokens")
 
 
 def test_fourteen_cells_is_a_structural_hard_stop() -> None:

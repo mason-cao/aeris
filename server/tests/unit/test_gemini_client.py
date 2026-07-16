@@ -20,11 +20,20 @@ def _client_with(handler, **kwargs) -> GeminiClient:
     return GeminiClient(http_client=httpx.AsyncClient(transport=transport), **kwargs)
 
 
-def _gemini_response(parts: list[dict]) -> dict:
+def _gemini_response(
+    parts: list[dict],
+    *,
+    usage_metadata: dict[str, int] | None = None,
+) -> dict:
     return {
         "modelVersion": "gemini-3-thinking-0601",
         "candidates": [{"content": {"role": "model", "parts": parts}}],
-        "usageMetadata": {"promptTokenCount": 42, "candidatesTokenCount": 17},
+        "usageMetadata": usage_metadata
+        or {
+            "promptTokenCount": 42,
+            "candidatesTokenCount": 17,
+            "thoughtsTokenCount": 11,
+        },
     }
 
 
@@ -83,7 +92,35 @@ class TestGeminiClient:
         assert config["temperature"] == 0.0
         assert raw.text == '{"cause": "transport", "confidence": 0.4}'
         assert raw.prompt_tokens == 42
-        assert raw.completion_tokens == 17
+        assert raw.completion_tokens == 28
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_billable_output_handles_omitted_thoughts_and_missing_candidate_usage(
+        self,
+    ) -> None:
+        responses = iter(
+            [
+                {"promptTokenCount": 42, "candidatesTokenCount": 17},
+                {"promptTokenCount": 42, "thoughtsTokenCount": 11},
+            ]
+        )
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json=_gemini_response(
+                    [{"text": '{"cause": "transport", "confidence": 0.4}'}],
+                    usage_metadata=next(responses),
+                ),
+            )
+
+        client = _client_with(handler)
+        without_thoughts = await client._complete("p", _Attribution)
+        missing_candidates = await client._complete("p", _Attribution)
+
+        assert without_thoughts.completion_tokens == 17
+        assert missing_candidates.completion_tokens is None
         await client.close()
 
     @pytest.mark.asyncio

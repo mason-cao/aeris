@@ -38,11 +38,30 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MODELS: tuple[str, ...] = ("llama3:8b", GPT_DEFAULT, GEMINI_DEFAULT)
 
-# Published per-1M-token prices (USD): (prompt_rate, completion_rate). Fill from
-# each provider's current pricing page before the freeze to turn on the $est
-# column; empty by default so no fabricated number is ever printed. Local models
-# (Ollama) are free and intentionally absent.
-USD_PER_MTOK: dict[str, tuple[float, float]] = {}
+# Standard paid text-token list prices per 1M tokens (USD), accessed on the
+# declared date: (prompt_rate, billable_output_rate). Account credits, free-tier
+# allowances, cached-input discounts, taxes, and negotiated pricing are outside
+# this estimate. Local Ollama models remain intentionally absent.
+USD_PER_MTOK: dict[str, tuple[float, float]] = {
+    "gemini-3.5-flash": (1.50, 9.00),
+    "gpt-5.4": (2.50, 15.00),
+}
+USD_PER_MTOK_PROVENANCE: dict[str, dict[str, str]] = {
+    "gemini-3.5-flash": {
+        "accessed": "2026-07-16",
+        "billing_basis": (
+            "standard paid text tokens; output includes thinking tokens"
+        ),
+        "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+    },
+    "gpt-5.4": {
+        "accessed": "2026-07-16",
+        "billing_basis": (
+            "standard paid text tokens; output includes reasoning tokens"
+        ),
+        "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4",
+    },
+}
 
 
 @dataclass

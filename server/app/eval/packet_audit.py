@@ -20,6 +20,7 @@ from app.eval.packet import (
     extract_plot_data,
     load_packet_source,
     summary_sha256,
+    unsafe_text_findings,
 )
 
 GENERIC_BLINDING_TERMS = (
@@ -47,6 +48,7 @@ class PacketAuditReport:
     vector_count: int
     calm_wind_flag_count: int
     blinding_leaks: tuple[str, ...]
+    text_sanitation_findings: tuple[str, ...]
 
 
 def _sha256_file(path: Path) -> str:
@@ -113,6 +115,16 @@ def audit_packet(
     except (KeyError, TypeError, ValueError) as exc:
         raise PacketAuditError("invalid packet identity in audit manifest") from exc
     ordered_claims = presentation_order(list(claim_groups), anomaly_id, labeler)
+    source_text_findings = unsafe_text_findings(
+        tuple(
+            (f"source claim {index}", claim.claim_text)
+            for index, claim in enumerate(ordered_claims, start=1)
+        )
+    )
+    if source_text_findings:
+        raise PacketAuditError(
+            "unsafe packet text character(s): " + "; ".join(source_text_findings)
+        )
     expected_flags = [
         flag.to_dict()
         for flag in calm_wind_claim_flags(summary, ordered_claims)
@@ -126,6 +138,23 @@ def audit_packet(
     if expected_flags and "wind direction unstable under calm conditions" not in text:
         raise PacketAuditError("calm-wind flag text is missing from the PDF")
     metadata = extract_pdf_metadata(pdf_path)
+    rendered_text_findings = unsafe_text_findings(
+        (
+            ("extracted PDF text", text),
+            *(
+                surface
+                for key, value in sorted(metadata.items())
+                for surface in (
+                    (f"PDF metadata key {key!r}", key),
+                    (f"PDF metadata value for {key!r}", value),
+                )
+            ),
+        )
+    )
+    if rendered_text_findings:
+        raise PacketAuditError(
+            "unsafe packet text character(s): " + "; ".join(rendered_text_findings)
+        )
     leaks = scan_blinding_leaks(text, metadata, model_names=model_names)
     if leaks:
         raise PacketAuditError(f"blinding leak(s) found: {', '.join(leaks)}")
@@ -136,6 +165,7 @@ def audit_packet(
         vector_count=len(expected_plot_data["vectors"]),
         calm_wind_flag_count=len(expected_flags),
         blinding_leaks=leaks,
+        text_sanitation_findings=(),
     )
 
 

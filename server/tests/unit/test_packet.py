@@ -15,6 +15,7 @@ from app.eval.packet import (
     calm_wind_claim_flags,
     extract_plot_data,
     render_packet,
+    unsafe_text_findings,
 )
 from app.eval.packet_audit import PacketAuditError, audit_packet, extract_pdf_text
 
@@ -277,6 +278,91 @@ def test_render_is_byte_deterministic_blind_and_uses_label_cli_order(tmp_path: P
     assert report.vector_count == 3
     assert report.calm_wind_flag_count == 0
     assert report.blinding_leaks == ()
+    assert report.text_sanitation_findings == ()
+
+
+def test_text_sanitation_rejects_observed_controls_and_allows_units() -> None:
+    assert unsafe_text_findings((("claim", "PM10 was 272.0 µg/m³.\t\n\r"),)) == ()
+    assert unsafe_text_findings((("claim", "µ\x05g/m\x03"),)) == (
+        "claim[1]=U+0005 (Cc)",
+        "claim[5]=U+0003 (Cc)",
+    )
+
+
+def test_render_rejects_control_character_before_writing_artifacts(
+    tmp_path: Path,
+) -> None:
+    pdf_path = tmp_path / "unsafe.pdf"
+    manifest_path = tmp_path / "unsafe.audit.json"
+    groups = [
+        ClaimGroup(
+            "A PM10 value of 272.0 \x05g/m\x03 was observed.",
+            (uuid.UUID(int=21),),
+        )
+    ]
+
+    with pytest.raises(ValueError, match=r"U\+0005.*U\+0003"):
+        render_packet(
+            _anomaly(),
+            _summary(),
+            groups,
+            "bracco-example",
+            pdf_path,
+            manifest_path,
+        )
+
+    assert not pdf_path.exists()
+    assert not manifest_path.exists()
+
+
+def test_audit_rejects_control_character_in_extracted_text(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pdf_path = tmp_path / "packet.pdf"
+    manifest_path = tmp_path / "packet.audit.json"
+    render_packet(
+        _anomaly(), _summary(), _groups(), "bracco-example", pdf_path, manifest_path
+    )
+    monkeypatch.setattr(
+        "app.eval.packet_audit.extract_pdf_text",
+        lambda _path: "safe text\x05",
+    )
+
+    with pytest.raises(PacketAuditError, match=r"extracted PDF text.*U\+0005"):
+        audit_packet(
+            pdf_path,
+            manifest_path,
+            _summary(),
+            ANOMALY_TS,
+            model_names=(),
+            claim_groups=tuple(_groups()),
+        )
+
+
+def test_audit_rejects_control_character_in_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pdf_path = tmp_path / "packet.pdf"
+    manifest_path = tmp_path / "packet.audit.json"
+    render_packet(
+        _anomaly(), _summary(), _groups(), "bracco-example", pdf_path, manifest_path
+    )
+    monkeypatch.setattr(
+        "app.eval.packet_audit.extract_pdf_metadata",
+        lambda _path: {"/Subject": "unsafe\x03"},
+    )
+
+    with pytest.raises(PacketAuditError, match=r"metadata.*U\+0003"):
+        audit_packet(
+            pdf_path,
+            manifest_path,
+            _summary(),
+            ANOMALY_TS,
+            model_names=(),
+            claim_groups=tuple(_groups()),
+        )
 
 
 def test_audit_rejects_plot_manifest_tampering(tmp_path: Path) -> None:

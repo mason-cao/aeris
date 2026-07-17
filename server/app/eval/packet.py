@@ -10,6 +10,7 @@ import json
 import math
 import os
 import tempfile
+import unicodedata
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -69,6 +70,7 @@ SOURCE_COLORS = {
     "purpleair": "#7B5EA7",
     "tceq": "#A13D3D",
 }
+ALLOWED_CONTROL_WHITESPACE = frozenset(("\t", "\n", "\r"))
 
 
 @dataclass(frozen=True)
@@ -147,6 +149,21 @@ class PacketSource:
     summary: dict[str, Any]
     claim_groups: tuple[ClaimGroup, ...]
     model_names: tuple[str, ...]
+
+
+def unsafe_text_findings(
+    surfaces: Sequence[tuple[str, str]],
+) -> tuple[str, ...]:
+    """Identify code points that cannot enter an expert-facing packet."""
+    findings: list[str] = []
+    for surface, text in surfaces:
+        for offset, character in enumerate(text):
+            category = unicodedata.category(character)
+            if category.startswith("C") and character not in ALLOWED_CONTROL_WHITESPACE:
+                findings.append(
+                    f"{surface}[{offset}]=U+{ord(character):04X} ({category})"
+                )
+    return tuple(findings)
 
 
 def _ensure_utc(value: datetime) -> datetime:
@@ -968,12 +985,20 @@ def render_packet(
     """Render one deterministic packet and its evidence-audit sidecar."""
     if not claim_groups:
         raise ValueError("packet requires at least one unique claim")
+    ordered_claims = presentation_order(list(claim_groups), anomaly.id, labeler)
+    text_findings = unsafe_text_findings(
+        tuple(
+            (f"source claim {index}", claim.claim_text)
+            for index, claim in enumerate(ordered_claims, start=1)
+        )
+    )
+    if text_findings:
+        raise ValueError("unsafe packet text character(s): " + "; ".join(text_findings))
     output_path = output_path.resolve()
     manifest_path = manifest_path.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     plot_data = extract_plot_data(summary, anomaly.timestamp)
-    ordered_claims = presentation_order(list(claim_groups), anomaly.id, labeler)
     calm_wind_flags = calm_wind_claim_flags(summary, ordered_claims)
     document = SimpleDocTemplate(
         str(output_path),

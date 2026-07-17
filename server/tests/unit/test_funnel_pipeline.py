@@ -24,7 +24,6 @@ from app.eval.freeze import FreezeResult
 from app.eval.funnel_dry_run import (
     ATOMICITY_SELF_CONTAINED,
     build_atomicity_worksheet,
-    build_funnel_report,
 )
 from app.eval.funnel_pipeline import (
     FunnelPipelineError,

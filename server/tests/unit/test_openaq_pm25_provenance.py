@@ -313,7 +313,7 @@ def test_non_monitor_cannot_override_verified_monitor_vote(provider: str) -> Non
     )
 
     assert verdicts["openaq"] == CONTRADICTING
-    assert f"nearest=20.0" in note
+    assert "nearest=20.0" in note
 
 
 @pytest.mark.parametrize("provider", ["Clarity", "AirGradient"])

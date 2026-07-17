@@ -259,9 +259,9 @@ def test_render_is_byte_deterministic_blind_and_uses_label_cli_order(tmp_path: P
     positions = [shown.index(group.claim_text) for group in expected]
     assert positions == sorted(positions)
     normalized = " ".join(shown.split())
-    assert "second pass is blind to the first" in normalized
-    assert "Ambiguous marks are never interpreted" in normalized
-    assert "checksummed annotated PDF is the primary artifact" in normalized
+    assert "without looking at the first pass" in normalized
+    assert "If a mark is ambiguous I won't guess" in normalized
+    assert "the marked-up PDF is the record I work from" in normalized
     lowered = shown.lower()
     for leak in ("llama3:8b", "gpt-5.4", "grounded", "corroboration", "confidence"):
         assert leak not in lowered

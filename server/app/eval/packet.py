@@ -611,8 +611,8 @@ def _packet_styles() -> dict[str, ParagraphStyle]:
             "PacketSubtitle",
             parent=base["Normal"],
             fontName="Helvetica-Bold",
-            fontSize=9,
-            leading=12,
+            fontSize=11,
+            leading=13,
             textColor=colors.HexColor("#8A3F2B"),
             spaceAfter=10,
         ),
@@ -660,7 +660,10 @@ def _packet_styles() -> dict[str, ParagraphStyle]:
             borderWidth=0.6,
             borderPadding=8,
             backColor=colors.HexColor("#F7F9FA"),
-            spaceAfter=8,
+            # borderPadding draws outside the layout box, so the visible gap is
+            # space minus padding; keep space > padding or the box touches text.
+            spaceBefore=12,
+            spaceAfter=18,
         ),
         "calm_flag": ParagraphStyle(
             "CalmWindFlag",
@@ -673,7 +676,8 @@ def _packet_styles() -> dict[str, ParagraphStyle]:
             borderWidth=0.6,
             borderPadding=6,
             backColor=colors.HexColor("#FFF5E6"),
-            spaceAfter=8,
+            spaceBefore=6,
+            spaceAfter=16,
         ),
         "center": ParagraphStyle(
             "PacketCenter",
@@ -807,10 +811,7 @@ def _claim_block(
         )
     )
     content: list[Any] = [
-        Paragraph(
-            f"Claim {index} of {total} - presentation index {index}",
-            styles["claim_index"],
-        ),
+        Paragraph(f"Claim {index} of {total}", styles["claim_index"]),
         Paragraph(escape(claim.claim_text), styles["claim"]),
     ]
     if calm_wind_flag is not None:
@@ -851,45 +852,41 @@ def _build_story(
     styles = _packet_styles()
     story: list[Any] = [Paragraph("AERIS Expert Review Packet", styles["title"])]
     if example:
-        story.append(
-            Paragraph(
-                "DRAFT EXAMPLE - format review only; do not return as an official label.",
-                styles["subtitle"],
-            )
-        )
+        story.append(Paragraph("DRAFT", styles["subtitle"]))
     story.extend(
         [
             Paragraph("Anomaly", styles["heading"]),
             _anomaly_table(anomaly, styles),
             Spacer(1, 8),
-            Paragraph("Annotation instructions", styles["heading"]),
+            Paragraph("Instructions", styles["heading"]),
             Paragraph(
                 "For each numbered claim, mark exactly one box: V (Valid), I (Invalid), or U (Unsure). "
-                "Leave all boxes blank if you do not answer a claim; an unanswered claim is recorded as missing, "
-                "not as Unsure. Add a short note for Invalid or Unsure when the reason is not obvious; a note on "
-                "Valid is optional.",
+                "If you skip a claim, leave all three boxes blank; I record a skipped claim as missing, "
+                "not as Unsure. Please add a short note for Invalid or Unsure when the reason isn't "
+                "obvious. A note on Valid is optional.",
                 styles["body"],
             ),
             Paragraph(
-                "After return, the checksummed annotated PDF is the primary artifact. Mason transcribes it twice "
-                "in independent sessions; the second pass is blind to the first. A mechanical diff identifies "
-                "mismatches for resolution against that PDF. Ambiguous marks are never interpreted; they are sent "
-                "back as an enumerated clarification list before ingestion.",
+                "Once you send this back, the marked-up PDF is the record I work from. I type up your "
+                "marks twice, on separate days, without looking at the first pass while doing the second, "
+                "then compare the two and settle any mismatch against the PDF itself. If a mark is "
+                "ambiguous I won't guess what you meant; I'll email you a short numbered list of the "
+                "unclear ones instead.",
                 styles["body"],
             ),
             Paragraph(
-                "Valid: scientifically defensible at the precision stated and supported by the evidence shown. "
-                "Invalid: contradicted by the evidence, misstates a measurement, or uses indefensible physical "
-                "reasoning. Unsure: the displayed evidence is insufficient, the measurements cannot resolve the "
-                "claim, the wording is ambiguous, or the claim falls outside what you can judge confidently. "
-                "Missing or insufficient evidence is Unsure.",
+                "Valid: defensible at the stated precision and supported by the evidence shown. "
+                "Invalid: contradicted by the evidence, misstates a measurement, or the physical "
+                "reasoning doesn't hold. Unsure: the evidence shown can't resolve it, the wording is "
+                "ambiguous, or it's outside what you can judge confidently. Missing or thin evidence "
+                "is always Unsure.",
                 styles["body"],
             ),
             Paragraph(
-                "The location plot uses only coordinates stored in the 72-hour context. Each wind panel uses the "
-                "timestamp-paired observation nearest the event for that entity. Arrows point downwind; direction "
-                "encodes motion and length encodes speed in m/s within each panel. No basemap or external data is "
-                "included.",
+                "The station map shows only coordinates stored in the 72-hour context window. Each wind "
+                "panel shows one arrow per station, taken from the observation closest to the event "
+                "time. Arrows point downwind, and a longer arrow means faster wind (m/s, scaled within "
+                "each panel). There's no basemap and nothing from outside the database.",
                 styles["body"],
             ),
             Paragraph("Stored evidence summary", styles["heading"]),
@@ -901,8 +898,8 @@ def _build_story(
             PageBreak(),
             Paragraph("Claims", styles["heading"]),
             Paragraph(
-                "Claims are shown once in a deterministic labeler-specific order. The presentation index is the "
-                "number printed with each claim.",
+                "Each claim appears exactly once, in an order fixed ahead of time for your copy. When I "
+                "transcribe your marks I refer to claims by the number printed next to them.",
                 styles["body"],
             ),
         ]
@@ -918,10 +915,10 @@ def _build_story(
     story.extend(
         [
             PageBreak(),
-            Paragraph("Optional event-level note", styles["heading"]),
+            Paragraph("Optional: most likely cause", styles["heading"]),
             Paragraph(
-                "Most likely true cause, in your own words. It is acceptable to write: insufficient evidence to "
-                "determine a single cause.",
+                "Your best guess at the true cause of this event, in your own words. \"Insufficient "
+                "evidence to determine a single cause\" is a perfectly fine answer.",
                 styles["body"],
             ),
             Table(

@@ -103,6 +103,7 @@ class PowerSimulationConfig:
     """Pre-registered hierarchical P7 Monte Carlo design."""
 
     cluster_sizes: tuple[int, ...]
+    spearman_cluster_sizes: tuple[int, ...] | None = None
     iccs: tuple[float, ...] = (0.0, 0.15, 0.3)
     valid_prevalences: tuple[float, ...] = (0.5, 0.6, 0.7)
     unsure_prevalences: tuple[float, ...] = (0.1, 0.2)
@@ -118,6 +119,20 @@ class PowerSimulationConfig:
             type(size) is not int or size < 1 for size in self.cluster_sizes
         ):
             raise ValueError("cluster_sizes must contain positive integers")
+        if self.spearman_cluster_sizes is not None:
+            if len(self.spearman_cluster_sizes) != len(self.cluster_sizes):
+                raise ValueError(
+                    "spearman_cluster_sizes must align one-to-one with "
+                    "cluster_sizes"
+                )
+            if any(
+                type(size) is not int or size < 0
+                for size in self.spearman_cluster_sizes
+            ) or not any(size > 0 for size in self.spearman_cluster_sizes):
+                raise ValueError(
+                    "spearman_cluster_sizes must contain nonnegative integers "
+                    "with at least one positive value"
+                )
         for icc in self.iccs:
             if not 0.0 <= icc < 1.0:
                 raise ValueError("every ICC must be in [0, 1)")
@@ -645,6 +660,293 @@ def cluster_bootstrap_interval(
         cluster_count=cluster_count,
         ci_available=True,
         refusal_reason=None,
+    )
+
+
+def _power_bootstrap_result(
+    *,
+    point_estimate: float | None,
+    estimates: np.ndarray | None,
+    confidence_level: float,
+    requested_replicates: int,
+    cluster_count: int,
+    undefined_limit: float,
+) -> BootstrapResult:
+    if point_estimate is None:
+        return BootstrapResult(
+            point_estimate=None,
+            ci_low=None,
+            ci_high=None,
+            confidence_level=confidence_level,
+            requested_replicates=requested_replicates,
+            defined_replicates=0,
+            undefined_replicates=0,
+            undefined_fraction=0.0,
+            cluster_count=cluster_count,
+            ci_available=False,
+            refusal_reason="point statistic undefined",
+        )
+    if cluster_count < 2:
+        return BootstrapResult(
+            point_estimate=point_estimate,
+            ci_low=None,
+            ci_high=None,
+            confidence_level=confidence_level,
+            requested_replicates=requested_replicates,
+            defined_replicates=0,
+            undefined_replicates=0,
+            undefined_fraction=0.0,
+            cluster_count=cluster_count,
+            ci_available=False,
+            refusal_reason="cluster bootstrap requires at least 2 anomalies",
+        )
+    assert estimates is not None
+    defined = estimates[np.isfinite(estimates)]
+    undefined = requested_replicates - int(defined.size)
+    undefined_fraction = undefined / requested_replicates
+    if undefined_fraction > undefined_limit:
+        return BootstrapResult(
+            point_estimate=point_estimate,
+            ci_low=None,
+            ci_high=None,
+            confidence_level=confidence_level,
+            requested_replicates=requested_replicates,
+            defined_replicates=int(defined.size),
+            undefined_replicates=undefined,
+            undefined_fraction=undefined_fraction,
+            cluster_count=cluster_count,
+            ci_available=False,
+            refusal_reason="more than 5% bootstrap replicates undefined",
+        )
+    if not defined.size:
+        return BootstrapResult(
+            point_estimate=point_estimate,
+            ci_low=None,
+            ci_high=None,
+            confidence_level=confidence_level,
+            requested_replicates=requested_replicates,
+            defined_replicates=0,
+            undefined_replicates=undefined,
+            undefined_fraction=undefined_fraction,
+            cluster_count=cluster_count,
+            ci_available=False,
+            refusal_reason="no defined bootstrap replicates",
+        )
+    tail = (1.0 - confidence_level) / 2.0
+    low, high = np.quantile(
+        defined,
+        [tail, 1.0 - tail],
+        method="linear",
+    )
+    return BootstrapResult(
+        point_estimate=point_estimate,
+        ci_low=float(low),
+        ci_high=float(high),
+        confidence_level=confidence_level,
+        requested_replicates=requested_replicates,
+        defined_replicates=int(defined.size),
+        undefined_replicates=undefined,
+        undefined_fraction=undefined_fraction,
+        cluster_count=cluster_count,
+        ci_available=True,
+        refusal_reason=None,
+    )
+
+
+def power_kappa_bootstrap_interval(
+    pairs: Sequence[OverlapPair],
+    *,
+    n_resamples: int,
+    seed: int,
+    confidence_level: float = 0.95,
+    undefined_limit: float = 0.05,
+) -> BootstrapResult:
+    """Vectorized equivalent of the anomaly-cluster κ bootstrap for P7."""
+    observed = list(pairs)
+    if not observed:
+        raise ValueError("cluster bootstrap input is empty")
+    if type(n_resamples) is not int or n_resamples < 1:
+        raise ValueError("n_resamples must be a positive integer")
+    if not 0.0 < confidence_level < 1.0:
+        raise ValueError("confidence_level must be between zero and one")
+    if not 0.0 <= undefined_limit <= 1.0:
+        raise ValueError("undefined_limit must be between zero and one")
+    point = cohen_kappa(
+        [pair.mason_verdict for pair in observed],
+        [pair.bracco_verdict for pair in observed],
+        categories=VERDICTS,
+    ).kappa
+    cluster_ids = sorted({pair.anomaly_id for pair in observed})
+    cluster_count = len(cluster_ids)
+    if point is None or cluster_count < 2:
+        return _power_bootstrap_result(
+            point_estimate=point,
+            estimates=None,
+            confidence_level=confidence_level,
+            requested_replicates=n_resamples,
+            cluster_count=cluster_count,
+            undefined_limit=undefined_limit,
+        )
+
+    category_index = {category: index for index, category in enumerate(VERDICTS)}
+    cluster_index = {
+        anomaly_id: index for index, anomaly_id in enumerate(cluster_ids)
+    }
+    confusion = np.zeros((cluster_count, len(VERDICTS), len(VERDICTS)), dtype=int)
+    for pair in observed:
+        confusion[
+            cluster_index[pair.anomaly_id],
+            category_index[pair.mason_verdict],
+            category_index[pair.bracco_verdict],
+        ] += 1
+    rng = np.random.default_rng(seed)
+    draws = rng.integers(
+        0,
+        cluster_count,
+        size=(n_resamples, cluster_count),
+    )
+    sampled = confusion[draws].sum(axis=1)
+    totals = sampled.sum(axis=(1, 2)).astype(float)
+    observed_agreement = np.trace(sampled, axis1=1, axis2=2) / totals
+    first_marginals = sampled.sum(axis=2) / totals[:, None]
+    second_marginals = sampled.sum(axis=1) / totals[:, None]
+    expected_agreement = (first_marginals * second_marginals).sum(axis=1)
+    denominator = 1.0 - expected_agreement
+    estimates = np.full(n_resamples, np.nan)
+    defined = np.abs(denominator) > 1e-15
+    estimates[defined] = (
+        observed_agreement[defined] - expected_agreement[defined]
+    ) / denominator[defined]
+    return _power_bootstrap_result(
+        point_estimate=point,
+        estimates=estimates,
+        confidence_level=confidence_level,
+        requested_replicates=n_resamples,
+        cluster_count=cluster_count,
+        undefined_limit=undefined_limit,
+    )
+
+
+def power_spearman_bootstrap_interval(
+    records: Sequence[Mapping[str, object]],
+    *,
+    n_resamples: int,
+    seed: int,
+    confidence_level: float = 0.95,
+    undefined_limit: float = 0.05,
+) -> BootstrapResult:
+    """Weighted-rank equivalent of the anomaly-cluster Spearman bootstrap."""
+    if type(n_resamples) is not int or n_resamples < 1:
+        raise ValueError("n_resamples must be a positive integer")
+    if not 0.0 < confidence_level < 1.0:
+        raise ValueError("confidence_level must be between zero and one")
+    if not 0.0 <= undefined_limit <= 1.0:
+        raise ValueError("undefined_limit must be between zero and one")
+    normalized: list[tuple[str, float, float]] = []
+    for position, raw_record in enumerate(records, start=1):
+        record = _required_mapping(raw_record, f"Spearman record {position}")
+        anomaly_id = _required_string(
+            record.get("anomaly_id"), "Spearman anomaly_id"
+        )
+        score = _finite_or_none(record.get("score"), "Spearman score")
+        verdict = record.get("verdict")
+        if score is None or verdict is None or verdict == "unsure":
+            continue
+        if verdict not in VERDICTS:
+            raise ValueError("Spearman verdict must be valid, invalid, unsure, or null")
+        normalized.append(
+            (anomaly_id, score, 1.0 if verdict == "valid" else 0.0)
+        )
+    cluster_ids = sorted({record[0] for record in normalized})
+    cluster_count = len(cluster_ids)
+    if not normalized:
+        return _power_bootstrap_result(
+            point_estimate=None,
+            estimates=None,
+            confidence_level=confidence_level,
+            requested_replicates=n_resamples,
+            cluster_count=cluster_count,
+            undefined_limit=undefined_limit,
+        )
+    scores = np.asarray([record[1] for record in normalized], dtype=float)
+    labels = np.asarray([record[2] for record in normalized], dtype=float)
+    point = None
+    if np.unique(scores).size >= 2 and np.unique(labels).size >= 2:
+        point_result = stats.spearmanr(scores, labels, alternative="two-sided")
+        point = _statistic_value(point_result.statistic)
+    if point is None or cluster_count < 2:
+        return _power_bootstrap_result(
+            point_estimate=point,
+            estimates=None,
+            confidence_level=confidence_level,
+            requested_replicates=n_resamples,
+            cluster_count=cluster_count,
+            undefined_limit=undefined_limit,
+        )
+
+    cluster_lookup = {
+        anomaly_id: index for index, anomaly_id in enumerate(cluster_ids)
+    }
+    order = np.argsort(scores, kind="stable")
+    sorted_scores = scores[order]
+    sorted_labels = labels[order]
+    sorted_cluster_indices = np.asarray(
+        [cluster_lookup[normalized[int(index)][0]] for index in order],
+        dtype=int,
+    )
+    _, score_group_indices = np.unique(sorted_scores, return_inverse=True)
+    score_group_count = int(score_group_indices.max()) + 1
+
+    rng = np.random.default_rng(seed)
+    draws = rng.integers(
+        0,
+        cluster_count,
+        size=(n_resamples, cluster_count),
+    )
+    multiplicities = (
+        draws[:, :, None] == np.arange(cluster_count)[None, None, :]
+    ).sum(axis=1)
+    row_weights = multiplicities[:, sorted_cluster_indices].astype(float)
+    score_group_weights = np.zeros((n_resamples, score_group_count), dtype=float)
+    for group_index in range(score_group_count):
+        score_group_weights[:, group_index] = row_weights[
+            :, score_group_indices == group_index
+        ].sum(axis=1)
+    cumulative_group_weights = np.cumsum(score_group_weights, axis=1)
+    score_group_ranks = cumulative_group_weights - (
+        score_group_weights - 1.0
+    ) / 2.0
+    score_ranks = score_group_ranks[:, score_group_indices]
+
+    invalid_counts = (row_weights * (1.0 - sorted_labels)).sum(axis=1)
+    valid_counts = (row_weights * sorted_labels).sum(axis=1)
+    invalid_rank = (invalid_counts + 1.0) / 2.0
+    valid_rank = invalid_counts + (valid_counts + 1.0) / 2.0
+    label_ranks = np.where(
+        sorted_labels[None, :] == 1.0,
+        valid_rank[:, None],
+        invalid_rank[:, None],
+    )
+    totals = row_weights.sum(axis=1)
+    score_means = (row_weights * score_ranks).sum(axis=1) / totals
+    label_means = (row_weights * label_ranks).sum(axis=1) / totals
+    centered_scores = score_ranks - score_means[:, None]
+    centered_labels = label_ranks - label_means[:, None]
+    covariance = (row_weights * centered_scores * centered_labels).sum(axis=1)
+    score_variance = (row_weights * centered_scores**2).sum(axis=1)
+    label_variance = (row_weights * centered_labels**2).sum(axis=1)
+    denominator = np.sqrt(score_variance * label_variance)
+    estimates = np.full(n_resamples, np.nan)
+    defined = denominator > 0.0
+    estimates[defined] = covariance[defined] / denominator[defined]
+    estimates[defined] = np.clip(estimates[defined], -1.0, 1.0)
+    return _power_bootstrap_result(
+        point_estimate=point,
+        estimates=estimates,
+        confidence_level=confidence_level,
+        requested_replicates=n_resamples,
+        cluster_count=cluster_count,
+        undefined_limit=undefined_limit,
     )
 
 
@@ -1431,6 +1733,11 @@ def _second_labeler_with_target_kappa(
 
 def run_power_simulation(config: PowerSimulationConfig) -> dict[str, object]:
     """Run the pre-registered hierarchical power grid without official labels."""
+    spearman_cluster_sizes = (
+        config.spearman_cluster_sizes
+        if config.spearman_cluster_sizes is not None
+        else config.cluster_sizes
+    )
     kappa_specs = sorted(
         itertools.product(
             config.iccs,
@@ -1494,10 +1801,8 @@ def run_power_simulation(config: PowerSimulationConfig) -> dict[str, object]:
             if point.kappa is not None:
                 defined_point_count += 1
                 point_gate_count += point.kappa >= 0.60
-            interval = cluster_bootstrap_interval(
+            interval = power_kappa_bootstrap_interval(
                 pairs,
-                cluster_key=lambda pair: pair.anomaly_id,
-                statistic=lambda sample: _kappa_for_pairs(sample, VERDICTS),
                 n_resamples=config.inner_bootstrap_resamples,
                 seed=int(rng.integers(0, np.iinfo(np.uint64).max, dtype=np.uint64)),
             )
@@ -1529,25 +1834,23 @@ def run_power_simulation(config: PowerSimulationConfig) -> dict[str, object]:
         available = 0
         for _ in range(config.outer_replicates):
             _, _, records = _simulate_hierarchical_records(
-                config.cluster_sizes,
+                spearman_cluster_sizes,
                 icc=icc,
                 valid_prevalence=valid,
                 unsure_prevalence=unsure,
                 latent_rho=rho,
                 rng=rng,
             )
-            analysis = analyze_spearman(
+            interval = power_spearman_bootstrap_interval(
                 records,
                 n_resamples=config.inner_bootstrap_resamples,
                 seed=int(rng.integers(0, np.iinfo(np.uint64).max, dtype=np.uint64)),
-                min_claims=1,
-                min_anomalies=1,
             )
-            bootstrap = analysis["bootstrap"]
-            if not isinstance(bootstrap, Mapping) or not bootstrap["ci_available"]:
+            if not interval.ci_available:
                 continue
-            low = float(bootstrap["ci_low"])
-            high = float(bootstrap["ci_high"])
+            assert interval.ci_low is not None and interval.ci_high is not None
+            low = interval.ci_low
+            high = interval.ci_high
             available += 1
             exclusions += low > 0.0 or high < 0.0
         spearman_rows.append(
@@ -1607,6 +1910,13 @@ def run_power_simulation(config: PowerSimulationConfig) -> dict[str, object]:
         "master_seed": config.master_seed,
         "seed_substreams": seeds,
         "cluster_sizes": list(config.cluster_sizes),
+        "agreement_cluster_sizes": list(config.cluster_sizes),
+        "spearman_cluster_sizes": list(spearman_cluster_sizes),
+        "agreement_decision_count": sum(config.cluster_sizes),
+        "spearman_eligible_claim_count": sum(spearman_cluster_sizes),
+        "spearman_contributing_anomaly_count": sum(
+            size > 0 for size in spearman_cluster_sizes
+        ),
         "outer_replicates": config.outer_replicates,
         "inner_bootstrap_resamples": config.inner_bootstrap_resamples,
         "dgm": (

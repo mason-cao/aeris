@@ -13,6 +13,7 @@ from scipy import stats
 
 from app.eval.phase_analysis import (
     AnalysisThresholds,
+    OverlapPair,
     PowerSimulationConfig,
     aggregate_expert_validity,
     aggregate_machine_metrics,
@@ -27,6 +28,8 @@ from app.eval.phase_analysis import (
     main,
     naive_bootstrap_interval,
     parse_failure_accounting,
+    power_kappa_bootstrap_interval,
+    power_spearman_bootstrap_interval,
     run_power_simulation,
     spawn_substream_seeds,
     wilcoxon_signed_rank,
@@ -212,6 +215,75 @@ def test_more_than_five_percent_undefined_replicates_suppresses_ci() -> None:
     assert result.refusal_reason == "more than 5% bootstrap replicates undefined"
 
 
+def test_power_kappa_bootstrap_matches_general_cluster_bootstrap() -> None:
+    pairs = [
+        OverlapPair("a1", "c1", "valid", "valid"),
+        OverlapPair("a1", "c2", "valid", "invalid"),
+        OverlapPair("a1", "c3", "unsure", "unsure"),
+        OverlapPair("a2", "c4", "invalid", "invalid"),
+        OverlapPair("a2", "c5", "invalid", "valid"),
+        OverlapPair("a3", "c6", "valid", "valid"),
+        OverlapPair("a3", "c7", "valid", "valid"),
+    ]
+
+    def kappa_statistic(sample: list[OverlapPair]) -> float | None:
+        return cohen_kappa(
+            [pair.mason_verdict for pair in sample],
+            [pair.bracco_verdict for pair in sample],
+        ).kappa
+
+    reference = cluster_bootstrap_interval(
+        pairs,
+        cluster_key=lambda pair: pair.anomaly_id,
+        statistic=kappa_statistic,
+        n_resamples=999,
+        seed=84,
+    )
+    optimized = power_kappa_bootstrap_interval(
+        pairs,
+        n_resamples=999,
+        seed=84,
+    )
+
+    assert optimized.point_estimate == pytest.approx(reference.point_estimate)
+    assert optimized.ci_low == pytest.approx(reference.ci_low)
+    assert optimized.ci_high == pytest.approx(reference.ci_high)
+    assert optimized.defined_replicates == reference.defined_replicates
+    assert optimized.undefined_replicates == reference.undefined_replicates
+    assert optimized.ci_available is reference.ci_available
+
+
+def test_power_spearman_bootstrap_matches_general_with_ties_and_unsure() -> None:
+    records = [
+        {"anomaly_id": "a1", "score": -0.5, "verdict": "invalid"},
+        {"anomaly_id": "a1", "score": 0.0, "verdict": "unsure"},
+        {"anomaly_id": "a1", "score": 0.5, "verdict": "valid"},
+        {"anomaly_id": "a2", "score": -0.5, "verdict": "invalid"},
+        {"anomaly_id": "a2", "score": 0.2, "verdict": "valid"},
+        {"anomaly_id": "a3", "score": 0.8, "verdict": "valid"},
+    ]
+    reference = analyze_spearman(
+        records,
+        n_resamples=999,
+        seed=91,
+        min_claims=1,
+        min_anomalies=1,
+    )["bootstrap"]
+    optimized = power_spearman_bootstrap_interval(
+        records,
+        n_resamples=999,
+        seed=91,
+    )
+
+    assert isinstance(reference, dict)
+    assert optimized.point_estimate == pytest.approx(reference["point_estimate"])
+    assert optimized.ci_low == pytest.approx(reference["ci_low"])
+    assert optimized.ci_high == pytest.approx(reference["ci_high"])
+    assert optimized.defined_replicates == reference["defined_replicates"]
+    assert optimized.undefined_replicates == reference["undefined_replicates"]
+    assert optimized.ci_available is reference["ci_available"]
+
+
 def test_exactly_five_percent_undefined_replicates_keeps_ci() -> None:
     records = [
         {"anomaly_id": f"a{index}", "value": float(index)} for index in range(3)
@@ -250,9 +322,9 @@ def test_planted_clustering_mean_ci_is_wider_than_naive_over_25_replicates() -> 
                         "value": float(value),
                     }
                 )
-        statistic = lambda rows: float(
-            np.mean([float(row["value"]) for row in rows])
-        )
+        def statistic(rows: list[dict[str, object]]) -> float:
+            return float(np.mean([float(row["value"]) for row in rows]))
+
         clustered = cluster_bootstrap_interval(
             records,
             cluster_key=lambda row: str(row["anomaly_id"]),
@@ -535,6 +607,37 @@ def test_small_power_simulation_is_deterministic_and_marked_synthetic() -> None:
     assert len(first["kappa_grid"]) == 1
     assert len(first["spearman_grid"]) == 1
     assert isinstance(first["minimum_detectable_effects"][0]["fallback_required"], bool)
+
+
+def test_power_simulation_uses_distinct_agreement_and_spearman_populations() -> None:
+    config = PowerSimulationConfig(
+        cluster_sizes=(6, 5),
+        spearman_cluster_sizes=(2, 0),
+        iccs=(0.15,),
+        valid_prevalences=(0.6,),
+        unsure_prevalences=(0.1,),
+        true_kappas=(0.6,),
+        latent_rhos=(0.6,),
+        outer_replicates=2,
+        inner_bootstrap_resamples=3,
+        design_source="synthetic-test",
+    )
+
+    result = run_power_simulation(config)
+
+    assert result["agreement_cluster_sizes"] == [6, 5]
+    assert result["spearman_cluster_sizes"] == [2, 0]
+    assert result["agreement_decision_count"] == 11
+    assert result["spearman_eligible_claim_count"] == 2
+    assert result["spearman_contributing_anomaly_count"] == 1
+
+
+def test_power_simulation_rejects_an_all_zero_spearman_population() -> None:
+    with pytest.raises(ValueError, match="spearman_cluster_sizes"):
+        PowerSimulationConfig(
+            cluster_sizes=(6, 5),
+            spearman_cluster_sizes=(0, 0),
+        )
 
 
 def _manifest_payload() -> dict[str, object]:

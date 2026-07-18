@@ -259,9 +259,9 @@ def test_render_is_byte_deterministic_blind_and_uses_label_cli_order(tmp_path: P
     positions = [shown.index(group.claim_text) for group in expected]
     assert positions == sorted(positions)
     normalized = " ".join(shown.split())
-    assert "without looking at the first pass" in normalized
-    assert "If a mark is ambiguous I won't guess" in normalized
-    assert "the marked-up PDF is the record I work from" in normalized
+    assert "Instructions" not in shown
+    assert "labeling guide" in normalized
+    assert "Mark exactly one box per claim" in normalized
     lowered = shown.lower()
     for leak in ("llama3:8b", "gpt-5.4", "grounded", "corroboration", "confidence"):
         assert leak not in lowered
@@ -478,10 +478,11 @@ def test_calm_wind_claim_flag_renders_and_audit_recomputes_it(
         manifest_path,
     )
     shown = " ".join(extract_pdf_text(pdf_path).split())
-    assert "default Unsure" in shown
+    assert "default Unsure" not in shown
     assert "wind direction unstable under calm conditions" in shown
     assert "openweather" in shown
-    assert "proposed pending Bracco amendment" in shown
+    assert "proposed, not yet confirmed" in shown
+    assert "Bracco" not in shown
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["schema_version"] == 2

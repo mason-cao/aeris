@@ -58,9 +58,11 @@ from app.llm.corroboration import (
 )
 
 PACKET_SCHEMA_VERSION = 2
-CALM_WIND_PACKET_NOTE = (
-    "default Unsure — wind direction unstable under calm conditions."
-)
+CALM_WIND_PACKET_NOTE = "wind direction unstable under calm conditions."
+CALM_WIND_FLOOR_DISPLAY = {
+    "proposed_pending_bracco_amendment": "proposed, not yet confirmed",
+    "not_configured": "not configured",
+}
 STATION_SOURCES = ("asos", "epa_aqs", "openaq", "purpleair", "tceq")
 WIND_SOURCES = ("asos", "noaa_gfs", "openweather")
 SOURCE_COLORS = {
@@ -817,21 +819,22 @@ def _claim_block(
     if calm_wind_flag is not None:
         details = "; ".join(
             (
-                f"{decision.source}: event {decision.event_speed_ms} m/s, "
-                f"raw cutoff {decision.raw_cutoff_ms} m/s, effective cutoff "
-                f"{decision.effective_cutoff_ms} m/s, n={decision.window_n}"
+                f"{decision.source}: event wind {decision.event_speed_ms} m/s, "
+                f"below its cutoff of {decision.effective_cutoff_ms} m/s "
+                f"(mean - 2*SD gave {decision.raw_cutoff_ms} m/s; "
+                f"n={decision.window_n} wind readings)"
             )
             for decision in calm_wind_flag.source_decisions
         )
-        status = (
-            calm_wind_flag.floor_status.replace("_", " ")
-            .replace("bracco", "Bracco")
+        status = CALM_WIND_FLOOR_DISPLAY.get(
+            calm_wind_flag.floor_status,
+            calm_wind_flag.floor_status.replace("_", " "),
         )
         content.append(
             Paragraph(
                 escape(
-                    f"{calm_wind_flag.standard_note} Flagged source(s): "
-                    f"{details}. Floor status: {status}."
+                    f"Calm-wind flag: {calm_wind_flag.standard_note} "
+                    f"{details}. Cutoff floor: {status}."
                 ),
                 styles["calm_flag"],
             )
@@ -858,37 +861,6 @@ def _build_story(
             Paragraph("Anomaly", styles["heading"]),
             _anomaly_table(anomaly, styles),
             Spacer(1, 8),
-            Paragraph("Instructions", styles["heading"]),
-            Paragraph(
-                "For each numbered claim, mark exactly one box: V (Valid), I (Invalid), or U (Unsure). "
-                "If you skip a claim, leave all three boxes blank; I record a skipped claim as missing, "
-                "not as Unsure. Please add a short note for Invalid or Unsure when the reason isn't "
-                "obvious. A note on Valid is optional.",
-                styles["body"],
-            ),
-            Paragraph(
-                "Once you send this back, the marked-up PDF is the record I work from. I type up your "
-                "marks twice, on separate days, without looking at the first pass while doing the second, "
-                "then compare the two and settle any mismatch against the PDF itself. If a mark is "
-                "ambiguous I won't guess what you meant; I'll email you a short numbered list of the "
-                "unclear ones instead.",
-                styles["body"],
-            ),
-            Paragraph(
-                "Valid: defensible at the stated precision and supported by the evidence shown. "
-                "Invalid: contradicted by the evidence, misstates a measurement, or the physical "
-                "reasoning doesn't hold. Unsure: the evidence shown can't resolve it, the wording is "
-                "ambiguous, or it's outside what you can judge confidently. Missing or thin evidence "
-                "is always Unsure.",
-                styles["body"],
-            ),
-            Paragraph(
-                "The station map shows only coordinates stored in the 72-hour context window. Each wind "
-                "panel shows one arrow per station, taken from the observation closest to the event "
-                "time. Arrows point downwind, and a longer arrow means faster wind (m/s, scaled within "
-                "each panel). There's no basemap and nothing from outside the database.",
-                styles["body"],
-            ),
             Paragraph("Stored evidence summary", styles["heading"]),
             _evidence_table(summary, styles),
             Spacer(1, 10),
@@ -898,8 +870,10 @@ def _build_story(
             PageBreak(),
             Paragraph("Claims", styles["heading"]),
             Paragraph(
-                "Each claim appears exactly once, in an order fixed ahead of time for your copy. When I "
-                "transcribe your marks I refer to claims by the number printed next to them.",
+                "Mark exactly one box per claim: V (Valid), I (Invalid), or U (Unsure). The labeling "
+                "guide that comes with this packet has the definitions and marking rules. Each claim "
+                "appears exactly once, and the number printed next to it is how I'll refer to that "
+                "claim if I need to ask you about it.",
                 styles["body"],
             ),
         ]

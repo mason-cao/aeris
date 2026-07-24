@@ -782,11 +782,13 @@ class TestFixturePayload:
             window_start: datetime,
             window_end: datetime,
             top_n: int,
+            min_fresh_channels: int,
         ) -> FreezeResult:
             assert session is not None
             assert window_start == result.window_start
             assert window_end == result.window_end
             assert top_n == result.top_n
+            assert min_fresh_channels == result.min_fresh_channels
             return result
 
         monkeypatch.setattr(
@@ -908,3 +910,133 @@ class TestFixturePayload:
             "openaq/ozone/moderate": 1,
             "openaq/pm25/moderate": 1,
         }
+
+
+# --- 2026-07-24 channel-coverage eligibility screen ---
+
+
+def _coverage_summary(sources: dict[str, float | None]) -> dict:
+    return {
+        "sources": {
+            source: {
+                "metrics": {
+                    "pm25": {"nearest_in_time": {"v": 1.0, "dt_minutes": dt}}
+                }
+            }
+            for source, dt in sources.items()
+        }
+    }
+
+
+def _enrichment(anomaly: Anomaly, summary: dict) -> EnrichmentRecord:
+    return EnrichmentRecord(
+        anomaly_id=anomaly.id,
+        context_window_start=T0 - timedelta(hours=36),
+        context_window_end=T0 + timedelta(hours=36),
+        cross_source_summary_json=summary,
+    )
+
+
+def test_fresh_channel_coverage_counts_distinct_age_gated_channels() -> None:
+    from app.eval.freeze import fresh_channel_coverage
+
+    summary = _coverage_summary(
+        {
+            "openaq": 30.0,
+            "tceq": 30.0,
+            "asos": 30.0,
+            "noaa_gfs": 400.0,
+        }
+    )
+    summary["sources"]["purpleair"] = {
+        "metrics": {"pm25": {"nearest_in_time": {"v": None, "dt_minutes": 5.0}}}
+    }
+
+    coverage = fresh_channel_coverage(summary)
+
+    assert coverage["ground_insitu"] is True
+    assert coverage["met_insitu"] is True
+    assert coverage["nwp"] is False
+    assert coverage["ground_optical"] is False
+    assert sum(coverage.values()) == 2
+
+
+class TestChannelCoverageScreen:
+    @pytest.mark.asyncio
+    async def test_low_coverage_representative_excluded_before_top_n(
+        self, db_session
+    ) -> None:
+        rich = _anomaly(metric="pm25", methods=["zscore"], z_score=4.0)
+        thin = _anomaly(
+            metric="ozone",
+            methods=["zscore", "stl", "isolation_forest"],
+            z_score=9.0,
+        )
+        db_session.add_all([rich, thin])
+        await db_session.flush()
+        db_session.add(
+            _enrichment(
+                rich,
+                _coverage_summary(
+                    {"openaq": 30.0, "asos": 30.0, "noaa_gfs": 30.0}
+                ),
+            )
+        )
+        db_session.add(_enrichment(thin, _coverage_summary({"openaq": 30.0})))
+        await db_session.commit()
+
+        result = await freeze_eval_set(
+            db_session,
+            window_start=T0 - timedelta(days=1),
+            window_end=T0 + timedelta(days=1),
+            top_n=1,
+            min_fresh_channels=3,
+        )
+
+        assert [a.id for a in result.selected] == [rich.id]
+        assert result.coverage_excluded == [thin.id]
+        assert result.coverage_channel_counts[thin.id] == 1
+        assert result.coverage_channel_counts[rich.id] == 3
+        assert result.min_fresh_channels == 3
+
+    @pytest.mark.asyncio
+    async def test_missing_enrichment_is_not_screened(self, db_session) -> None:
+        bare = _anomaly()
+        db_session.add(bare)
+        await db_session.commit()
+
+        result = await freeze_eval_set(
+            db_session,
+            window_start=T0 - timedelta(days=1),
+            window_end=T0 + timedelta(days=1),
+            top_n=1,
+            min_fresh_channels=5,
+        )
+
+        assert [a.id for a in result.selected] == [bare.id]
+        assert bare.id in result.missing_enrichment
+        assert result.coverage_excluded == []
+
+    def test_fixture_payload_records_coverage_screen(self) -> None:
+        excluded = uuid.uuid4()
+        result = FreezeResult(
+            window_start=T0,
+            window_end=T0 + timedelta(days=1),
+            top_n=1,
+            n_anomalies=2,
+            n_events=2,
+            selected=[],
+            event_sizes={},
+            missing_enrichment=[],
+            min_fresh_channels=3,
+            coverage_excluded=[excluded],
+            coverage_channel_counts={excluded: 1},
+        )
+
+        block = _fixture_payload(result)["data_quality"][
+            "channel_coverage_screen"
+        ]
+
+        assert block["min_fresh_channels"] == 3
+        assert block["excluded_anomaly_ids"] == [str(excluded)]
+        assert block["channel_counts"] == {str(excluded): 1}

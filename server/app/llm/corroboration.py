@@ -447,15 +447,36 @@ def _threshold_value(claim_text: str) -> tuple[float, str] | None:
     return float(match.group()), relation
 
 
+# A number immediately followed by a surface-concentration unit. Anchoring on
+# the unit is what lets point extraction skip coordinates and z-scores in the
+# same sentence: "at 29.734, -95.258 measured 13.5 ppb" must yield 13.5, never
+# 29.734. Column units (mol/m^2) are deliberately absent — the column-claim
+# guard handles those.
+_CONCENTRATION_UNIT_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(?:ug/m3|ug/m\^?3|µg/m³3?|µg/m3|ppb|ppm)\b"
+)
+
+
+def _unit_value(claim_text: str) -> float | None:
+    """The first number carrying a concentration unit, else None."""
+    match = _CONCENTRATION_UNIT_RE.search(claim_text.lower())
+    return float(match.group(1)) if match else None
+
+
 def _point_value(claim_text: str) -> float | None:
     """The numeric value in a 'was N' style point claim, else None.
 
     Threshold-worded claims are handled by ``_threshold_value``; this covers
-    the memo's "within 25% of the measured value" shape.
+    the memo's "within 25% of the measured value" shape. A unit-anchored
+    number wins over the first bare number so coordinates and detection
+    metadata in the same sentence cannot masquerade as the claimed value.
     """
     lowered = strip_locators(claim_text.lower())
     if threshold_cues(lowered):
         return None
+    unit_anchored = _unit_value(lowered)
+    if unit_anchored is not None:
+        return unit_anchored
     cleaned = lowered
     for pattern, _metric in _POLLUTANT_PATTERNS:
         cleaned = re.sub(pattern, _blank_match, cleaned)
@@ -903,6 +924,7 @@ _TRANSPORT_VERBS = (
 )
 _STAGNANT_WORDS = (
     "stagnant", "calm", "still air", "barely any air", "light wind", "weak wind",
+    "low wind",
 )
 
 
@@ -2659,6 +2681,7 @@ def classify_claim(claim_text: str) -> list[ClaimType]:
             has_pollutant
             and (
                 _threshold_value(text) is not None
+                or _unit_value(text) is not None
                 or _ELEVATION_RE.search(text) is not None
             ),
         ),

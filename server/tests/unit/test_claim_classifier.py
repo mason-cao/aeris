@@ -238,3 +238,44 @@ def test_score_claim_keeps_full_match_list():
     )
     assert scored.claim_type is ClaimType.BACKGROUND_VS_EVENT
     assert ClaimType.CONCENTRATION_ELEVATION in scored.matched_types
+
+
+# --- 2026-07-24 routing expansion (declared for B19 iteration 002) ---
+
+
+def test_unit_anchored_concentration_value_routes_to_concentration():
+    claim = (
+        "A severe sulfur dioxide concentration of 13.5 ppb was detected by a "
+        "Texas Commission on Environmental Quality monitor on June 21, 2026, "
+        "at 13:00:00 UTC."
+    )
+    assert classify_claim(claim)[0] is ClaimType.CONCENTRATION_ELEVATION
+
+
+def test_unit_value_is_preferred_over_coordinates():
+    from app.llm.corroboration import _point_value, concentration_claim_shape
+
+    claim = "The tceq SO2 monitor at 29.734, -95.258 measured 13.5 ppb."
+    assert classify_claim(claim)[0] is ClaimType.CONCENTRATION_ELEVATION
+    assert concentration_claim_shape(claim) == "point"
+    assert _point_value(claim) == 13.5
+
+
+def test_low_wind_speeds_routes_to_meteorological_state():
+    claim = (
+        "The air quality anomaly in Houston, Texas is caused by low wind "
+        "speeds."
+    )
+    assert ClaimType.METEOROLOGICAL_STATE in classify_claim(claim)
+
+
+def test_photolysis_and_metadata_claims_stay_unclassified():
+    photolysis = (
+        "Overcast conditions with near 100% cloud cover suppressed the "
+        "photolytic decay of nitrogen dioxide during the event."
+    )
+    metadata = (
+        "The anomaly occurred on June 15th, 2026, at approximately 23:01 UTC."
+    )
+    assert classify_claim(photolysis) == [ClaimType.UNCLASSIFIED]
+    assert classify_claim(metadata) == [ClaimType.UNCLASSIFIED]

@@ -32,7 +32,7 @@ import subprocess
 import uuid
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -40,7 +40,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.collectors.geo import distance_km
-from app.db.models import Anomaly
+from app.db.models import Anomaly, EnrichmentRecord
+from app.llm.observation_age import assess_observation_age
 from app.eval.baseline_locality_empirics import baseline_locality_manifest_payload
 from app.eval.censoring_sensitivity import censoring_manifest_payload
 from app.eval.observation_age_empirics import observation_age_manifest_payload
@@ -55,6 +56,7 @@ from app.llm.corroboration import (
     DEFAULT_TRAP_TOLERANCE,
     DEFAULT_WIND_TOLERANCE,
     calm_wind_manifest_payload,
+    channel_of,
 )
 from app.provenance.purpleair_qc import (
     LOCKED_SNAPSHOT_SHA256,
@@ -159,6 +161,42 @@ def _rank_key(anomaly: Anomaly) -> tuple[int, float]:
     return (len(anomaly.methods_triggered or []), z)
 
 
+# Channel-coverage eligibility screen (declared 2026-07-24, protocol-lock
+# addendum): an event representative enters the frozen set only if its stored
+# context has at least this many distinct measurement channels with an
+# event-time observation passing that source's B8 age gate. Representatives
+# without an enrichment record are not screened — the missing-enrichment
+# warning already blocks freeze-day acceptance.
+DEFAULT_MIN_FRESH_CHANNELS = 3
+
+
+def fresh_channel_coverage(summary: Mapping) -> dict[str, bool]:
+    """Per-channel flag: does any source in the channel pass its B8 age gate?
+
+    Uses the same ``assess_observation_age`` gates the scorer applies, so an
+    event is eligible exactly when its channels could actually vote.
+    """
+    channels: dict[str, bool] = {}
+    sources = summary.get("sources")
+    if not isinstance(sources, Mapping):
+        return channels
+    for source, block in sources.items():
+        fresh = False
+        metrics = block.get("metrics") if isinstance(block, Mapping) else None
+        for metric_block in (metrics or {}).values():
+            if not isinstance(metric_block, Mapping):
+                continue
+            nearest = metric_block.get("nearest_in_time")
+            if not isinstance(nearest, Mapping) or nearest.get("v") is None:
+                continue
+            if assess_observation_age(source, nearest.get("dt_minutes")).votes:
+                fresh = True
+                break
+        channel = channel_of(source)
+        channels[channel] = channels.get(channel, False) or fresh
+    return channels
+
+
 def group_events(
     anomalies: Sequence[Anomaly],
     *,
@@ -214,6 +252,9 @@ class FreezeResult:
     selected: list[Anomaly]
     event_sizes: dict[uuid.UUID, int]
     missing_enrichment: list[uuid.UUID]
+    min_fresh_channels: int = DEFAULT_MIN_FRESH_CHANNELS
+    coverage_excluded: list[uuid.UUID] = field(default_factory=list)
+    coverage_channel_counts: dict[uuid.UUID, int] = field(default_factory=dict)
 
 
 async def load_window_anomalies(
@@ -244,23 +285,64 @@ async def _missing_enrichment_ids(
     return list((await session.execute(stmt)).scalars().all())
 
 
+async def _enrichment_summaries(
+    session: AsyncSession, anomalies: Sequence[Anomaly]
+) -> dict[uuid.UUID, Mapping]:
+    """Latest stored context summary per anomaly, for the coverage screen."""
+    if not anomalies:
+        return {}
+    stmt = (
+        select(
+            EnrichmentRecord.anomaly_id,
+            EnrichmentRecord.cross_source_summary_json,
+        )
+        .where(EnrichmentRecord.anomaly_id.in_([a.id for a in anomalies]))
+        .order_by(EnrichmentRecord.created_at)
+    )
+    summaries: dict[uuid.UUID, Mapping] = {}
+    for anomaly_id, summary in (await session.execute(stmt)).all():
+        summaries[anomaly_id] = summary
+    return summaries
+
+
 async def freeze_eval_set(
     session: AsyncSession,
     *,
     window_start: datetime,
     window_end: datetime,
     top_n: int = DEFAULT_TOP_N,
+    min_fresh_channels: int = DEFAULT_MIN_FRESH_CHANNELS,
 ) -> FreezeResult:
-    """Select the top-N event representatives inside the eval window."""
+    """Select the top-N coverage-eligible event representatives."""
     if top_n < 1:
         raise ValueError(f"top_n must be >= 1, got {top_n}")
+    if min_fresh_channels < 1:
+        raise ValueError(
+            f"min_fresh_channels must be >= 1, got {min_fresh_channels}"
+        )
     anomalies = await load_window_anomalies(session, window_start, window_end)
     events = group_events(anomalies)
 
     representatives = [max(event, key=_rank_key) for event in events]
     representatives.sort(key=lambda a: _ensure_utc(a.timestamp))
     representatives.sort(key=_rank_key, reverse=True)
-    selected = representatives[:top_n]
+
+    summaries = await _enrichment_summaries(session, representatives)
+    coverage_channel_counts: dict[uuid.UUID, int] = {}
+    coverage_excluded: list[uuid.UUID] = []
+    eligible: list[Anomaly] = []
+    for representative in representatives:
+        summary = summaries.get(representative.id)
+        if summary is None:
+            eligible.append(representative)
+            continue
+        count = sum(fresh_channel_coverage(summary).values())
+        coverage_channel_counts[representative.id] = count
+        if count >= min_fresh_channels:
+            eligible.append(representative)
+        else:
+            coverage_excluded.append(representative.id)
+    selected = eligible[:top_n]
 
     event_sizes = {
         max(event, key=_rank_key).id: len(event) for event in events
@@ -274,6 +356,9 @@ async def freeze_eval_set(
         selected=selected,
         event_sizes=event_sizes,
         missing_enrichment=await _missing_enrichment_ids(session, selected),
+        min_fresh_channels=min_fresh_channels,
+        coverage_excluded=coverage_excluded,
+        coverage_channel_counts=coverage_channel_counts,
     )
 
 
@@ -490,6 +575,25 @@ def fixture_payload(
             "baseline_locality": baseline_locality_manifest_payload(),
             "calm_wind_guard": calm_wind_manifest_payload(),
             "censoring": censoring_manifest_payload(),
+            "channel_coverage_screen": {
+                "min_fresh_channels": result.min_fresh_channels,
+                "rule": (
+                    "representative eligible iff >= min_fresh_channels "
+                    "distinct channels have a B8-fresh event-time observation; "
+                    "missing enrichment is unscreened and blocks freeze-day "
+                    "acceptance instead"
+                ),
+                "excluded_anomaly_ids": [
+                    str(anomaly_id) for anomaly_id in result.coverage_excluded
+                ],
+                "channel_counts": {
+                    str(anomaly_id): count
+                    for anomaly_id, count in sorted(
+                        result.coverage_channel_counts.items(),
+                        key=lambda item: str(item[0]),
+                    )
+                },
+            },
             "nomination_eligibility": nomination_manifest_payload(),
             "observation_age_gates": observation_age_manifest_payload(),
             "purpleair_time_aware_qc": purpleair_qc_manifest_payload(),
@@ -505,6 +609,8 @@ def _format_result(result: FreezeResult) -> str:
         f"{result.window_end:%Y-%m-%d} (end exclusive)",
         f"Anomalies in window: {result.n_anomalies}",
         f"Events after merge:  {result.n_events}",
+        f"Coverage-excluded:   {len(result.coverage_excluded)} "
+        f"(min {result.min_fresh_channels} fresh channels)",
         f"Selected:            {len(result.selected)} (top {result.top_n})",
     ]
     if result.missing_enrichment:
@@ -604,6 +710,15 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--top", type=int, default=DEFAULT_TOP_N)
     parser.add_argument(
+        "--min-fresh-channels",
+        type=int,
+        default=DEFAULT_MIN_FRESH_CHANNELS,
+        help=(
+            "channel-coverage eligibility screen: minimum distinct channels "
+            "with a B8-fresh event-time observation"
+        ),
+    )
+    parser.add_argument(
         "--snapshot-sha256",
         required=True,
         help="locked raw-snapshot SHA-256 represented by the analysis database",
@@ -664,6 +779,7 @@ async def _amain(argv: list[str] | None = None) -> int:
                 window_start=window_start,
                 window_end=window_end,
                 top_n=args.top,
+                min_fresh_channels=args.min_fresh_channels,
             )
         print(_format_result(result))
         if not args.dry_run:

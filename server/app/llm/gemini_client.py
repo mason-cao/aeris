@@ -14,7 +14,13 @@ DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 # every real structured-output request in the 2026-06-18 dry-run, while a
 # trivial request returned 200. gemini-3.5-flash (GA) completes the same
 # chain (~77s). Switched 2026-06-18 — record the GA substitution too.
-DEFAULT_MODEL = "gemini-3.5-flash"
+# 3.5 -> 3.6 on 2026-07-24, after billing moved the project to the standard
+# tier (the free tier's 20 requests/day/model killed B19 iteration 002):
+# same $1.50/MTok input, output $7.50 vs $9.00; verified serving
+# schema-constrained JSON that day. Iterations 001/002 ran 3.5-flash, so
+# gemini columns are not comparable across that boundary — record this
+# substitution in the methodology with the other two.
+DEFAULT_MODEL = "gemini-3.6-flash"
 DEFAULT_REQUEST_TIMEOUT = 120.0
 # Free-tier Gemini quotas are per-minute, so 429s are expected during eval
 # sweeps; retried here (unlike OpenAI) because the API tells us how long to

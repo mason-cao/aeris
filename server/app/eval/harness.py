@@ -43,12 +43,22 @@ DEFAULT_MODELS: tuple[str, ...] = ("llama3:8b", GPT_DEFAULT, GEMINI_DEFAULT)
 # allowances, cached-input discounts, taxes, and negotiated pricing are outside
 # this estimate. Local Ollama models remain intentionally absent.
 USD_PER_MTOK: dict[str, tuple[float, float]] = {
+    # 3.5-flash stays priced so preserved iteration-001/002 artifacts keep
+    # re-rendering their cost tables; 3.6-flash is the live default.
     "gemini-3.5-flash": (1.50, 9.00),
+    "gemini-3.6-flash": (1.50, 7.50),
     "gpt-5.4": (2.50, 15.00),
 }
 USD_PER_MTOK_PROVENANCE: dict[str, dict[str, str]] = {
     "gemini-3.5-flash": {
         "accessed": "2026-07-16",
+        "billing_basis": (
+            "standard paid text tokens; output includes thinking tokens"
+        ),
+        "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+    },
+    "gemini-3.6-flash": {
+        "accessed": "2026-07-24",
         "billing_basis": (
             "standard paid text tokens; output includes thinking tokens"
         ),

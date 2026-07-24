@@ -274,13 +274,13 @@ def test_valid_report_has_exact_cells_dual_units_and_go_status() -> None:
     assert report["costs"]["per_model"]["gpt-5.4"]["estimated_cost_usd"] == (
         pytest.approx(0.08)
     )
-    assert report["costs"]["per_model"]["gemini-3.5-flash"][
+    assert report["costs"]["per_model"]["gemini-3.6-flash"][
         "estimated_cost_usd"
-    ] == pytest.approx(0.048)
+    ] == pytest.approx(0.045)
     assert report["costs"]["per_model"]["llama3:8b"][
         "estimated_cost_usd"
     ] is None
-    assert report["costs"]["pricing_provenance"]["gemini-3.5-flash"][
+    assert report["costs"]["pricing_provenance"]["gemini-3.6-flash"][
         "billing_basis"
     ].endswith("thinking tokens")
 

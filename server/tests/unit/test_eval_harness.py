@@ -367,6 +367,7 @@ async def test_unexpected_error_is_recorded_and_isolated(db_session):
 def test_exact_official_cloud_rates_and_provenance_are_declared() -> None:
     assert USD_PER_MTOK == {
         "gemini-3.5-flash": (1.50, 9.00),
+        "gemini-3.6-flash": (1.50, 7.50),
         "gpt-5.4": (2.50, 15.00),
     }
     assert USD_PER_MTOK_PROVENANCE["gpt-5.4"] == {
@@ -376,6 +377,11 @@ def test_exact_official_cloud_rates_and_provenance_are_declared() -> None:
     }
     assert USD_PER_MTOK_PROVENANCE["gemini-3.5-flash"] == {
         "accessed": "2026-07-16",
+        "billing_basis": "standard paid text tokens; output includes thinking tokens",
+        "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+    }
+    assert USD_PER_MTOK_PROVENANCE["gemini-3.6-flash"] == {
+        "accessed": "2026-07-24",
         "billing_basis": "standard paid text tokens; output includes thinking tokens",
         "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
     }
@@ -449,4 +455,4 @@ def test_parse_args_takes_set_path_and_model_list():
 
 
 def test_default_models_are_the_three_baselines():
-    assert DEFAULT_MODELS == ("llama3:8b", "gpt-5.4", "gemini-3.5-flash")
+    assert DEFAULT_MODELS == ("llama3:8b", "gpt-5.4", "gemini-3.6-flash")

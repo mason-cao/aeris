@@ -318,3 +318,95 @@ def test_run_empirics_reads_query_only_sqlite_and_main_renders_both_formats(
         ]
     )
     assert "| Stored PBL rows | 1 |" in capsys.readouterr().out
+
+
+def test_sigma_sweep_trades_support_for_silence_and_keeps_contradictions() -> None:
+    start = datetime(2026, 6, 2, 12, tzinfo=UTC)
+    end = datetime(2026, 6, 6, 12, tzinfo=UTC)
+    anchor_time = datetime(2026, 6, 4, 18, tzinfo=UTC)
+    observations = [
+        _observation("cell-a", anchor_time - timedelta(days=1), 100.0),
+        _observation("cell-a", anchor_time, 50.0),
+        _observation("cell-a", anchor_time + timedelta(days=1), 300.0),
+    ]
+
+    sweep = pbl_trap_empirics.build_sigma_sweep(
+        observations,
+        snapshot_sha256="abc",
+        sigmas=(2.0, 1.0, 2.0),
+        study_start=start,
+        study_end_exclusive=end,
+    )
+
+    assert sweep["candidate_anchor_count"] == 1
+    assert [row["suppression_sigma"] for row in sweep["sweep"]] == [1.0, 2.0]
+    # refs {100, 300}: mean 200, pstdev 100; event 50 supports at sigma=1
+    # (threshold 100) and falls silent at sigma=2 (threshold 0).
+    assert sweep["sweep"][0]["outcomes"]["supporting"]["count"] == 1
+    assert sweep["sweep"][0]["outcomes"]["silent"]["count"] == 0
+    assert sweep["sweep"][1]["outcomes"]["supporting"]["count"] == 0
+    assert sweep["sweep"][1]["outcomes"]["silent"]["count"] == 1
+    assert all(
+        row["outcomes"]["contradicting"]["count"] == 0
+        for row in sweep["sweep"]
+    )
+    assert sweep["sd_estimator"] == "population"
+
+
+def test_sigma_sweep_rejects_invalid_sigmas() -> None:
+    with pytest.raises(ValueError, match="at least one"):
+        pbl_trap_empirics.build_sigma_sweep(
+            [],
+            snapshot_sha256="abc",
+            sigmas=(),
+        )
+    with pytest.raises(ValueError, match="finite and positive"):
+        pbl_trap_empirics.build_sigma_sweep(
+            [],
+            snapshot_sha256="abc",
+            sigmas=(2.0, 0.0),
+        )
+    with pytest.raises(ValueError, match="finite and positive"):
+        pbl_trap_empirics.build_sigma_sweep(
+            [],
+            snapshot_sha256="abc",
+            sigmas=(float("nan"),),
+        )
+
+
+def test_main_sigma_sweep_writes_artifact_and_renders_markdown(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    database = tmp_path / "snapshot.db"
+    _sqlite_snapshot(str(database))
+    monkeypatch.setattr(
+        pbl_trap_empirics,
+        "_snapshot_sha256",
+        lambda _path: LOCKED_SNAPSHOT_SHA256,
+    )
+    output = tmp_path / "sweep.json"
+
+    pbl_trap_empirics.main(
+        [
+            "--database",
+            str(database),
+            "--expected-sha256",
+            LOCKED_SNAPSHOT_SHA256,
+            "--sigma-sweep",
+            "1.0,1.5,2.0",
+            "--output",
+            str(output),
+        ]
+    )
+
+    rendered = capsys.readouterr().out
+    assert "| Sigma | Support | Contradict | Silent |" in rendered
+    saved = json.loads(output.read_text())
+    assert [row["suppression_sigma"] for row in saved["sweep"]] == [
+        1.0,
+        1.5,
+        2.0,
+    ]
+    assert saved["snapshot_sha256"] == LOCKED_SNAPSHOT_SHA256

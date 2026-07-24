@@ -1,0 +1,105 @@
+{
+  "authority": "sigma selection delegated to Mason in writing (Bracco reply 2026-07-24); label-free pre-freeze sweep",
+  "bands": "support <= mean - sigma*pstdev; contradict >= mean; silent in between",
+  "candidate_anchor_count": 1872,
+  "insufficient_distinct_day_count": 0,
+  "min_same_hour_points": 2,
+  "observation_count": 2004,
+  "sd_estimator": "population",
+  "snapshot_sha256": "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81",
+  "study_end_exclusive": "2026-07-13T00:00:00+00:00",
+  "study_start": "2026-06-01T00:00:00+00:00",
+  "sweep": [
+    {
+      "evaluable_count": 1872,
+      "outcomes": {
+        "contradicting": {
+          "count": 978,
+          "rate": 0.5224358974358975
+        },
+        "silent": {
+          "count": 362,
+          "rate": 0.19337606837606838
+        },
+        "supporting": {
+          "count": 532,
+          "rate": 0.2841880341880342
+        }
+      },
+      "suppression_sigma": 1.0
+    },
+    {
+      "evaluable_count": 1872,
+      "outcomes": {
+        "contradicting": {
+          "count": 978,
+          "rate": 0.5224358974358975
+        },
+        "silent": {
+          "count": 515,
+          "rate": 0.27510683760683763
+        },
+        "supporting": {
+          "count": 379,
+          "rate": 0.20245726495726496
+        }
+      },
+      "suppression_sigma": 1.5
+    },
+    {
+      "evaluable_count": 1872,
+      "outcomes": {
+        "contradicting": {
+          "count": 978,
+          "rate": 0.5224358974358975
+        },
+        "silent": {
+          "count": 588,
+          "rate": 0.3141025641025641
+        },
+        "supporting": {
+          "count": 306,
+          "rate": 0.16346153846153846
+        }
+      },
+      "suppression_sigma": 2.0
+    },
+    {
+      "evaluable_count": 1872,
+      "outcomes": {
+        "contradicting": {
+          "count": 978,
+          "rate": 0.5224358974358975
+        },
+        "silent": {
+          "count": 640,
+          "rate": 0.3418803418803419
+        },
+        "supporting": {
+          "count": 254,
+          "rate": 0.13568376068376067
+        }
+      },
+      "suppression_sigma": 2.5
+    },
+    {
+      "evaluable_count": 1872,
+      "outcomes": {
+        "contradicting": {
+          "count": 978,
+          "rate": 0.5224358974358975
+        },
+        "silent": {
+          "count": 670,
+          "rate": 0.3579059829059829
+        },
+        "supporting": {
+          "count": 224,
+          "rate": 0.11965811965811966
+        }
+      },
+      "suppression_sigma": 3.0
+    }
+  ],
+  "zero_spread_count": 0
+}

@@ -505,9 +505,10 @@ class TestFixturePayload:
         block = _fixture_payload(result)["data_quality"]["calm_wind_guard"]
 
         assert block["floor_ms"] == 1.5
-        assert block["floor_status"] == "proposed_pending_bracco_amendment"
-        assert block["bracco_amendment_confirmed"] is False
-        assert block["ship_status"] == "not_shipped_pending_bracco_reply"
+        assert block["floor_status"] == "bracco_confirmed"
+        assert block["bracco_amendment_confirmed"] is True
+        assert block["bracco_confirmation_date"] == "2026-07-24"
+        assert block["ship_status"] == "shipped_bracco_confirmed"
         assert block["raw_nonpositive_without_floor"] == "disabled_loudly"
 
     def test_payload_hash_links_station_baseline_evidence(self) -> None:

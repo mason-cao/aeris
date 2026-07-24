@@ -128,7 +128,7 @@ def _calm_decisions(selected_ids: list[str]) -> list[dict[str, object]]:
             "calm": False,
             "direction_votable": True,
             "reason": "at_or_above_cutoff",
-            "floor_status": "proposed_pending_bracco_amendment",
+            "floor_status": "bracco_confirmed",
         }
         for anomaly_id in selected_ids
         for source in ("noaa_gfs", "openweather", "asos")

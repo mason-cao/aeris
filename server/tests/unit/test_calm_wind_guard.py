@@ -234,11 +234,12 @@ def test_calm_guard_does_not_change_stagnant_meteorological_rule() -> None:
     assert verdicts["openweather"] == SUPPORTING
 
 
-def test_manifest_records_proposed_status_and_disabled_behavior() -> None:
+def test_manifest_records_confirmed_status_and_disabled_behavior() -> None:
     payload = calm_wind_manifest_payload()
 
     assert payload["floor_ms"] == 1.5
-    assert payload["floor_status"] == "proposed_pending_bracco_amendment"
-    assert payload["bracco_amendment_confirmed"] is False
-    assert payload["ship_status"] == "not_shipped_pending_bracco_reply"
+    assert payload["floor_status"] == "bracco_confirmed"
+    assert payload["bracco_amendment_confirmed"] is True
+    assert payload["bracco_confirmation_date"] == "2026-07-24"
+    assert payload["ship_status"] == "shipped_bracco_confirmed"
     assert payload["raw_nonpositive_without_floor"] == "disabled_loudly"

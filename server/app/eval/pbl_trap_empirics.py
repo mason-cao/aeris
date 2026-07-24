@@ -9,7 +9,7 @@ import math
 import sqlite3
 import statistics
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -269,6 +269,119 @@ def build_report(
     )
 
 
+def build_sigma_sweep(
+    observations: list[PblObservation] | tuple[PblObservation, ...],
+    *,
+    snapshot_sha256: str,
+    sigmas: tuple[float, ...] | list[float],
+    study_start: datetime = STUDY_START,
+    study_end_exclusive: datetime = STUDY_END_EXCLUSIVE,
+) -> dict[str, Any]:
+    """Per-sigma R1 outcome rates for the label-free threshold sweep.
+
+    The contradiction band stays at the reference mean regardless of sigma
+    (D3), so only support and silence trade off. The sweep is the "test
+    different values" check Bracco delegated on 2026-07-24; it must run
+    before any label exists.
+    """
+    if not sigmas:
+        raise ValueError("at least one sigma value is required")
+    cleaned = sorted({float(value) for value in sigmas})
+    if any(not math.isfinite(value) or value <= 0.0 for value in cleaned):
+        raise ValueError("sigma values must be finite and positive")
+
+    reports = [
+        build_report(
+            observations,
+            snapshot_sha256=snapshot_sha256,
+            study_start=study_start,
+            study_end_exclusive=study_end_exclusive,
+            tolerance=replace(
+                DEFAULT_TRAP_TOLERANCE, suppression_sigma=value
+            ),
+        )
+        for value in cleaned
+    ]
+    first = reports[0]
+    return {
+        "snapshot_sha256": first.snapshot_sha256,
+        "study_start": first.study_start,
+        "study_end_exclusive": first.study_end_exclusive,
+        "observation_count": first.observation_count,
+        "candidate_anchor_count": first.candidate_anchor_count,
+        "insufficient_distinct_day_count": (
+            first.insufficient_distinct_day_count
+        ),
+        "zero_spread_count": first.zero_spread_count,
+        "min_same_hour_points": DEFAULT_TRAP_TOLERANCE.min_same_hour_points,
+        "sd_estimator": "population",
+        "bands": (
+            "support <= mean - sigma*pstdev; contradict >= mean; "
+            "silent in between"
+        ),
+        "authority": (
+            "sigma selection delegated to Mason in writing "
+            "(Bracco reply 2026-07-24); label-free pre-freeze sweep"
+        ),
+        "sweep": [
+            {
+                "suppression_sigma": value,
+                "evaluable_count": report.evaluable_count,
+                "outcomes": report.to_dict()["outcomes"],
+            }
+            for value, report in zip(cleaned, reports, strict=True)
+        ],
+    }
+
+
+def run_sigma_sweep(
+    database_path: Path,
+    *,
+    expected_sha256: str,
+    sigmas: tuple[float, ...] | list[float],
+) -> dict[str, Any]:
+    """Hash-verified read of the snapshot followed by the sigma sweep."""
+    observations, verified_sha256 = _verified_observations(
+        database_path,
+        expected_sha256=expected_sha256,
+    )
+    return build_sigma_sweep(
+        observations,
+        snapshot_sha256=verified_sha256,
+        sigmas=sigmas,
+    )
+
+
+def render_sweep_markdown(sweep: dict[str, Any]) -> str:
+    def cell(outcome: dict[str, Any]) -> str:
+        return f"{outcome['count']} ({_format_fraction(outcome['rate'])})"
+
+    lines = [
+        "| Sigma | Support | Contradict | Silent |",
+        "|---:|---:|---:|---:|",
+    ]
+    lines.extend(
+        f"| {row['suppression_sigma']} "
+        f"| {cell(row['outcomes']['supporting'])} "
+        f"| {cell(row['outcomes']['contradicting'])} "
+        f"| {cell(row['outcomes']['silent'])} |"
+        for row in sweep["sweep"]
+    )
+    lines.extend(
+        (
+            "",
+            "| Diagnostic | Count |",
+            "|---|---:|",
+            f"| Stored PBL rows | {sweep['observation_count']} |",
+            f"| Complete-window anchors | {sweep['candidate_anchor_count']} |",
+            f"| Insufficient distinct-day references | "
+            f"{sweep['insufficient_distinct_day_count']} |",
+            f"| Zero-spread references | {sweep['zero_spread_count']} |",
+        )
+    )
+    return "\n".join(lines)
+
+
 def _snapshot_sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -312,11 +425,11 @@ def _load_observations(connection: sqlite3.Connection) -> list[PblObservation]:
     ]
 
 
-def run_empirics(
+def _verified_observations(
     database_path: Path,
     *,
     expected_sha256: str,
-) -> PblTrapEmpiricalReport:
+) -> tuple[list[PblObservation], str]:
     """Read the immutable snapshot and verify its hash before and after."""
     if expected_sha256 != LOCKED_SNAPSHOT_SHA256:
         raise ValueError(
@@ -346,7 +459,20 @@ def run_empirics(
             f"snapshot SHA-256 mismatch after read: {after_hash} != "
             f"{expected_sha256}"
         )
-    return build_report(observations, snapshot_sha256=after_hash)
+    return observations, after_hash
+
+
+def run_empirics(
+    database_path: Path,
+    *,
+    expected_sha256: str,
+) -> PblTrapEmpiricalReport:
+    """Hash-verified read of the snapshot followed by the R1 report."""
+    observations, verified_sha256 = _verified_observations(
+        database_path,
+        expected_sha256=expected_sha256,
+    )
+    return build_report(observations, snapshot_sha256=verified_sha256)
 
 
 def _format_fraction(value: float | None) -> str:
@@ -410,11 +536,43 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=("markdown", "json"),
         default="markdown",
     )
+    parser.add_argument(
+        "--sigma-sweep",
+        help=(
+            "comma-separated suppression sigmas; runs the label-free "
+            "threshold sweep instead of the single-sigma report"
+        ),
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="write the sweep payload as JSON to this path",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
+    if args.sigma_sweep is not None:
+        sigmas = [
+            float(part)
+            for part in args.sigma_sweep.split(",")
+            if part.strip()
+        ]
+        sweep = run_sigma_sweep(
+            args.database,
+            expected_sha256=args.expected_sha256,
+            sigmas=sigmas,
+        )
+        if args.output is not None:
+            args.output.write_text(
+                json.dumps(sweep, indent=2, sort_keys=True) + "\n"
+            )
+        if args.format == "json":
+            print(json.dumps(sweep, indent=2, sort_keys=True))
+        else:
+            print(render_sweep_markdown(sweep))
+        return
     report = run_empirics(
         args.database,
         expected_sha256=args.expected_sha256,

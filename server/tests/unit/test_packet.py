@@ -465,7 +465,7 @@ def test_calm_wind_claim_flag_renders_and_audit_recomputes_it(
     assert flags[0].source_decisions[0].source == "openweather"
     assert flags[0].source_decisions[0].event_speed_ms == 1.0
     assert flags[0].source_decisions[0].effective_cutoff_ms == 1.5
-    assert flags[0].floor_status == "proposed_pending_bracco_amendment"
+    assert flags[0].floor_status == "bracco_confirmed"
 
     pdf_path = tmp_path / "calm.pdf"
     manifest_path = tmp_path / "calm.audit.json"
@@ -481,7 +481,7 @@ def test_calm_wind_claim_flag_renders_and_audit_recomputes_it(
     assert "default Unsure" not in shown
     assert "wind direction unstable under calm conditions" in shown
     assert "openweather" in shown
-    assert "proposed, not yet confirmed" in shown
+    assert "confirmed 2026-07-24" in shown
     assert "Bracco" not in shown
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

@@ -726,7 +726,12 @@ def score_concentration_elevation(
 
 @dataclass(frozen=True)
 class WindTolerance:
-    """Draft tolerances for the wind / met headline types (pending Dr. Bracco)."""
+    """Tolerances for the wind / met headline types.
+
+    The calm-wind floor (``calm_floor_ms``) is Bracco-confirmed (2026-07-24).
+    The bearing/speed/stagnant/temperature tolerances remain Mason-owned
+    drafts that were never reviewed on the July 15 call.
+    """
 
     bearing_deg: float = 45.0  # transport direction within this of measured wind
     speed_ms: float = 1.5      # numeric wind-speed claim within this of measured
@@ -739,8 +744,11 @@ class WindTolerance:
 
 DEFAULT_WIND_TOLERANCE = WindTolerance()
 
-CALM_WIND_FLOOR_STATUS = "proposed_pending_bracco_amendment"
-CALM_WIND_SHIP_STATUS = "not_shipped_pending_bracco_reply"
+# Bracco confirmed the 1.5 m/s floor in writing on 2026-07-24 ("yes for 3");
+# see docs/bracco/2026-07-24-packet-reply.md and the protocol-lock addendum.
+CALM_WIND_FLOOR_STATUS = "bracco_confirmed"
+CALM_WIND_SHIP_STATUS = "shipped_bracco_confirmed"
+CALM_WIND_CONFIRMATION_DATE = "2026-07-24"
 
 
 @dataclass(frozen=True)
@@ -871,7 +879,8 @@ def calm_wind_manifest_payload(
             if tolerance.calm_floor_ms is not None
             else "not_configured"
         ),
-        "bracco_amendment_confirmed": False,
+        "bracco_amendment_confirmed": True,
+        "bracco_confirmation_date": CALM_WIND_CONFIRMATION_DATE,
         "ship_status": CALM_WIND_SHIP_STATUS,
         "raw_nonpositive_without_floor": "disabled_loudly",
         "event_comparison": "strictly_below_effective_cutoff_is_calm",

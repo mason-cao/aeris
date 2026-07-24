@@ -60,6 +60,7 @@ from app.llm.corroboration import (
 PACKET_SCHEMA_VERSION = 2
 CALM_WIND_PACKET_NOTE = "wind direction unstable under calm conditions."
 CALM_WIND_FLOOR_DISPLAY = {
+    "bracco_confirmed": "confirmed 2026-07-24",
     "proposed_pending_bracco_amendment": "proposed, not yet confirmed",
     "not_configured": "not configured",
 }

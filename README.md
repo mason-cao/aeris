@@ -182,7 +182,7 @@ See `server/.env.example`. The active settings are:
 - [x] Live collector registry and historical backfill strategies
 - [x] Anomaly detection and cross-source enrichment
 - [x] LLM generation, grounding, corroboration, labeling, and ablation CLIs
-- [ ] Resolve provenance, quality-control, and scorer methodology blockers
+- [x] Resolve provenance, quality-control, and scorer methodology blockers
 - [ ] Freeze and run the official evaluation
 - [ ] Collect official labels and implement the statistical analysis
 - [ ] Add the ChromaDB retrieval layer and RAG evaluation

@@ -57,6 +57,10 @@ def test_build_guide_pdf_is_deterministic(tmp_path: Path) -> None:
     build_guide_pdf(source, second)
 
     assert extract_pdf_text(first) == extract_pdf_text(second)
+    # Bytes, not just text: ReportLab stamps a wall-clock CreationDate unless
+    # the canvas is invariant, so a text-only check passed while every render
+    # produced a different file and dirtied the tracked PDF for no reason.
+    assert first.read_bytes() == second.read_bytes()
 
 
 def test_build_guide_pdf_rejects_unsafe_control_characters(

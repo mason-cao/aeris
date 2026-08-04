@@ -525,6 +525,15 @@ def _station_figure(anomaly: Anomaly, plot_data: PacketPlotData) -> bytes:
             textcoords="offset points",
             fontsize=6,
             color="#6B767D",
+            # Opaque backing: ring labels sit over the densest part of the
+            # station cloud whenever the event is on the edge of the network,
+            # which is exactly when reading distances off the map matters most.
+            bbox={
+                "boxstyle": "square,pad=0.15",
+                "facecolor": "white",
+                "edgecolor": "none",
+                "alpha": 0.85,
+            },
             zorder=3,
         )
     for source in STATION_SOURCES:
@@ -835,7 +844,13 @@ def _packet_styles() -> dict[str, ParagraphStyle]:
     }
 
 
-def _invariant_canvas(filename: str, **kwargs: Any) -> canvas.Canvas:
+def invariant_canvas(filename: str, **kwargs: Any) -> canvas.Canvas:
+    """A canvas that omits wall-clock timestamps, so renders are byte-stable.
+
+    Public because every expert-facing PDF needs it, not just the packet: a
+    tracked artifact that changes hash on every re-render cannot be checked
+    against a provenance manifest.
+    """
     kwargs["invariant"] = 1
     return canvas.Canvas(filename, **kwargs)
 
@@ -1162,7 +1177,7 @@ def render_packet(
         ),
         onFirstPage=_set_pdf_metadata,
         onLaterPages=_set_pdf_metadata,
-        canvasmaker=_invariant_canvas,
+        canvasmaker=invariant_canvas,
     )
     pdf_hash = _sha256_file(output_path)
     _write_manifest(

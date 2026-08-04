@@ -20,7 +20,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import ListFlowable, ListItem, Paragraph, SimpleDocTemplate, Spacer
 
-from app.eval.packet import unsafe_text_findings
+from app.eval.packet import invariant_canvas, unsafe_text_findings
 
 _BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
 
@@ -138,7 +138,7 @@ def build_guide_pdf(source: Path, out: Path) -> None:
         bottomMargin=0.8 * inch,
         title="AERIS Expert Labeling Guide",
     )
-    document.build(story)
+    document.build(story, canvasmaker=invariant_canvas)
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:

@@ -9,15 +9,22 @@ from pathlib import Path
 
 import pytest
 
+from app.collectors.geo import distance_km
 from app.db.models import Anomaly
 from app.eval.label_cli import ClaimGroup, presentation_order
 from app.eval.packet import (
+    DISTANCE_RING_KM,
+    EVIDENCE_COLUMNS,
+    _evidence_rows,
     calm_wind_claim_flags,
+    evidence_detail_lines,
     extract_plot_data,
     render_packet,
+    ring_coordinates,
     unsafe_text_findings,
 )
 from app.eval.packet_audit import PacketAuditError, audit_packet, extract_pdf_text
+from app.llm.explain import render_enrichment_text
 
 ANOMALY_ID = uuid.UUID("00000000-0000-0000-0000-000000000004")
 ANOMALY_TS = datetime(2026, 7, 8, 3, 0, tzinfo=UTC)
@@ -281,6 +288,126 @@ def test_render_is_byte_deterministic_blind_and_uses_label_cli_order(tmp_path: P
     assert report.text_sanitation_findings == ()
 
 
+def _series_summary() -> dict:
+    """A summary rich enough to produce bucket and per-entity mean lines.
+
+    ``_summary`` deliberately is not: its series sit in one 6 h bucket at one
+    entity apiece, so both renderers return None and the detail path never runs.
+    """
+    summary = _summary()
+    summary["sources"]["tceq"] = {
+        "n_entities": 2,
+        "n_points": 4,
+        "metrics": {
+            "no2": _metric(
+                "ppb",
+                [
+                    _entity(
+                        "TQ1",
+                        29.3,
+                        -95.6,
+                        [
+                            ["2026-07-08T03:00:00+00:00", 7.0],
+                            ["2026-07-08T09:00:00+00:00", 11.0],
+                        ],
+                    ),
+                    _entity(
+                        "TQ2",
+                        29.9,
+                        -95.1,
+                        [
+                            ["2026-07-08T03:00:00+00:00", 3.0],
+                            ["2026-07-08T09:00:00+00:00", 5.0],
+                        ],
+                    ),
+                ],
+            )
+        },
+    }
+    return summary
+
+
+def test_packet_prints_every_series_line_the_model_was_given() -> None:
+    """The B4 invariant: whatever the model can see, the labeler can audit.
+
+    Asserted against ``render_enrichment_text`` itself — the exact text the
+    model reasoned from and the Phase 1 grounding context — so the packet cannot
+    drift from the prompt without failing here.
+    """
+    summary = _series_summary()
+    detail = evidence_detail_lines(summary)
+    assert detail == [
+        "tceq no2: 6h means: 07-08 00Z 5, 06Z 8",
+        "tceq no2: monitor means: TQ1 (1.0 km) 9, TQ2 (1.0 km) 4",
+    ]
+
+    model_series_lines = [
+        line.strip()
+        for line in render_enrichment_text(summary).splitlines()
+        if line.startswith("  ")
+    ]
+    assert model_series_lines, "fixture must exercise the series renderers"
+    rendered = {row.cells[0] for row in _evidence_rows(summary) if row.detail}
+    assert set(model_series_lines) <= rendered
+
+    aggregate_rows = [row for row in _evidence_rows(summary) if not row.detail]
+    assert all(len(row.cells) == len(EVIDENCE_COLUMNS) for row in aggregate_rows)
+
+
+def test_packet_pdf_carries_the_series_and_audit_detects_their_removal(
+    tmp_path: Path,
+) -> None:
+    summary = _series_summary()
+    pdf_path = tmp_path / "series.pdf"
+    manifest_path = tmp_path / "series.audit.json"
+    render_packet(
+        _anomaly(), summary, _groups(), "bracco-example", pdf_path, manifest_path
+    )
+
+    shown = " ".join(extract_pdf_text(pdf_path).split())
+    assert "6h means: 07-08 00Z 5, 06Z 8" in shown
+    assert "monitor means: TQ1 (1.0 km) 9, TQ2 (1.0 km) 4" in shown
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["evidence_detail"] == evidence_detail_lines(summary)
+
+    report = audit_packet(
+        pdf_path,
+        manifest_path,
+        summary,
+        ANOMALY_TS,
+        model_names=("llama3:8b",),
+        claim_groups=tuple(_groups()),
+    )
+    assert report.evidence_detail_count == 2
+
+    manifest["evidence_detail"] = manifest["evidence_detail"][:1]
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    with pytest.raises(PacketAuditError, match="evidence detail lines"):
+        audit_packet(
+            pdf_path,
+            manifest_path,
+            summary,
+            ANOMALY_TS,
+            model_names=("llama3:8b",),
+            claim_groups=tuple(_groups()),
+        )
+
+
+def test_distance_rings_are_true_great_circle_loci() -> None:
+    """A ring drawn in degree space would be wrong by cos(latitude) east-west."""
+    for lat, lon in ((29.52, -95.39), (0.0, 0.0), (59.9, 10.7), (-33.9, 151.2)):
+        for radius_km in DISTANCE_RING_KM:
+            ring_lons, ring_lats = ring_coordinates(lat, lon, radius_km)
+            assert ring_lons[0] == pytest.approx(ring_lons[-1])
+            assert ring_lats[0] == pytest.approx(ring_lats[-1])
+            measured = [
+                distance_km(lat, lon, ring_lat, ring_lon)
+                for ring_lat, ring_lon in zip(ring_lats, ring_lons, strict=True)
+            ]
+            assert measured == pytest.approx([radius_km] * len(measured), abs=1e-6)
+
+
 def test_text_sanitation_rejects_observed_controls_and_allows_units() -> None:
     assert unsafe_text_findings((("claim", "PM10 was 272.0 µg/m³.\t\n\r"),)) == ()
     assert unsafe_text_findings((("claim", "µ\x05g/m\x03"),)) == (
@@ -485,7 +612,7 @@ def test_calm_wind_claim_flag_renders_and_audit_recomputes_it(
     assert "Bracco" not in shown
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert manifest["schema_version"] == 2
+    assert manifest["schema_version"] == 3
     assert manifest["calm_wind_flags"] == [flags[0].to_dict()]
 
     report = audit_packet(

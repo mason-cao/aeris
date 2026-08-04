@@ -86,8 +86,12 @@ def _metric_points(data: Mapping) -> list[tuple[datetime, float]]:
     return sorted(points)
 
 
-def _render_bucket_means(data: Mapping) -> str | None:
-    """'6h means: 06-04 00Z 12.3, 06Z 14.1, ...' or None when too sparse."""
+def render_bucket_means(data: Mapping) -> str | None:
+    """'6h means: 06-04 00Z 12.3, 06Z 14.1, ...' or None when too sparse.
+
+    Public because the review packet renders the identical line: the labeler
+    has to see every number the model was given (see ``render_enrichment_text``).
+    """
     points = _metric_points(data)
     if not points:
         return None
@@ -113,12 +117,16 @@ def _render_bucket_means(data: Mapping) -> str | None:
     return f"{_SERIES_BUCKET_H}h means: " + ", ".join(parts)
 
 
-def _entity_terms(source: str) -> tuple[str, str | None]:
+def entity_terms(source: str) -> tuple[str, str | None]:
+    """(plural noun, per-entity means label) for ``source``; label None = suppress."""
     return _ENTITY_TERMS.get(source, ("entities", "entity means"))
 
 
-def _render_entity_means(data: Mapping, label: str | None) -> str | None:
-    """Render per-entity means when the source has meaningful spatial entities."""
+def render_entity_means(data: Mapping, label: str | None) -> str | None:
+    """Render per-entity means when the source has meaningful spatial entities.
+
+    Public for the same reason as :func:`render_bucket_means`.
+    """
     if label is None:
         return None
     entities = data.get("entities", [])
@@ -165,8 +173,14 @@ def render_enrichment_text(summary: Mapping) -> str:
     Also the Phase 1 grounding context: ``check_grounding`` verifies claims
     against exactly this text, so every number a model may legitimately cite
     (range, mean, nearest-in-time, bucketed series means, per-entity means)
-    has to be spelled out here. The labeling CLI shows this same text, so
-    whatever the model can see, the labeler can audit.
+    has to be spelled out here.
+
+    Whatever the model can see, the labeler can audit. The labeling CLI echoes
+    this text directly; the PDF packet reaches the same place by calling
+    :func:`render_bucket_means` and :func:`render_entity_means` per metric, and
+    ``packet_audit`` fails the packet if those lines and the stored summary
+    disagree. Both paths must keep holding — a labeler asked to judge a number
+    the packet never printed can only answer Unsure.
     """
     window = summary.get("window", {})
     lines = [
@@ -179,7 +193,7 @@ def render_enrichment_text(summary: Mapping) -> str:
             if not metric_is_retained(source, metric):
                 continue
             data = block["metrics"][metric]
-            entity_label, means_label = _entity_terms(source)
+            entity_label, means_label = entity_terms(source)
             unit = data.get("unit")
             value_range = data.get("value_range", {})
             nearest = data.get("nearest_in_time", {})
@@ -194,8 +208,8 @@ def render_enrichment_text(summary: Mapping) -> str:
                 f"{nearest.get('distance_km')} km from anomaly)"
             )
             for extra in (
-                _render_bucket_means(data),
-                _render_entity_means(data, means_label),
+                render_bucket_means(data),
+                render_entity_means(data, means_label),
             ):
                 if extra:
                     lines.append(f"  {extra}")

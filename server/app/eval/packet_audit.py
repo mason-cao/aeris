@@ -17,6 +17,7 @@ from pypdf import PdfReader
 from app.eval.label_cli import ClaimGroup, presentation_order
 from app.eval.packet import (
     calm_wind_claim_flags,
+    evidence_detail_lines,
     extract_plot_data,
     load_packet_source,
     summary_sha256,
@@ -47,6 +48,7 @@ class PacketAuditReport:
     station_count: int
     vector_count: int
     calm_wind_flag_count: int
+    evidence_detail_count: int
     blinding_leaks: tuple[str, ...]
     text_sanitation_findings: tuple[str, ...]
 
@@ -96,7 +98,7 @@ def audit_packet(
     if not manifest_path.is_file():
         raise PacketAuditError(f"packet audit manifest does not exist: {manifest_path}")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("schema_version") != 2:
+    if manifest.get("schema_version") != 3:
         raise PacketAuditError("unsupported packet audit schema")
 
     actual_pdf_hash = _sha256_file(pdf_path)
@@ -108,6 +110,16 @@ def audit_packet(
     expected_plot_data = extract_plot_data(summary, anomaly_timestamp).to_dict()
     if manifest.get("plot_data") != expected_plot_data:
         raise PacketAuditError("plot data does not match the stored 72-hour context")
+
+    # The packet must carry every bucket and per-entity mean the model reasoned
+    # from. When it did not, a labeler asked about one of those numbers could
+    # only answer Unsure, which reads as model vagueness and corrupts the
+    # headline agreement measurement.
+    expected_detail = evidence_detail_lines(summary)
+    if manifest.get("evidence_detail") != expected_detail:
+        raise PacketAuditError(
+            "evidence detail lines do not match the stored 72-hour context"
+        )
 
     try:
         anomaly_id = uuid.UUID(str(manifest["anomaly_id"]))
@@ -137,6 +149,11 @@ def audit_packet(
     text = extract_pdf_text(pdf_path)
     if expected_flags and "wind direction unstable under calm conditions" not in text:
         raise PacketAuditError("calm-wind flag text is missing from the PDF")
+    # Manifest agreement proves the lines were computed; this proves they were
+    # actually rendered. Checked on the bucket-means marker only, because PDF
+    # text extraction rewraps long series lines unpredictably.
+    if expected_detail and "h means" not in text:
+        raise PacketAuditError("evidence detail rows are missing from the PDF")
     metadata = extract_pdf_metadata(pdf_path)
     rendered_text_findings = unsafe_text_findings(
         (
@@ -164,6 +181,7 @@ def audit_packet(
         station_count=len(expected_plot_data["stations"]),
         vector_count=len(expected_plot_data["vectors"]),
         calm_wind_flag_count=len(expected_flags),
+        evidence_detail_count=len(expected_detail),
         blinding_leaks=leaks,
         text_sanitation_findings=(),
     )
@@ -195,7 +213,8 @@ async def _amain(argv: list[str] | None = None) -> int:
     print(
         f"audit passed: {report.station_count} stations, "
         f"{report.vector_count} vectors, {report.calm_wind_flag_count} "
-        f"calm-wind flags, sha256 {report.pdf_sha256}"
+        f"calm-wind flags, {report.evidence_detail_count} evidence detail lines, "
+        f"sha256 {report.pdf_sha256}"
     )
     return 0
 

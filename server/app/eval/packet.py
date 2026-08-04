@@ -56,8 +56,11 @@ from app.llm.corroboration import (
     calm_wind_source_decisions,
     classify_claim,
 )
+from app.llm.explain import entity_terms, render_bucket_means, render_entity_means
 
-PACKET_SCHEMA_VERSION = 2
+# 3: evidence rows carry the bucket and per-entity mean lines the model was
+# given, and the manifest records them so the audit can detect drift.
+PACKET_SCHEMA_VERSION = 3
 CALM_WIND_PACKET_NOTE = "wind direction unstable under calm conditions."
 CALM_WIND_FLOOR_DISPLAY = {
     "bracco_confirmed": "confirmed 2026-07-24",
@@ -66,6 +69,12 @@ CALM_WIND_FLOOR_DISPLAY = {
 }
 STATION_SOURCES = ("asos", "epa_aqs", "openaq", "purpleair", "tceq")
 WIND_SOURCES = ("asos", "noaa_gfs", "openweather")
+# Distance rings on the station map. Without them a labeler cannot check a
+# distance claim without measuring off the page, which sends checkable claims
+# to Unsure. Spaced to span the 50 km enrichment radius.
+DISTANCE_RING_KM = (10.0, 20.0, 30.0, 40.0, 50.0)
+_RING_VERTICES = 181
+_EARTH_RADIUS_KM = 6371.0
 SOURCE_COLORS = {
     "asos": "#176B87",
     "epa_aqs": "#4F6F52",
@@ -454,8 +463,70 @@ def _plot_limits(
     )
 
 
+def ring_coordinates(
+    lat: float, lon: float, radius_km: float
+) -> tuple[list[float], list[float]]:
+    """Closed (lons, lats) polygon of points exactly ``radius_km`` from a centre.
+
+    Spherical destination-point formula on the same 6371 km sphere
+    ``geo.distance_km`` measures with, so a plotted ring is the true locus of
+    that distance rather than a small-angle circle drawn in degree space —
+    which would be wrong by the cos(latitude) factor along the east-west axis.
+    """
+    phi1 = math.radians(lat)
+    lambda1 = math.radians(lon)
+    delta = radius_km / _EARTH_RADIUS_KM
+    lons: list[float] = []
+    lats: list[float] = []
+    for index in range(_RING_VERTICES):
+        theta = 2.0 * math.pi * index / (_RING_VERTICES - 1)
+        phi2 = math.asin(
+            math.sin(phi1) * math.cos(delta)
+            + math.cos(phi1) * math.sin(delta) * math.cos(theta)
+        )
+        lambda2 = lambda1 + math.atan2(
+            math.sin(theta) * math.sin(delta) * math.cos(phi1),
+            math.cos(delta) - math.sin(phi1) * math.sin(phi2),
+        )
+        lats.append(math.degrees(phi2))
+        lons.append(math.degrees(lambda2))
+    return lons, lats
+
+
 def _station_figure(anomaly: Anomaly, plot_data: PacketPlotData) -> bytes:
     figure, axis = plt.subplots(figsize=(7.2, 4.1), constrained_layout=True)
+    lons = [station.lon for station in plot_data.stations]
+    lats = [station.lat for station in plot_data.stations]
+    xlim, ylim = _plot_limits(lons, lats, anomaly)
+    axis.set_xlim(*xlim)
+    axis.set_ylim(*ylim)
+    # Rings first so stations draw over them. A ring whose northern label would
+    # fall outside the view is skipped entirely rather than drawn unlabelled:
+    # an unlabelled ring is a distance scale the labeler cannot read.
+    for radius_km in DISTANCE_RING_KM:
+        ring_lons, ring_lats = ring_coordinates(
+            float(anomaly.lat), float(anomaly.lon), radius_km
+        )
+        north = max(ring_lats)
+        if north > ylim[1]:
+            continue
+        axis.plot(
+            ring_lons,
+            ring_lats,
+            color="#9AA6AD",
+            linewidth=0.5,
+            linestyle=(0, (4, 3)),
+            zorder=1,
+        )
+        axis.annotate(
+            f"{radius_km:.0f} km",
+            xy=(float(anomaly.lon), north),
+            xytext=(1.5, 1.5),
+            textcoords="offset points",
+            fontsize=6,
+            color="#6B767D",
+            zorder=3,
+        )
     for source in STATION_SOURCES:
         rows = [station for station in plot_data.stations if station.source == source]
         if not rows:
@@ -479,14 +550,12 @@ def _station_figure(anomaly: Anomaly, plot_data: PacketPlotData) -> bytes:
         label="anomaly",
         zorder=4,
     )
-    lons = [station.lon for station in plot_data.stations]
-    lats = [station.lat for station in plot_data.stations]
-    xlim, ylim = _plot_limits(lons, lats, anomaly)
-    axis.set_xlim(*xlim)
-    axis.set_ylim(*ylim)
     axis.set_xlabel("Longitude (degrees east)")
     axis.set_ylabel("Latitude (degrees north)")
-    axis.set_title("Ground observation locations in the stored 72-hour context")
+    axis.set_title(
+        "Ground observation locations in the stored 72-hour context\n"
+        "dashed rings are great-circle distance from the anomaly"
+    )
     axis.grid(color="#D8D8D8", linewidth=0.5, alpha=0.8)
     axis.legend(loc="best", fontsize=7, frameon=False, ncol=2)
     axis.set_aspect("equal", adjustable="box")
@@ -568,8 +637,66 @@ def _format_time(value: Any) -> str:
     return _parse_timestamp(str(value)).strftime("%Y-%m-%d %H:%MZ")
 
 
-def _evidence_rows(summary: Mapping[str, Any]) -> list[list[str]]:
-    rows = [["Source", "Metric", "Unit", "Entities / points", "Range; mean", "Nearest to event"]]
+EVIDENCE_COLUMNS = (
+    "Source",
+    "Metric",
+    "Unit",
+    "Entities / points",
+    "Range; mean",
+    "Nearest to event",
+)
+
+
+@dataclass(frozen=True)
+class EvidenceRow:
+    """One evidence-table row: a metric's aggregates, or a full-width detail line.
+
+    Detail rows carry the bucket and per-entity means the model reasoned from.
+    They are a separate row kind rather than extra columns because the lines are
+    variable-length series, not per-metric scalars.
+    """
+
+    cells: tuple[str, ...]
+    detail: bool
+
+
+def _metric_detail_lines(source: str, metric: Mapping[str, Any]) -> list[str]:
+    """The bucket and per-entity mean lines the model was given for this metric.
+
+    Delegates to the prompt renderers rather than reformatting the summary, so
+    the packet cannot drift from what ``render_enrichment_text`` showed the model.
+    """
+    _entity_label, means_label = entity_terms(source)
+    return [
+        line
+        for line in (
+            render_bucket_means(metric),
+            render_entity_means(metric, means_label),
+        )
+        if line
+    ]
+
+
+def evidence_detail_lines(summary: Mapping[str, Any]) -> list[str]:
+    """Every detail line the packet must print, source/metric-qualified.
+
+    Recorded in the audit manifest and recomputed by ``packet_audit`` so a packet
+    that silently drops the model's series can never pass the audit.
+    """
+    lines: list[str] = []
+    for source in sorted(summary.get("sources", {})):
+        metrics = summary["sources"][source].get("metrics", {})
+        for metric_name in sorted(metrics):
+            lines.extend(
+                f"{source} {metric_name}: {line}"
+                for line in _metric_detail_lines(source, metrics[metric_name])
+            )
+    return lines
+
+
+def _evidence_rows(summary: Mapping[str, Any]) -> list[EvidenceRow]:
+    rows = [EvidenceRow(EVIDENCE_COLUMNS, detail=False)]
+    blank = ("",) * (len(EVIDENCE_COLUMNS) - 1)
     for source in sorted(summary.get("sources", {})):
         metrics = summary["sources"][source].get("metrics", {})
         for metric_name in sorted(metrics):
@@ -577,22 +704,29 @@ def _evidence_rows(summary: Mapping[str, Any]) -> list[list[str]]:
             value_range = metric.get("value_range", {})
             nearest = metric.get("nearest_in_time", {})
             rows.append(
-                [
-                    source,
-                    metric_name,
-                    str(metric.get("unit") or "unit not recorded"),
-                    f"{metric.get('n_entities', 0)} / {metric.get('n_points', 0)}",
+                EvidenceRow(
                     (
-                        f"{_format_number(value_range.get('min'))} to "
-                        f"{_format_number(value_range.get('max'))}; "
-                        f"mean {_format_number(value_range.get('mean'))}"
+                        source,
+                        metric_name,
+                        str(metric.get("unit") or "unit not recorded"),
+                        f"{metric.get('n_entities', 0)} / {metric.get('n_points', 0)}",
+                        (
+                            f"{_format_number(value_range.get('min'))} to "
+                            f"{_format_number(value_range.get('max'))}; "
+                            f"mean {_format_number(value_range.get('mean'))}"
+                        ),
+                        (
+                            f"{_format_number(nearest.get('v'))} at "
+                            f"{_format_time(nearest.get('t'))}; "
+                            f"dt {_format_number(nearest.get('dt_minutes'))} min"
+                        ),
                     ),
-                    (
-                        f"{_format_number(nearest.get('v'))} at "
-                        f"{_format_time(nearest.get('t'))}; "
-                        f"dt {_format_number(nearest.get('dt_minutes'))} min"
-                    ),
-                ]
+                    detail=False,
+                )
+            )
+            rows.extend(
+                EvidenceRow((line, *blank), detail=True)
+                for line in _metric_detail_lines(source, metric)
             )
     return rows
 
@@ -643,6 +777,14 @@ def _packet_styles() -> dict[str, ParagraphStyle]:
             fontName="Helvetica",
             fontSize=7.5,
             leading=10,
+        ),
+        "evidence_detail": ParagraphStyle(
+            "PacketEvidenceDetail",
+            parent=base["BodyText"],
+            fontName="Helvetica",
+            fontSize=7,
+            leading=9,
+            textColor=colors.HexColor("#3C4A52"),
         ),
         "claim_index": ParagraphStyle(
             "ClaimIndex",
@@ -744,31 +886,46 @@ def _anomaly_table(anomaly: Anomaly, styles: Mapping[str, ParagraphStyle]) -> Ta
 def _evidence_table(summary: Mapping[str, Any], styles: Mapping[str, ParagraphStyle]) -> Table:
     rows = _evidence_rows(summary)
     cells = [
-        [Paragraph(escape(str(value)), styles["small"]) for value in row]
+        [
+            Paragraph(
+                escape(str(value)),
+                styles["evidence_detail"] if row.detail else styles["small"],
+            )
+            for value in row.cells
+        ]
         for row in rows
     ]
+    commands: list[tuple[Any, ...]] = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#153243")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#C9D0D4")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]
+    # Detail rows span the full width and are tinted, so a metric and its series
+    # read as one block. ROWBACKGROUNDS is not used: it alternates by row index
+    # and would tint detail rows inconsistently depending on how many a metric has.
+    for index, row in enumerate(rows):
+        if not row.detail:
+            continue
+        commands.extend(
+            (
+                ("SPAN", (0, index), (-1, index)),
+                ("BACKGROUND", (0, index), (-1, index), colors.HexColor("#F4F6F7")),
+                ("LEFTPADDING", (0, index), (0, index), 12),
+            )
+        )
     table = Table(
         cells,
         colWidths=[0.72 * inch, 1.05 * inch, 0.72 * inch, 0.72 * inch, 1.43 * inch, 1.86 * inch],
         repeatRows=1,
         hAlign="LEFT",
     )
-    table.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#153243")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F4F6F7")]),
-                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#C9D0D4")),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 3),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-                ("TOPPADDING", (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-            ]
-        )
-    )
+    table.setStyle(TableStyle(commands))
     return table
 
 
@@ -863,6 +1020,14 @@ def _build_story(
             _anomaly_table(anomaly, styles),
             Spacer(1, 8),
             Paragraph("Stored evidence summary", styles["heading"]),
+            Paragraph(
+                "One row per source and metric, covering the stored 72 hours. The "
+                "indented rows underneath a metric are its 6-hourly means and its "
+                "per-entity means with distance from the anomaly. Everything here is "
+                "what the explanations were written from, so any number a claim cites "
+                "should be checkable against this table.",
+                styles["body"],
+            ),
             _evidence_table(summary, styles),
             Spacer(1, 10),
             Image(io.BytesIO(_station_figure(anomaly, plot_data)), width=6.5 * inch, height=3.7 * inch),
@@ -929,6 +1094,7 @@ def _write_manifest(
         "summary_sha256": summary_sha256(summary),
         "pdf_sha256": pdf_sha256,
         "plot_data": plot_data.to_dict(),
+        "evidence_detail": evidence_detail_lines(summary),
         "calm_wind_flags": [flag.to_dict() for flag in calm_wind_flags],
         "claims": [
             {

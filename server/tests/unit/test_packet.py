@@ -14,8 +14,9 @@ from app.db.models import Anomaly
 from app.eval.label_cli import ClaimGroup, presentation_order
 from app.eval.packet import (
     DISTANCE_RING_KM,
-    EVIDENCE_COLUMNS,
+    SERIES_SECTIONS,
     _evidence_rows,
+    _series_rows,
     calm_wind_claim_flags,
     evidence_detail_lines,
     extract_plot_data,
@@ -330,13 +331,12 @@ def _series_summary() -> dict:
 def test_packet_prints_every_series_line_the_model_was_given() -> None:
     """The B4 invariant: whatever the model can see, the labeler can audit.
 
-    Asserted against ``render_enrichment_text`` itself — the exact text the
-    model reasoned from and the Phase 1 grounding context — so the packet cannot
-    drift from the prompt without failing here.
+    Asserted against ``render_enrichment_text`` itself, the exact text the model
+    reasoned from and the Phase 1 grounding context, so the packet cannot drift
+    from the prompt without failing here.
     """
     summary = _series_summary()
-    detail = evidence_detail_lines(summary)
-    assert detail == [
+    assert evidence_detail_lines(summary) == [
         "tceq no2: 6h means: 07-08 00Z 5, 06Z 8",
         "tceq no2: monitor means: TQ1 (1.0 km) 9, TQ2 (1.0 km) 4",
     ]
@@ -347,11 +347,27 @@ def test_packet_prints_every_series_line_the_model_was_given() -> None:
         if line.startswith("  ")
     ]
     assert model_series_lines, "fixture must exercise the series renderers"
-    rendered = {row.cells[0] for row in _evidence_rows(summary) if row.detail}
-    assert set(model_series_lines) <= rendered
+    printed = {
+        f"{row[0]} {row[1]}: {row[2]}"
+        for position, _title, _blurb in SERIES_SECTIONS
+        for row in _series_rows(summary, position)[1:]
+    }
+    # The renderer's own label is dropped from the cell because the table header
+    # carries it, so compare on the values the labeler can actually read.
+    assert {line.partition(": ")[2] for line in model_series_lines} <= {
+        entry.partition(": ")[2] for entry in printed
+    }
 
-    aggregate_rows = [row for row in _evidence_rows(summary) if not row.detail]
-    assert all(len(row.cells) == len(EVIDENCE_COLUMNS) for row in aggregate_rows)
+
+def test_every_table_keeps_the_same_column_shape() -> None:
+    """Bracco signed off on this grid; no row may span or drop a column."""
+    summary = _series_summary()
+    for rows in (
+        _evidence_rows(summary),
+        *(_series_rows(summary, position) for position, _t, _b in SERIES_SECTIONS),
+    ):
+        widths = {len(row) for row in rows}
+        assert len(widths) == 1, f"ragged table: row widths {sorted(widths)}"
 
 
 def test_packet_pdf_carries_the_series_and_audit_detects_their_removal(
@@ -365,8 +381,10 @@ def test_packet_pdf_carries_the_series_and_audit_detects_their_removal(
     )
 
     shown = " ".join(extract_pdf_text(pdf_path).split())
-    assert "6h means: 07-08 00Z 5, 06Z 8" in shown
-    assert "monitor means: TQ1 (1.0 km) 9, TQ2 (1.0 km) 4" in shown
+    assert "Six-hour averages" in shown
+    assert "Per-site averages" in shown
+    assert "07-08 00Z 5, 06Z 8" in shown
+    assert "TQ1 (1.0 km) 9, TQ2 (1.0 km) 4" in shown
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["evidence_detail"] == evidence_detail_lines(summary)

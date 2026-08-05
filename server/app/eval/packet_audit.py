@@ -16,6 +16,7 @@ from pypdf import PdfReader
 
 from app.eval.label_cli import ClaimGroup, presentation_order
 from app.eval.packet import (
+    SERIES_SECTIONS,
     calm_wind_claim_flags,
     evidence_detail_lines,
     extract_plot_data,
@@ -149,11 +150,13 @@ def audit_packet(
     text = extract_pdf_text(pdf_path)
     if expected_flags and "wind direction unstable under calm conditions" not in text:
         raise PacketAuditError("calm-wind flag text is missing from the PDF")
-    # Manifest agreement proves the lines were computed; this proves they were
-    # actually rendered. Checked on the bucket-means marker only, because PDF
-    # text extraction rewraps long series lines unpredictably.
-    if expected_detail and "h means" not in text:
-        raise PacketAuditError("evidence detail rows are missing from the PDF")
+    # Manifest agreement proves the series were computed; this proves they were
+    # actually rendered. Checked on the section headings rather than the values,
+    # because PDF text extraction rewraps long series rows unpredictably.
+    if expected_detail and not any(
+        title in text for _position, title, _blurb in SERIES_SECTIONS
+    ):
+        raise PacketAuditError("series tables are missing from the PDF")
     metadata = extract_pdf_metadata(pdf_path)
     rendered_text_findings = unsafe_text_findings(
         (

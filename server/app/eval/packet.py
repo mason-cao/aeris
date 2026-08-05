@@ -646,44 +646,48 @@ def _format_time(value: Any) -> str:
     return _parse_timestamp(str(value)).strftime("%Y-%m-%d %H:%MZ")
 
 
-EVIDENCE_COLUMNS = (
-    "Source",
-    "Metric",
-    "Unit",
-    "Entities / points",
-    "Range; mean",
-    "Nearest to event",
+# The series the models were given ride in their own tables rather than as
+# spanned rows inside the evidence table. A full-width row breaks the column
+# grid, and Bracco signed off on that grid on 2026-07-24; a sibling table in the
+# same style adds the numbers without touching a layout she has already read.
+SERIES_SECTIONS: tuple[tuple[int, str, str], ...] = (
+    (
+        0,
+        "Six-hour averages",
+        "Each metric averaged in 6-hour blocks across the stored 72 hours, in UTC. "
+        "These averages, and the per-site ones below, are what the models were shown.",
+    ),
+    (
+        1,
+        "Per-site averages",
+        "Each metric averaged at each site, with that site's distance from the "
+        "event in brackets.",
+    ),
 )
 
 
-@dataclass(frozen=True)
-class EvidenceRow:
-    """One evidence-table row: a metric's aggregates, or a full-width detail line.
-
-    Detail rows carry the bucket and per-entity means the model reasoned from.
-    They are a separate row kind rather than extra columns because the lines are
-    variable-length series, not per-metric scalars.
-    """
-
-    cells: tuple[str, ...]
-    detail: bool
-
-
-def _metric_detail_lines(source: str, metric: Mapping[str, Any]) -> list[str]:
-    """The bucket and per-entity mean lines the model was given for this metric.
+def _metric_series(
+    source: str, metric: Mapping[str, Any]
+) -> tuple[str | None, str | None]:
+    """(bucket means, per-entity means) for one metric, either possibly absent.
 
     Delegates to the prompt renderers rather than reformatting the summary, so
     the packet cannot drift from what ``render_enrichment_text`` showed the model.
+    Positional, because a metric can have entity means and no bucket means.
     """
     _entity_label, means_label = entity_terms(source)
-    return [
-        line
-        for line in (
-            render_bucket_means(metric),
-            render_entity_means(metric, means_label),
-        )
-        if line
-    ]
+    return render_bucket_means(metric), render_entity_means(metric, means_label)
+
+
+def _metric_detail_lines(source: str, metric: Mapping[str, Any]) -> list[str]:
+    """The series lines present for this metric, in section order."""
+    return [line for line in _metric_series(source, metric) if line]
+
+
+def _series_value(line: str) -> str:
+    """Drop the renderer's own label, which the column header already carries."""
+    _label, _, values = line.partition(": ")
+    return values or line
 
 
 def evidence_detail_lines(summary: Mapping[str, Any]) -> list[str]:
@@ -703,9 +707,8 @@ def evidence_detail_lines(summary: Mapping[str, Any]) -> list[str]:
     return lines
 
 
-def _evidence_rows(summary: Mapping[str, Any]) -> list[EvidenceRow]:
-    rows = [EvidenceRow(EVIDENCE_COLUMNS, detail=False)]
-    blank = ("",) * (len(EVIDENCE_COLUMNS) - 1)
+def _evidence_rows(summary: Mapping[str, Any]) -> list[list[str]]:
+    rows = [["Source", "Metric", "Unit", "Entities / points", "Range; mean", "Nearest to event"]]
     for source in sorted(summary.get("sources", {})):
         metrics = summary["sources"][source].get("metrics", {})
         for metric_name in sorted(metrics):
@@ -713,30 +716,35 @@ def _evidence_rows(summary: Mapping[str, Any]) -> list[EvidenceRow]:
             value_range = metric.get("value_range", {})
             nearest = metric.get("nearest_in_time", {})
             rows.append(
-                EvidenceRow(
+                [
+                    source,
+                    metric_name,
+                    str(metric.get("unit") or "unit not recorded"),
+                    f"{metric.get('n_entities', 0)} / {metric.get('n_points', 0)}",
                     (
-                        source,
-                        metric_name,
-                        str(metric.get("unit") or "unit not recorded"),
-                        f"{metric.get('n_entities', 0)} / {metric.get('n_points', 0)}",
-                        (
-                            f"{_format_number(value_range.get('min'))} to "
-                            f"{_format_number(value_range.get('max'))}; "
-                            f"mean {_format_number(value_range.get('mean'))}"
-                        ),
-                        (
-                            f"{_format_number(nearest.get('v'))} at "
-                            f"{_format_time(nearest.get('t'))}; "
-                            f"dt {_format_number(nearest.get('dt_minutes'))} min"
-                        ),
+                        f"{_format_number(value_range.get('min'))} to "
+                        f"{_format_number(value_range.get('max'))}; "
+                        f"mean {_format_number(value_range.get('mean'))}"
                     ),
-                    detail=False,
-                )
+                    (
+                        f"{_format_number(nearest.get('v'))} at "
+                        f"{_format_time(nearest.get('t'))}; "
+                        f"dt {_format_number(nearest.get('dt_minutes'))} min"
+                    ),
+                ]
             )
-            rows.extend(
-                EvidenceRow((line, *blank), detail=True)
-                for line in _metric_detail_lines(source, metric)
-            )
+    return rows
+
+
+def _series_rows(summary: Mapping[str, Any], position: int) -> list[list[str]]:
+    """Rows for one series table: source, metric, and that metric's series."""
+    rows = [["Source", "Metric", "Values"]]
+    for source in sorted(summary.get("sources", {})):
+        metrics = summary["sources"][source].get("metrics", {})
+        for metric_name in sorted(metrics):
+            line = _metric_series(source, metrics[metric_name])[position]
+            if line:
+                rows.append([source, metric_name, _series_value(line)])
     return rows
 
 
@@ -786,14 +794,6 @@ def _packet_styles() -> dict[str, ParagraphStyle]:
             fontName="Helvetica",
             fontSize=7.5,
             leading=10,
-        ),
-        "evidence_detail": ParagraphStyle(
-            "PacketEvidenceDetail",
-            parent=base["BodyText"],
-            fontName="Helvetica",
-            fontSize=7,
-            leading=9,
-            textColor=colors.HexColor("#3C4A52"),
         ),
         "claim_index": ParagraphStyle(
             "ClaimIndex",
@@ -898,50 +898,53 @@ def _anomaly_table(anomaly: Anomaly, styles: Mapping[str, ParagraphStyle]) -> Ta
     return table
 
 
-def _evidence_table(summary: Mapping[str, Any], styles: Mapping[str, ParagraphStyle]) -> Table:
-    rows = _evidence_rows(summary)
+def _grid_table(
+    rows: Sequence[Sequence[str]],
+    styles: Mapping[str, ParagraphStyle],
+    col_widths: Sequence[float],
+) -> Table:
+    """The packet's one table style: header band, full grid, alternating rows."""
     cells = [
-        [
-            Paragraph(
-                escape(str(value)),
-                styles["evidence_detail"] if row.detail else styles["small"],
-            )
-            for value in row.cells
-        ]
+        [Paragraph(escape(str(value)), styles["small"]) for value in row]
         for row in rows
     ]
-    commands: list[tuple[Any, ...]] = [
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#153243")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#C9D0D4")),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-    ]
-    # Detail rows span the full width and are tinted, so a metric and its series
-    # read as one block. ROWBACKGROUNDS is not used: it alternates by row index
-    # and would tint detail rows inconsistently depending on how many a metric has.
-    for index, row in enumerate(rows):
-        if not row.detail:
-            continue
-        commands.extend(
-            (
-                ("SPAN", (0, index), (-1, index)),
-                ("BACKGROUND", (0, index), (-1, index), colors.HexColor("#F4F6F7")),
-                ("LEFTPADDING", (0, index), (0, index), 12),
-            )
-        )
     table = Table(
         cells,
-        colWidths=[0.72 * inch, 1.05 * inch, 0.72 * inch, 0.72 * inch, 1.43 * inch, 1.86 * inch],
+        colWidths=[width * inch for width in col_widths],
         repeatRows=1,
         hAlign="LEFT",
     )
-    table.setStyle(TableStyle(commands))
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#153243")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F4F6F7")]),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#C9D0D4")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ]
+        )
+    )
     return table
+
+
+def _evidence_table(summary: Mapping[str, Any], styles: Mapping[str, ParagraphStyle]) -> Table:
+    return _grid_table(
+        _evidence_rows(summary),
+        styles,
+        (0.72, 1.05, 0.72, 0.72, 1.43, 1.86),
+    )
+
+
+def _series_table(
+    rows: Sequence[Sequence[str]], styles: Mapping[str, ParagraphStyle]
+) -> Table:
+    return _grid_table(rows, styles, (0.72, 1.05, 4.73))
 
 
 def _claim_block(
@@ -1035,15 +1038,23 @@ def _build_story(
             _anomaly_table(anomaly, styles),
             Spacer(1, 8),
             Paragraph("Stored evidence summary", styles["heading"]),
-            Paragraph(
-                "One row per source and metric, covering the stored 72 hours. The "
-                "indented rows underneath a metric are its 6-hourly means and its "
-                "per-entity means with distance from the anomaly. Everything here is "
-                "what the explanations were written from, so any number a claim cites "
-                "should be checkable against this table.",
-                styles["body"],
-            ),
             _evidence_table(summary, styles),
+        ]
+    )
+    for position, title, blurb in SERIES_SECTIONS:
+        rows = _series_rows(summary, position)
+        if len(rows) < 2:
+            continue
+        story.extend(
+            [
+                Spacer(1, 10),
+                Paragraph(title, styles["heading"]),
+                Paragraph(blurb, styles["body"]),
+                _series_table(rows, styles),
+            ]
+        )
+    story.extend(
+        [
             Spacer(1, 10),
             Image(io.BytesIO(_station_figure(anomaly, plot_data)), width=6.5 * inch, height=3.7 * inch),
             Spacer(1, 6),

@@ -19,6 +19,8 @@ from app.llm.corroboration import (
 )
 from app.provenance.openaq_pm25 import (
     LOCKED_SNAPSHOT_SHA256,
+    STUDY_END_EXCLUSIVE,
+    STUDY_START,
     derive_openaq_pm25_fixture,
     load_openaq_pm25_fixture,
     verified_monitor_entity_ids,
@@ -123,8 +125,8 @@ def test_fixture_matches_snapshot_audit_counts() -> None:
 
     assert fixture["snapshot_sha256"] == LOCKED_SNAPSHOT_SHA256
     assert fixture["study_window"] == {
-        "start": "2026-06-01T00:00:00Z",
-        "end_exclusive": "2026-07-13T00:00:00Z",
+        "start": STUDY_START,
+        "end_exclusive": STUDY_END_EXCLUSIVE,
     }
     assert fixture["audit_counts"] == {
         "inline_by_provider": {

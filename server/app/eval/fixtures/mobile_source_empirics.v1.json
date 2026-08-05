@@ -6,8 +6,8 @@
     "radius_km": 50.0
   },
   "anchor_semantics": "B2/B8 UTC-hour centers; centered endpoint-inclusive 72-hour context wholly inside the study interval",
-  "in_radius_row_count": 165075,
-  "input_row_count": 165075,
+  "in_radius_row_count": 166161,
+  "input_row_count": 166161,
   "pairs": [
     {
       "anomaly_day_outcomes": {
@@ -165,7 +165,7 @@
       "changed_transitions": [],
       "changed_verdict_count": 0,
       "changed_verdict_fraction": 0.0,
-      "eligible_observation_count": 15278,
+      "eligible_observation_count": 15402,
       "metric": "ozone",
       "source": "openaq",
       "whole_window_outcomes": {
@@ -278,7 +278,7 @@
       ],
       "changed_verdict_count": 233,
       "changed_verdict_fraction": 0.24893162393162394,
-      "eligible_observation_count": 2627,
+      "eligible_observation_count": 2641,
       "metric": "pm10",
       "source": "openaq",
       "whole_window_outcomes": {
@@ -427,7 +427,7 @@
       ],
       "changed_verdict_count": 304,
       "changed_verdict_fraction": 0.3247863247863248,
-      "eligible_observation_count": 5013,
+      "eligible_observation_count": 5027,
       "metric": "pm25",
       "source": "openaq",
       "whole_window_outcomes": {
@@ -644,7 +644,7 @@
       ],
       "changed_verdict_count": 182,
       "changed_verdict_fraction": 0.19444444444444445,
-      "eligible_observation_count": 69638,
+      "eligible_observation_count": 70105,
       "metric": "pm25",
       "source": "purpleair",
       "whole_window_outcomes": {
@@ -745,7 +745,7 @@
       ],
       "changed_verdict_count": 323,
       "changed_verdict_fraction": 0.3450854700854701,
-      "eligible_observation_count": 2783,
+      "eligible_observation_count": 2804,
       "metric": "co",
       "source": "tceq",
       "whole_window_outcomes": {
@@ -926,7 +926,7 @@
       ],
       "changed_verdict_count": 214,
       "changed_verdict_fraction": 0.22863247863247863,
-      "eligible_observation_count": 11458,
+      "eligible_observation_count": 11555,
       "metric": "no2",
       "source": "tceq",
       "whole_window_outcomes": {
@@ -1039,7 +1039,7 @@
       ],
       "changed_verdict_count": 207,
       "changed_verdict_fraction": 0.22115384615384615,
-      "eligible_observation_count": 2733,
+      "eligible_observation_count": 2757,
       "metric": "so2",
       "source": "tceq",
       "whole_window_outcomes": {
@@ -1058,10 +1058,10 @@
       }
     }
   ],
-  "quality_eligible_row_count": 109530,
-  "quality_excluded_row_count": 55545,
+  "quality_eligible_row_count": 110291,
+  "quality_excluded_row_count": 55870,
   "schema_version": 1,
-  "snapshot_sha256": "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81",
+  "snapshot_sha256": "1e50e007cc8f60da1fd5ce4588aced05b186172817e757f9948a9adad06be557",
   "study_end_exclusive": "2026-07-13T00:00:00+00:00",
   "study_start": "2026-06-01T00:00:00+00:00",
   "tolerance": {

@@ -169,6 +169,86 @@ def _rank_key(anomaly: Anomaly) -> tuple[int, float]:
 # warning already blocks freeze-day acceptance.
 DEFAULT_MIN_FRESH_CHANNELS = 3
 
+# Stratified selection (declared 2026-08-05, before detection ran on the
+# August 5 snapshot).
+#
+# The rank key's |z| tiebreak compares a within-metric quantity across metrics,
+# so it ranks by how spiky a pollutant is rather than by how anomalous an event
+# is. On the July 12 corpus that gave ozone 2 of 50 slots off the second
+# largest eligible pool (55 events) while SO2 took 11 off the fourth largest
+# (38), purely because SO2 jumps off a quiet industrial baseline (mean |z|
+# 10.47) and ozone is smooth and regional (3.87). That starves whole scorer
+# branches: ozone drives the secondary-formation and photochemistry claim
+# types, and a branch with two events supports no statement about itself.
+DEFAULT_STRATUM_FLOOR = 5
+
+
+def allocate_strata(
+    pool_sizes: Mapping[str, int],
+    *,
+    top_n: int,
+    floor: int,
+) -> dict[str, int]:
+    """Slots per stratum: a floor for each, then highest averages.
+
+    Every stratum holding eligible events takes up to ``floor`` slots, so no
+    pollutant can be squeezed out by the cross-metric |z| comparison. The rest
+    go one slot at a time to whichever stratum has the largest
+    ``eligible / (held + 1)``, the standard highest-averages rule, skipping
+    strata that have run out of eligible events. Ties break on the larger pool
+    and then on the lexicographically first name, so the result is a pure
+    function of the pool sizes and never depends on iteration order.
+    """
+    capacity = {name: int(size) for name, size in pool_sizes.items() if size > 0}
+    if not capacity or top_n < 1:
+        return {}
+    if sum(capacity.values()) <= top_n:
+        return dict(sorted(capacity.items()))
+
+    ordered = sorted(capacity)
+    allocation = {name: min(floor, capacity[name]) for name in ordered}
+    # A floor that does not fit inside the budget is not a floor. Fall back to
+    # pure highest averages rather than truncating strata by name.
+    if sum(allocation.values()) > top_n:
+        allocation = {name: 0 for name in ordered}
+
+    while sum(allocation.values()) < top_n:
+        open_strata = [name for name in ordered if allocation[name] < capacity[name]]
+        if not open_strata:
+            break
+        allocation[
+            max(
+                open_strata,
+                key=lambda name: (capacity[name] / (allocation[name] + 1), capacity[name]),
+            )
+        ] += 1
+    return allocation
+
+
+def select_stratified(
+    eligible: Sequence[Anomaly],
+    *,
+    top_n: int,
+    floor: int,
+) -> tuple[list[Anomaly], dict[str, int], dict[str, int]]:
+    """Take each metric's allocation in rank order, keeping global rank order.
+
+    ``eligible`` arrives sorted by the global rank key, so taking the first
+    ``allocation[metric]`` occurrences of each metric preserves within-stratum
+    rank order and returns the selection still in global rank order.
+    """
+    pool_sizes: dict[str, int] = defaultdict(int)
+    for anomaly in eligible:
+        pool_sizes[anomaly.metric] += 1
+    allocation = allocate_strata(dict(pool_sizes), top_n=top_n, floor=floor)
+    taken: dict[str, int] = defaultdict(int)
+    selected: list[Anomaly] = []
+    for anomaly in eligible:
+        if taken[anomaly.metric] < allocation.get(anomaly.metric, 0):
+            taken[anomaly.metric] += 1
+            selected.append(anomaly)
+    return selected, allocation, dict(sorted(pool_sizes.items()))
+
 
 def fresh_channel_coverage(summary: Mapping) -> dict[str, bool]:
     """Per-channel flag: does any source in the channel pass its B8 age gate?
@@ -255,6 +335,10 @@ class FreezeResult:
     min_fresh_channels: int = DEFAULT_MIN_FRESH_CHANNELS
     coverage_excluded: list[uuid.UUID] = field(default_factory=list)
     coverage_channel_counts: dict[uuid.UUID, int] = field(default_factory=dict)
+    stratified: bool = False
+    stratum_floor: int = DEFAULT_STRATUM_FLOOR
+    stratum_allocation: dict[str, int] = field(default_factory=dict)
+    stratum_pool_sizes: dict[str, int] = field(default_factory=dict)
 
 
 async def load_window_anomalies(
@@ -312,6 +396,8 @@ async def freeze_eval_set(
     window_end: datetime,
     top_n: int = DEFAULT_TOP_N,
     min_fresh_channels: int = DEFAULT_MIN_FRESH_CHANNELS,
+    stratify: bool = False,
+    stratum_floor: int = DEFAULT_STRATUM_FLOOR,
 ) -> FreezeResult:
     """Select the top-N coverage-eligible event representatives."""
     if top_n < 1:
@@ -320,6 +406,8 @@ async def freeze_eval_set(
         raise ValueError(
             f"min_fresh_channels must be >= 1, got {min_fresh_channels}"
         )
+    if stratum_floor < 0:
+        raise ValueError(f"stratum_floor must be >= 0, got {stratum_floor}")
     anomalies = await load_window_anomalies(session, window_start, window_end)
     events = group_events(anomalies)
 
@@ -342,7 +430,14 @@ async def freeze_eval_set(
             eligible.append(representative)
         else:
             coverage_excluded.append(representative.id)
-    selected = eligible[:top_n]
+    if stratify:
+        selected, stratum_allocation, stratum_pool_sizes = select_stratified(
+            eligible, top_n=top_n, floor=stratum_floor
+        )
+    else:
+        selected = eligible[:top_n]
+        stratum_allocation = {}
+        stratum_pool_sizes = {}
 
     event_sizes = {
         max(event, key=_rank_key).id: len(event) for event in events
@@ -359,6 +454,10 @@ async def freeze_eval_set(
         min_fresh_channels=min_fresh_channels,
         coverage_excluded=coverage_excluded,
         coverage_channel_counts=coverage_channel_counts,
+        stratified=stratify,
+        stratum_floor=stratum_floor,
+        stratum_allocation=stratum_allocation,
+        stratum_pool_sizes=stratum_pool_sizes,
     )
 
 
@@ -533,16 +632,20 @@ def fixture_payload(
         )
     if b18_decision is None:
         raise ValueError("B18 freeze-day decision is required for fixture creation")
-    if b18_decision == B18_STRATIFY:
-        raise ValueError(
-            "B18 stratified selection must be declared and implemented before "
-            "fixture creation"
-        )
-    if b18_decision != B18_ACCEPT_UNSTRATIFIED:
+    if b18_decision not in (B18_ACCEPT_UNSTRATIFIED, B18_STRATIFY):
         raise ValueError(f"unknown B18 freeze-day decision: {b18_decision}")
+    # The declared decision and the selection that actually ran have to be the
+    # same thing. Without this the fixture could claim a stratified set while
+    # holding a globally ranked one, which is the single most damaging way this
+    # payload could lie.
+    if (b18_decision == B18_STRATIFY) != result.stratified:
+        raise ValueError(
+            f"B18 decision {b18_decision!r} does not match the selection that ran "
+            f"(stratified={result.stratified})"
+        )
     if b18_rationale is None or not b18_rationale.strip():
         raise ValueError(
-            "B18 review rationale is required when accepting unstratified selection"
+            "B18 review rationale is required for either freeze-day decision"
         )
     freeze_day_review = b18_review_payload(
         result,
@@ -566,6 +669,19 @@ def fixture_payload(
                 "linkage": "single, per metric",
             },
             "top": result.top_n,
+            "selection": {
+                "stratified": result.stratified,
+                "stratum": "metric" if result.stratified else None,
+                "rule": (
+                    "per-metric floor, then highest averages on eligible counts; "
+                    "within a metric, global rank order"
+                    if result.stratified
+                    else "global rank order"
+                ),
+                "stratum_floor": result.stratum_floor if result.stratified else None,
+                "eligible_per_stratum": result.stratum_pool_sizes or None,
+                "slots_per_stratum": result.stratum_allocation or None,
+            },
         },
         "n_window_anomalies": result.n_anomalies,
         "n_events": result.n_events,
@@ -612,7 +728,21 @@ def _format_result(result: FreezeResult) -> str:
         f"Coverage-excluded:   {len(result.coverage_excluded)} "
         f"(min {result.min_fresh_channels} fresh channels)",
         f"Selected:            {len(result.selected)} (top {result.top_n})",
+        f"Selection:           "
+        + (
+            f"stratified by metric, floor {result.stratum_floor}"
+            if result.stratified
+            else "global rank order"
+        ),
     ]
+    if result.stratified:
+        lines.append("")
+        lines.append("Slots per metric (eligible -> selected):")
+        for metric in sorted(result.stratum_pool_sizes):
+            lines.append(
+                f"  {metric:<12} {result.stratum_pool_sizes[metric]:>5} -> "
+                f"{result.stratum_allocation.get(metric, 0):>3}"
+            )
     if result.missing_enrichment:
         lines.append(
             f"WARNING: {len(result.missing_enrichment)} selected anomalies "
@@ -745,6 +875,20 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--b18-rationale",
         help="Mason's nonblank freeze-day composition review rationale",
     )
+    parser.add_argument(
+        "--stratify",
+        action="store_true",
+        help=(
+            "allocate slots per metric (floor, then highest averages) instead "
+            "of taking a single globally ranked cut"
+        ),
+    )
+    parser.add_argument(
+        "--stratum-floor",
+        type=int,
+        default=DEFAULT_STRATUM_FLOOR,
+        help="minimum slots per metric that has eligible events",
+    )
     args = parser.parse_args(argv)
     if not args.dry_run and not args.out:
         parser.error("--out is required unless --dry-run is set")
@@ -756,6 +900,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("--b18-rationale is required unless --dry-run is set")
     if args.dry_run and (args.b18_decision is not None or args.b18_rationale):
         parser.error("B18 decision/rationale are recorded only after the dry run")
+    # Fail here rather than deep inside fixture_payload, so a mismatched run
+    # costs a parse error instead of a full selection pass.
+    if not args.dry_run and args.stratify != (args.b18_decision == B18_STRATIFY):
+        parser.error(
+            f"--stratify={args.stratify} contradicts --b18-decision={args.b18_decision}"
+        )
     return args
 
 
@@ -780,6 +930,8 @@ async def _amain(argv: list[str] | None = None) -> int:
                 window_end=window_end,
                 top_n=args.top,
                 min_fresh_channels=args.min_fresh_channels,
+                stratify=args.stratify,
+                stratum_floor=args.stratum_floor,
             )
         print(_format_result(result))
         if not args.dry_run:

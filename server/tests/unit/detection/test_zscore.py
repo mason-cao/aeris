@@ -40,6 +40,34 @@ class TestZScoreDetectorBasics:
         series = _series([5.0] * 20)
         assert detector.detect(series) == []
 
+    def test_quantized_flat_baseline_does_not_manufacture_a_giant_z(self) -> None:
+        # 5.0 is binary-exact so its std is exactly 0, but 0.1 is not: numpy
+        # returns ~1.4e-17 for a constant window of 0.1, which an `std == 0`
+        # test lets through and which turns a one-tick rise into z ~1e15. TCEQ
+        # reports CO at 0.1 ppm, so this window shape is routine, and the
+        # freeze ranks on |z| — a single escapee would take the top slot.
+        detector = ZScoreDetector(min_points=10, threshold=3.0)
+        series = _series([0.1] * 15 + [0.2])
+        assert detector.detect(series) == []
+
+    def test_flat_baseline_is_rejected_at_any_scale(self) -> None:
+        # The floor is relative, so it must behave the same for satellite
+        # column densities as for ppm.
+        detector = ZScoreDetector(min_points=10, threshold=3.0)
+        for level in (0.1, 3.7, 1.0e15, 2.5e-6):
+            series = _series([level] * 15 + [level * 2])
+            assert detector.detect(series) == [], f"leaked at level {level}"
+
+    def test_a_genuinely_narrow_baseline_still_produces_anomalies(self) -> None:
+        # The floor must not silently swallow real low-variance series. This
+        # baseline varies by 1% and stays well above the 1e-9 relative floor.
+        detector = ZScoreDetector(min_points=10, threshold=3.0)
+        baseline = [0.1, 0.101, 0.099, 0.1, 0.101, 0.099, 0.1, 0.101, 0.099, 0.1]
+        anomalies = detector.detect(_series(baseline + [0.2]))
+        assert len(anomalies) == 1
+        assert anomalies[0].value == 0.2
+        assert math.isfinite(anomalies[0].z_score)
+
 
 class TestZScoreDetectorOutliers:
     def test_single_positive_outlier_detected(self) -> None:

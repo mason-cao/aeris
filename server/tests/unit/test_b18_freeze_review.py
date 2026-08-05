@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import pytest
 
 from app.db.models import Anomaly
+from app.provenance.purpleair_qc import LOCKED_SNAPSHOT_SHA256
 from app.eval.freeze import (
     FreezeResult,
     _format_result,
@@ -17,9 +18,7 @@ from app.eval.freeze import (
 
 
 T0 = datetime(2026, 7, 2, 12, 0, tzinfo=timezone.utc)
-SNAPSHOT_SHA256 = (
-    "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81"
-)
+SNAPSHOT_SHA256 = LOCKED_SNAPSHOT_SHA256
 CODE_COMMIT = "a" * 40
 
 
@@ -279,8 +278,11 @@ def test_real_fixture_requires_reviewed_decision_and_rationale() -> None:
         )
 
 
-def test_stratify_decision_refuses_fixture_until_rule_is_implemented() -> None:
-    with pytest.raises(ValueError, match="stratified.*implemented"):
+def test_stratify_decision_requires_a_stratified_selection() -> None:
+    # The rule is implemented now, so this no longer refuses the decision
+    # outright. What it must still refuse is a fixture whose declared decision
+    # and executed selection disagree.
+    with pytest.raises(ValueError, match="does not match the selection"):
         fixture_payload(
             _result([_anomaly()]),
             snapshot_sha256=SNAPSHOT_SHA256,

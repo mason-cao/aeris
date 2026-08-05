@@ -4,9 +4,9 @@
   "candidate_anchor_count": 1872,
   "insufficient_distinct_day_count": 0,
   "min_same_hour_points": 2,
-  "observation_count": 2004,
+  "observation_count": 2016,
   "sd_estimator": "population",
-  "snapshot_sha256": "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81",
+  "snapshot_sha256": "1e50e007cc8f60da1fd5ce4588aced05b186172817e757f9948a9adad06be557",
   "study_end_exclusive": "2026-07-13T00:00:00+00:00",
   "study_start": "2026-06-01T00:00:00+00:00",
   "sweep": [

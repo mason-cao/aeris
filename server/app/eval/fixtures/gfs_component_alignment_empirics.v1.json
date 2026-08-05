@@ -21,8 +21,8 @@
     "rate": 0.0
   },
   "gfs_age_gate_minutes": 360.0,
-  "in_radius_row_count": 4008,
-  "input_row_count": 4008,
+  "in_radius_row_count": 4032,
+  "input_row_count": 4032,
   "malformed_timestamp": {
     "count": 0,
     "rate": 0.0
@@ -47,7 +47,7 @@
     "rate": 1.0
   },
   "schema_version": 1,
-  "snapshot_sha256": "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81",
+  "snapshot_sha256": "1e50e007cc8f60da1fd5ce4588aced05b186172817e757f9948a9adad06be557",
   "study_end_exclusive": "2026-07-13T00:00:00+00:00",
   "study_start": "2026-06-01T00:00:00+00:00",
   "timestamp_exact": {
@@ -58,6 +58,6 @@
     "count": 0,
     "rate": 0.0
   },
-  "u_observation_count": 2004,
-  "v_observation_count": 2004
+  "u_observation_count": 2016,
+  "v_observation_count": 2016
 }

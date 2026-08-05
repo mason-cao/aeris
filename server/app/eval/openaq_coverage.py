@@ -23,8 +23,10 @@ from app.provenance.openaq_pm25 import (
     load_openaq_pm25_fixture,
 )
 
-STUDY_START = datetime(2026, 6, 1, tzinfo=UTC)
-STUDY_END_EXCLUSIVE = datetime(2026, 7, 13, tzinfo=UTC)
+from app.provenance.openaq_pm25 import (  # noqa: E402
+    STUDY_END_EXCLUSIVE_AT as STUDY_END_EXCLUSIVE,
+    STUDY_START_AT as STUDY_START,
+)
 _HOUR = timedelta(hours=1)
 _DAY = timedelta(days=1)
 

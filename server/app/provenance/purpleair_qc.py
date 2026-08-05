@@ -20,11 +20,13 @@ from typing import Any, Final
 
 from app.collectors.geo import distance_km
 
-LOCKED_SNAPSHOT_SHA256: Final = (
-    "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81"
+# Re-exported, not redeclared: openaq_pm25 owns these. Many modules import
+# them from here, so the names stay put.
+from app.provenance.openaq_pm25 import (  # noqa: E402
+    LOCKED_SNAPSHOT_SHA256,
+    STUDY_END_EXCLUSIVE_AT as STUDY_END_EXCLUSIVE,
+    STUDY_START_AT as STUDY_START,
 )
-STUDY_START: Final = datetime(2026, 6, 1, tzinfo=timezone.utc)
-STUDY_END_EXCLUSIVE: Final = datetime(2026, 7, 13, tzinfo=timezone.utc)
 JUNE_END_EXCLUSIVE: Final = datetime(2026, 7, 1, tzinfo=timezone.utc)
 TARGET_LAT: Final = 29.7604
 TARGET_LON: Final = -95.3698

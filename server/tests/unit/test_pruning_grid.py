@@ -38,6 +38,7 @@ from app.eval.pruning_screen import (
 )
 from app.llm.corroboration import phase2_metric_owners
 from app.provenance.openaq_pm25 import verified_monitor_entity_ids
+from app.provenance.purpleair_qc import LOCKED_SNAPSHOT_SHA256
 
 
 T0 = datetime(2026, 6, 1, tzinfo=UTC)
@@ -683,9 +684,7 @@ def test_active_screen_and_verbatim_mechanism_input_are_freeze_linked() -> None:
     fixture = load_pruning_fixture()
     payload = pruning_manifest_payload()
 
-    assert fixture["snapshot_sha256"] == (
-        "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81"
-    )
+    assert fixture["snapshot_sha256"] == LOCKED_SNAPSHOT_SHA256
     assert payload["artifact"] == "pruning_screen.run-001.json"
     assert len(payload["screen"]["cells"]) == 360
     assessments = payload["mechanism_assessment_input"]["assessments"]

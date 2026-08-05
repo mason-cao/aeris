@@ -19,7 +19,11 @@ from app.eval.pruning_screen import (
     render_markdown,
     write_manifest,
 )
-from app.provenance.openaq_pm25 import LOCKED_SNAPSHOT_SHA256
+from app.provenance.openaq_pm25 import (
+    LOCKED_SNAPSHOT_SHA256,
+    STUDY_END_EXCLUSIVE,
+    STUDY_START,
+)
 
 
 START = datetime(2026, 6, 1, tzinfo=UTC)
@@ -66,8 +70,8 @@ def _payload(
         "input_kind": "synthetic",
         "snapshot_sha256": LOCKED_SNAPSHOT_SHA256,
         "study_window": {
-            "start": "2026-06-01T00:00:00Z",
-            "end_exclusive": "2026-07-13T00:00:00Z",
+            "start": STUDY_START,
+            "end_exclusive": STUDY_END_EXCLUSIVE,
         },
         "anchor_population": "Synthetic hourly anchors for unit testing only.",
         "outcome_definition": "Synthetic concentration-event behavior.",

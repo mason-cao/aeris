@@ -6,6 +6,12 @@ import numpy as np
 from pydantic import BaseModel
 
 
+# Seven orders of magnitude above double-precision residue (~2e-16 relative)
+# and seven below any real instrument's reporting precision, so it rejects
+# quantization-flat windows without ever touching a genuinely varying series.
+_FLAT_WINDOW_RELATIVE_TOLERANCE = 1e-9
+
+
 class ZScoreAnomaly(BaseModel):
     timestamp: datetime
     value: float
@@ -62,7 +68,14 @@ class ZScoreDetector:
             window = values[lo:hi]
             mean = float(window.mean())
             std = float(window.std(ddof=0))
-            if std == 0:
+            # Scaled, not `std == 0`. An exact test is defeated by float
+            # residue: TCEQ reports CO at 0.1 ppm resolution, and np.std over a
+            # constant window of 0.1 returns ~1.4e-17 rather than 0 because 0.1
+            # is not binary-exact. The resulting z reaches 1e15 and wins any
+            # ranking it enters. Scaling the floor to the window's own
+            # magnitude keeps the test unit-free across ppm and molec/cm^2.
+            scale = float(np.abs(window).max())
+            if scale == 0.0 or std <= _FLAT_WINDOW_RELATIVE_TOLERANCE * scale:
                 continue
 
             z = (value_i - mean) / std

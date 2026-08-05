@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import sqlite3
+from datetime import datetime, timezone
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -13,11 +14,29 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Final, TypeVar
 
+# This module is the single owner of the snapshot identity and the study
+# window. It imports nothing from the app, so every other module can import
+# these without a cycle. They were previously redeclared in purpleair_qc and
+# openaq_coverage, and the copies silently disagreed: openaq_coverage stayed on
+# the old end date and then rejected a B6 entity that only began reporting
+# after it, which surfaces as entity-set drift rather than as a stale constant.
 LOCKED_SNAPSHOT_SHA256: Final = (
-    "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81"
+    "1e50e007cc8f60da1fd5ce4588aced05b186172817e757f9948a9adad06be557"
 )
-STUDY_START: Final = "2026-06-01T00:00:00Z"
-STUDY_END_EXCLUSIVE: Final = "2026-07-13T00:00:00Z"
+STUDY_START_AT: Final = datetime(2026, 6, 1, tzinfo=timezone.utc)
+# Exclusive at UTC midnight, not at the snapshot instant. The snapshot was
+# pulled mid-day 2026-08-05, so including that day would feed detection a
+# partial final day whose thinner counts shift the rolling baselines.
+STUDY_END_EXCLUSIVE_AT: Final = datetime(2026, 8, 5, tzinfo=timezone.utc)
+
+
+def _iso_z(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+# Derived, never typed twice: the string and datetime forms cannot disagree.
+STUDY_START: Final = _iso_z(STUDY_START_AT)
+STUDY_END_EXCLUSIVE: Final = _iso_z(STUDY_END_EXCLUSIVE_AT)
 FIXTURE_PATH: Final = (
     Path(__file__).parent
     / "fixtures"

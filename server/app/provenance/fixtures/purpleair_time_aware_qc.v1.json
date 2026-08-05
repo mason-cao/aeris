@@ -2,33 +2,33 @@
   "audited_sensors": [
     {
       "entity_id": "165203",
-      "excluded_fraction": 0.5864811133200796,
+      "excluded_fraction": 0.3782051282051282,
       "excluded_rows": 590,
       "first_excluded": "2026-06-01T00:00:00+00:00",
       "last_excluded": "2026-07-05T05:01:40+00:00",
-      "latest_retained": "2026-07-12T17:01:18+00:00",
-      "retained_after_last_excluded": 180,
-      "rows": 1006
+      "latest_retained": "2026-08-04T23:01:01+00:00",
+      "retained_after_last_excluded": 734,
+      "rows": 1560
     },
     {
       "entity_id": "194469",
-      "excluded_fraction": 0.22962226640159045,
+      "excluded_fraction": 0.14807692307692308,
       "excluded_rows": 231,
       "first_excluded": "2026-06-09T11:00:00+00:00",
       "last_excluded": "2026-06-25T06:00:24+00:00",
-      "latest_retained": "2026-07-12T16:59:35+00:00",
-      "retained_after_last_excluded": 421,
-      "rows": 1006
+      "latest_retained": "2026-08-04T23:00:15+00:00",
+      "retained_after_last_excluded": 975,
+      "rows": 1560
     },
     {
       "entity_id": "288282",
-      "excluded_fraction": 0.0019880715705765406,
+      "excluded_fraction": 0.001282051282051282,
       "excluded_rows": 2,
       "first_excluded": "2026-06-09T08:00:00+00:00",
       "last_excluded": "2026-06-09T09:00:00+00:00",
-      "latest_retained": "2026-07-12T16:59:37+00:00",
-      "retained_after_last_excluded": 804,
-      "rows": 1006
+      "latest_retained": "2026-08-04T23:00:04+00:00",
+      "retained_after_last_excluded": 1358,
+      "rows": 1560
     }
   ],
   "excluded_rows": [
@@ -7391,6 +7391,14 @@
       "value": 14.3
     },
     {
+      "entity_id": "213701",
+      "reasons": [
+        "saturation"
+      ],
+      "timestamp": "2026-07-20T04:01:05+00:00",
+      "value": 525.7
+    },
+    {
       "entity_id": "276512",
       "reasons": [
         "persistent_segment"
@@ -7673,9 +7681,9 @@
   ],
   "fixture_id": "purpleair-time-aware-qc-v1",
   "input": {
-    "entities": 79,
-    "in_radius_finite_rows": 70512,
-    "queried_rows": 70512
+    "entities": 84,
+    "in_radius_finite_rows": 112038,
+    "queried_rows": 112038
   },
   "june_channel": {
     "after_rows": 48967,
@@ -7696,14 +7704,14 @@
     "window_hours": 24
   },
   "row_evaluation": {
-    "excluded": 874,
-    "excluded_fraction": 0.012395053324256864,
+    "excluded": 875,
+    "excluded_fraction": 0.007809850229386458,
     "reason_counts_nonexclusive": {
       "persistent_segment": 863,
-      "saturation": 657
+      "saturation": 658
     },
-    "retained": 69638,
-    "total": 70512
+    "retained": 111163,
+    "total": 112038
   },
   "schema_version": 1,
   "segments": [
@@ -7906,6 +7914,15 @@
       "reason": "saturation"
     },
     {
+      "covered_end_exclusive": "2026-07-20T04:01:05.000001+00:00",
+      "covered_start": "2026-07-20T04:01:05+00:00",
+      "decision_end_inclusive": "2026-07-20T04:00:00+00:00",
+      "decision_start": "2026-07-20T04:00:00+00:00",
+      "entity_id": "213701",
+      "excluded_row_count": 1,
+      "reason": "saturation"
+    },
+    {
       "covered_end_exclusive": "2026-06-22T01:00:00+00:00",
       "covered_start": "2026-06-20T16:00:00+00:00",
       "decision_end_inclusive": "2026-06-21T13:00:00+00:00",
@@ -7924,11 +7941,11 @@
       "reason": "saturation"
     }
   ],
-  "snapshot_sha256": "8ec0bfacec592b50a31aafb9e80f61e886cfb48da030d595e89bdc0f53f9ea81",
+  "snapshot_sha256": "1e50e007cc8f60da1fd5ce4588aced05b186172817e757f9948a9adad06be557",
   "source": "purpleair",
   "stored_field": "raw ATM; no Barkjohn correction in this evaluation",
   "study_window": {
-    "end_exclusive": "2026-07-13T00:00:00+00:00",
+    "end_exclusive": "2026-08-05T00:00:00+00:00",
     "start": "2026-06-01T00:00:00+00:00"
   },
   "target": {
@@ -7937,14 +7954,14 @@
     "radius_km": 50.0
   },
   "window_evaluation": {
-    "evaluated": 71118,
+    "evaluated": 112727,
     "primary_excluded_windows": 751,
-    "total": 79632,
-    "unevaluated": 8514,
+    "total": 131040,
+    "unevaluated": 18313,
     "unevaluated_by_reason": {
-      "candidate_observation_floor": 8514
+      "candidate_observation_floor": 18313
     },
-    "unevaluated_fraction": 0.10691681735985534
+    "unevaluated_fraction": 0.139751221001221
   },
   "window_semantics": "UTC-hour centers; [center-12h, center+12h), clamped at study edges"
 }

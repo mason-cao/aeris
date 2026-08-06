@@ -25,12 +25,14 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.config import settings
 from app.db.models import Base, DataPoint
 from app.eval.load_store import (
+    TABLE_SPECS,
     CorruptSourceError,
     _amain,
     _aware_utc,
     _check_source_ids,
     _parse_args,
     _parse_since,
+    _parse_tables,
     count_by_source_metric,
     load_data_points,
 )
@@ -339,8 +341,42 @@ class TestCli:
         args = _parse_args(["--from", "acer.db"])
         assert args.source_path == "acer.db"
         assert args.since is None
-        assert args.batch_size == 1000
+        # None means "use each table's own default": a 1000-row batch is right
+        # for narrow data_points rows and would build a ~670 MB statement on
+        # enrichment_records, whose summaries average 674 KB.
+        assert args.batch_size is None
+        assert args.tables == "data_points"
         assert args.dry_run is False
+
+    def test_per_table_batch_defaults_scale_with_row_width(self) -> None:
+        by_name = {spec.name: spec for spec in TABLE_SPECS}
+
+        assert by_name["data_points"].batch_size == 1000
+        assert by_name["enrichment_records"].batch_size == 25
+        assert (
+            by_name["enrichment_records"].batch_size
+            < by_name["anomalies"].batch_size
+            < by_name["data_points"].batch_size
+        )
+
+    def test_tables_are_copied_in_foreign_key_order_not_user_order(self) -> None:
+        # anomalies must land before the enrichment rows that reference them,
+        # however the flag is written.
+        specs = _parse_tables("enrichment_records,data_points,anomalies")
+
+        assert [spec.name for spec in specs] == [
+            "data_points",
+            "anomalies",
+            "enrichment_records",
+        ]
+
+    def test_unknown_table_is_rejected(self) -> None:
+        with pytest.raises(ValueError, match="unknown table"):
+            _parse_tables("data_points,explanations")
+
+    def test_empty_table_list_is_rejected(self) -> None:
+        with pytest.raises(ValueError, match="at least one table"):
+            _parse_tables(" , ")
 
     def test_flags(self) -> None:
         args = _parse_args(

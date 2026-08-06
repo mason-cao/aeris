@@ -130,9 +130,9 @@ def test_fixture_matches_snapshot_audit_counts() -> None:
     }
     assert fixture["audit_counts"] == {
         "inline_by_provider": {
-            "AirGradient": {"rows": 17627, "entities": 26},
-            "AirNow": {"rows": 3227, "entities": 12},
-            "Clarity": {"rows": 16969, "entities": 55},
+            "AirGradient": {"rows": 30313, "entities": 27},
+            "AirNow": {"rows": 4636, "entities": 12},
+            "Clarity": {"rows": 28931, "entities": 55},
         },
         "archive_without_inline_metadata": {"rows": 21861, "entities": 92},
         "archive_mapped_by_provider": {
@@ -141,8 +141,8 @@ def test_fixture_matches_snapshot_audit_counts() -> None:
             "Clarity": {"rows": 16765, "entities": 55},
         },
         "resolved_by_class": {
-            "verified_monitor": {"rows": 5013, "entities": 12},
-            "non_monitor_sensor": {"rows": 54671, "entities": 81},
+            "verified_monitor": {"rows": 6422, "entities": 12},
+            "non_monitor_sensor": {"rows": 79319, "entities": 82},
             "unmappable_archive": {"rows": 0, "entities": 0},
         },
     }
@@ -156,12 +156,24 @@ def test_fixture_matches_snapshot_audit_counts() -> None:
                 {"instrument_names": ["N/A"], "rows": 1},
                 {
                     "instrument_names": ["Unknown AirGradient Sensor"],
-                    "rows": 553,
+                    "rows": 1054,
+                },
+            ],
+        },
+        {
+            "entity_id": "17070153",
+            "provider": "AirGradient",
+            "is_monitor": False,
+            "observed_instrument_name_sets": [
+                {"instrument_names": ["N/A"], "rows": 1},
+                {
+                    "instrument_names": ["Unknown AirGradient Sensor"],
+                    "rows": 165,
                 },
             ],
         }
     ]
-    assert len(_entities()) == 93
+    assert len(_entities()) == 94
     assert len(verified_monitor_entity_ids()) == 12
 
 

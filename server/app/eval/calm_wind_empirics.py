@@ -14,8 +14,13 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-STUDY_START = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
-STUDY_END_EXCLUSIVE = datetime(2026, 7, 13, 0, 0, tzinfo=UTC)
+# Re-exported from the owner in app.provenance.openaq_pm25. Six empirics
+# modules import the window from here, so a local copy silently pinned all of
+# them to a stale end date while their fixtures still claimed the new snapshot.
+from app.provenance.openaq_pm25 import (  # noqa: E402
+    STUDY_END_EXCLUSIVE_AT as STUDY_END_EXCLUSIVE,
+    STUDY_START_AT as STUDY_START,
+)
 WINDOW_HALF_WIDTH = timedelta(hours=36)
 REPORTING_RESOLUTIONS: dict[str, float | None] = {
     "ASOS": 0.514444,

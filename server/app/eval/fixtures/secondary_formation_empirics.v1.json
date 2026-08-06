@@ -1,58 +1,58 @@
 {
-  "anchor_count": 936,
+  "anchor_count": 1488,
   "anchor_location": {
     "lat": 29.7604,
     "lon": -95.3698,
     "radius_km": 50.0
   },
   "anchor_semantics": "B2/B8 UTC-hour centers; centered endpoint-inclusive 72-hour context wholly inside the study interval",
-  "cloud_available_count": 936,
+  "cloud_available_count": 1488,
   "cloud_available_fraction": 1.0,
   "conditional_insolation_outcomes": {
     "contradicting": {
-      "count": 360,
-      "rate": 0.38461538461538464
+      "count": 672,
+      "rate": 0.45161290322580644
     },
     "silent": {
       "count": 0,
       "rate": 0.0
     },
     "supporting": {
-      "count": 576,
-      "rate": 0.6153846153846154
+      "count": 816,
+      "rate": 0.5483870967741935
     }
   },
   "former_cloud_only_votes_silenced": 0,
   "former_contradicting_votes_silenced": 0,
   "former_insolation_outcomes": {
     "contradicting": {
-      "count": 360,
-      "rate": 0.38461538461538464
+      "count": 672,
+      "rate": 0.45161290322580644
     },
     "silent": {
       "count": 0,
       "rate": 0.0
     },
     "supporting": {
-      "count": 576,
-      "rate": 0.6153846153846154
+      "count": 816,
+      "rate": 0.5483870967741935
     }
   },
   "former_supporting_votes_silenced": 0,
-  "in_radius_row_count": 31976,
-  "input_row_count": 31976,
+  "in_radius_row_count": 49787,
+  "input_row_count": 49787,
   "lag_outcomes": {
     "contradicting": {
-      "count": 384,
-      "rate": 0.41025641025641024
+      "count": 665,
+      "rate": 0.4469086021505376
     },
     "silent": {
       "count": 0,
       "rate": 0.0
     },
     "supporting": {
-      "count": 552,
-      "rate": 0.5897435897435898
+      "count": 823,
+      "rate": 0.5530913978494624
     }
   },
   "no2_point_counts": {
@@ -65,7 +65,15 @@
       },
       {
         "anchor_count": 24,
+        "point_count": 223
+      },
+      {
+        "anchor_count": 24,
         "point_count": 234
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 239
       },
       {
         "anchor_count": 48,
@@ -73,10 +81,14 @@
       },
       {
         "anchor_count": 24,
-        "point_count": 247
+        "point_count": 246
       },
       {
         "anchor_count": 48,
+        "point_count": 247
+      },
+      {
+        "anchor_count": 96,
         "point_count": 249
       },
       {
@@ -85,27 +97,55 @@
       },
       {
         "anchor_count": 24,
+        "point_count": 252
+      },
+      {
+        "anchor_count": 24,
         "point_count": 255
+      },
+      {
+        "anchor_count": 48,
+        "point_count": 256
       },
       {
         "anchor_count": 24,
         "point_count": 258
       },
       {
+        "anchor_count": 24,
+        "point_count": 259
+      },
+      {
         "anchor_count": 48,
+        "point_count": 260
+      },
+      {
+        "anchor_count": 72,
         "point_count": 261
       },
       {
-        "anchor_count": 24,
+        "anchor_count": 48,
         "point_count": 262
       },
       {
         "anchor_count": 24,
+        "point_count": 264
+      },
+      {
+        "anchor_count": 55,
+        "point_count": 265
+      },
+      {
+        "anchor_count": 48,
         "point_count": 266
       },
       {
         "anchor_count": 24,
         "point_count": 267
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 268
       },
       {
         "anchor_count": 24,
@@ -117,14 +157,18 @@
       },
       {
         "anchor_count": 24,
+        "point_count": 273
+      },
+      {
+        "anchor_count": 48,
         "point_count": 274
       },
       {
-        "anchor_count": 31,
+        "anchor_count": 48,
         "point_count": 275
       },
       {
-        "anchor_count": 24,
+        "anchor_count": 48,
         "point_count": 276
       },
       {
@@ -186,8 +230,8 @@
     ],
     "maximum": 310,
     "minimum": 147,
-    "p50": 276.0,
-    "p95": 309.0
+    "p50": 266.0,
+    "p95": 305.0
   },
   "ozone_point_counts": {
     "below_floor_count": 0,
@@ -246,7 +290,7 @@
         "point_count": 370
       },
       {
-        "anchor_count": 72,
+        "anchor_count": 120,
         "point_count": 372
       },
       {
@@ -256,6 +300,14 @@
       {
         "anchor_count": 48,
         "point_count": 375
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 376
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 384
       },
       {
         "anchor_count": 24,
@@ -270,11 +322,19 @@
         "point_count": 389
       },
       {
-        "anchor_count": 7,
+        "anchor_count": 24,
         "point_count": 390
       },
       {
-        "anchor_count": 48,
+        "anchor_count": 72,
+        "point_count": 391
+      },
+      {
+        "anchor_count": 24,
+        "point_count": 392
+      },
+      {
+        "anchor_count": 79,
         "point_count": 393
       },
       {
@@ -287,11 +347,23 @@
       },
       {
         "anchor_count": 24,
-        "point_count": 398
+        "point_count": 396
       },
       {
         "anchor_count": 24,
+        "point_count": 397
+      },
+      {
+        "anchor_count": 72,
+        "point_count": 398
+      },
+      {
+        "anchor_count": 48,
         "point_count": 399
+      },
+      {
+        "anchor_count": 48,
+        "point_count": 404
       },
       {
         "anchor_count": 24,
@@ -299,11 +371,19 @@
       },
       {
         "anchor_count": 24,
+        "point_count": 410
+      },
+      {
+        "anchor_count": 48,
         "point_count": 411
       },
       {
-        "anchor_count": 24,
+        "anchor_count": 72,
         "point_count": 413
+      },
+      {
+        "anchor_count": 48,
+        "point_count": 414
       },
       {
         "anchor_count": 24,
@@ -324,8 +404,8 @@
     ],
     "maximum": 427,
     "minimum": 138,
-    "p50": 385.0,
-    "p95": 421.0
+    "p50": 391.0,
+    "p95": 415.0
   },
   "relevant_source_metrics": [
     {
@@ -359,7 +439,7 @@
   ],
   "schema_version": 1,
   "snapshot_sha256": "1e50e007cc8f60da1fd5ce4588aced05b186172817e757f9948a9adad06be557",
-  "study_end_exclusive": "2026-07-13T00:00:00+00:00",
+  "study_end_exclusive": "2026-08-05T00:00:00+00:00",
   "study_start": "2026-06-01T00:00:00+00:00",
   "tolerance": {
     "clear_sky_max_cloud_pct": 50.0,

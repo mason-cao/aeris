@@ -1,101 +1,101 @@
 {
   "authority": "sigma selection delegated to Mason in writing (Bracco reply 2026-07-24); label-free pre-freeze sweep",
   "bands": "support <= mean - sigma*pstdev; contradict >= mean; silent in between",
-  "candidate_anchor_count": 1872,
+  "candidate_anchor_count": 2976,
   "insufficient_distinct_day_count": 0,
   "min_same_hour_points": 2,
-  "observation_count": 2016,
+  "observation_count": 3120,
   "sd_estimator": "population",
   "snapshot_sha256": "1e50e007cc8f60da1fd5ce4588aced05b186172817e757f9948a9adad06be557",
-  "study_end_exclusive": "2026-07-13T00:00:00+00:00",
+  "study_end_exclusive": "2026-08-05T00:00:00+00:00",
   "study_start": "2026-06-01T00:00:00+00:00",
   "sweep": [
     {
-      "evaluable_count": 1872,
+      "evaluable_count": 2976,
       "outcomes": {
         "contradicting": {
-          "count": 978,
-          "rate": 0.5224358974358975
+          "count": 1500,
+          "rate": 0.5040322580645161
         },
         "silent": {
-          "count": 362,
-          "rate": 0.19337606837606838
+          "count": 621,
+          "rate": 0.2086693548387097
         },
         "supporting": {
-          "count": 532,
-          "rate": 0.2841880341880342
+          "count": 855,
+          "rate": 0.2872983870967742
         }
       },
       "suppression_sigma": 1.0
     },
     {
-      "evaluable_count": 1872,
+      "evaluable_count": 2976,
       "outcomes": {
         "contradicting": {
-          "count": 978,
-          "rate": 0.5224358974358975
+          "count": 1500,
+          "rate": 0.5040322580645161
         },
         "silent": {
-          "count": 515,
-          "rate": 0.27510683760683763
+          "count": 867,
+          "rate": 0.2913306451612903
         },
         "supporting": {
-          "count": 379,
-          "rate": 0.20245726495726496
+          "count": 609,
+          "rate": 0.20463709677419356
         }
       },
       "suppression_sigma": 1.5
     },
     {
-      "evaluable_count": 1872,
+      "evaluable_count": 2976,
       "outcomes": {
         "contradicting": {
-          "count": 978,
-          "rate": 0.5224358974358975
+          "count": 1500,
+          "rate": 0.5040322580645161
         },
         "silent": {
-          "count": 588,
-          "rate": 0.3141025641025641
+          "count": 1001,
+          "rate": 0.33635752688172044
         },
         "supporting": {
-          "count": 306,
-          "rate": 0.16346153846153846
+          "count": 475,
+          "rate": 0.15961021505376344
         }
       },
       "suppression_sigma": 2.0
     },
     {
-      "evaluable_count": 1872,
+      "evaluable_count": 2976,
       "outcomes": {
         "contradicting": {
-          "count": 978,
-          "rate": 0.5224358974358975
+          "count": 1500,
+          "rate": 0.5040322580645161
         },
         "silent": {
-          "count": 640,
-          "rate": 0.3418803418803419
+          "count": 1076,
+          "rate": 0.36155913978494625
         },
         "supporting": {
-          "count": 254,
-          "rate": 0.13568376068376067
+          "count": 400,
+          "rate": 0.13440860215053763
         }
       },
       "suppression_sigma": 2.5
     },
     {
-      "evaluable_count": 1872,
+      "evaluable_count": 2976,
       "outcomes": {
         "contradicting": {
-          "count": 978,
-          "rate": 0.5224358974358975
+          "count": 1500,
+          "rate": 0.5040322580645161
         },
         "silent": {
-          "count": 670,
-          "rate": 0.3579059829059829
+          "count": 1126,
+          "rate": 0.37836021505376344
         },
         "supporting": {
-          "count": 224,
-          "rate": 0.11965811965811966
+          "count": 350,
+          "rate": 0.11760752688172044
         }
       },
       "suppression_sigma": 3.0

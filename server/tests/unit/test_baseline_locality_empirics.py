@@ -222,13 +222,13 @@ def test_versioned_fixture_records_executed_snapshot_comparison() -> None:
         (row["source"], row["metric"]): row for row in payload["metrics"]
     }
 
-    assert payload["anchor_count"] == 936
-    assert payload["input_rows"] == 165265
-    assert payload["eligible_in_radius_rows"] == 109720
-    assert payload["quality_excluded_rows"] == 55545
+    assert payload["anchor_count"] == 1488
+    assert payload["input_rows"] == 252503
+    assert payload["eligible_in_radius_rows"] == 172309
+    assert payload["quality_excluded_rows"] == 80194
     assert payload["structurally_absent_sources"] == ["epa_aqs"]
-    assert metrics[("openaq", "pm25")]["pooled_supporting"] == 326
-    assert metrics[("openaq", "pm25")]["matched_supporting"] == 179
+    assert metrics[("openaq", "pm25")]["pooled_supporting"] == 367
+    assert metrics[("openaq", "pm25")]["matched_supporting"] == 288
     assert metrics[("sentinel5p", "s5p_co_column")][
         "matched_evaluable_count"
     ] == 0

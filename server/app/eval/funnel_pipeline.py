@@ -59,11 +59,15 @@ from app.llm.corroboration import (
 )
 from app.llm.explain import make_client
 from app.llm.observation_age import DEFAULT_OBSERVATION_AGE_GATES
+from app.provenance.openaq_pm25 import (
+    STUDY_END_EXCLUSIVE_AT,
+    STUDY_START_AT,
+)
 from app.provenance.purpleair_qc import LOCKED_SNAPSHOT_SHA256
 
 
-WINDOW_START: Final = datetime(2026, 6, 1, tzinfo=timezone.utc)
-WINDOW_END: Final = datetime(2026, 7, 13, tzinfo=timezone.utc)
+WINDOW_START: Final = STUDY_START_AT
+WINDOW_END: Final = STUDY_END_EXCLUSIVE_AT
 SERVER_ROOT: Final = Path(__file__).resolve().parents[2]
 REPOSITORY_ROOT: Final = SERVER_ROOT.parent
 _RUN_DATE_RE = re.compile(r"\d{8}\Z")

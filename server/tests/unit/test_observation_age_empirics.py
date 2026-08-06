@@ -67,9 +67,9 @@ def test_anchor_population_reuses_b2_timezone_stable_full_windows() -> None:
     )
 
     assert aware == naive
-    assert len(aware) == 936
+    assert len(aware) == 1488
     assert aware[0] == datetime(2026, 6, 2, 12, tzinfo=UTC)
-    assert aware[-1] == datetime(2026, 7, 11, 11, tzinfo=UTC)
+    assert aware[-1] == datetime(2026, 8, 3, 11, tzinfo=UTC)
 
 
 def test_nearest_age_includes_endpoints_and_breaks_time_ties_by_distance() -> None:
@@ -227,7 +227,7 @@ def test_snapshot_run_is_hash_guarded_filtered_serialized_and_stops_loudly(
     report = run_empirics(database, expected_sha256=snapshot_hash)
 
     assert report.snapshot_sha256 == snapshot_hash
-    assert report.anchor_count == 936
+    assert report.anchor_count == 1488
     assert report.input_rows == 5
     assert report.quality_excluded_rows == 2
     assert report.eligible_in_radius_rows == 2

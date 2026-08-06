@@ -1,5 +1,5 @@
 {
-  "anchor_count": 936,
+  "anchor_count": 1488,
   "anchor_location": {
     "lat": 29.7604,
     "lon": -95.3698,
@@ -7,11 +7,11 @@
   },
   "anchor_semantics": "B2/B8 UTC-hour centers; centered endpoint-inclusive 72-hour context wholly inside the study interval",
   "both_b8_fresh": {
-    "count": 936,
+    "count": 1488,
     "rate": 1.0
   },
   "both_values_present": {
-    "count": 936,
+    "count": 1488,
     "rate": 1.0
   },
   "changed_to_silent_count": 0,
@@ -21,8 +21,8 @@
     "rate": 0.0
   },
   "gfs_age_gate_minutes": 360.0,
-  "in_radius_row_count": 4032,
-  "input_row_count": 4032,
+  "in_radius_row_count": 6240,
+  "input_row_count": 6240,
   "malformed_timestamp": {
     "count": 0,
     "rate": 0.0
@@ -39,25 +39,25 @@
     "rate": 0.0
   },
   "new_pair_eligible": {
-    "count": 936,
+    "count": 1488,
     "rate": 1.0
   },
   "old_pair_eligible": {
-    "count": 936,
+    "count": 1488,
     "rate": 1.0
   },
   "schema_version": 1,
   "snapshot_sha256": "1e50e007cc8f60da1fd5ce4588aced05b186172817e757f9948a9adad06be557",
-  "study_end_exclusive": "2026-07-13T00:00:00+00:00",
+  "study_end_exclusive": "2026-08-05T00:00:00+00:00",
   "study_start": "2026-06-01T00:00:00+00:00",
   "timestamp_exact": {
-    "count": 936,
+    "count": 1488,
     "rate": 1.0
   },
   "timestamp_mismatch": {
     "count": 0,
     "rate": 0.0
   },
-  "u_observation_count": 2016,
-  "v_observation_count": 2016
+  "u_observation_count": 3120,
+  "v_observation_count": 3120
 }

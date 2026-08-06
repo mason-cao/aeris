@@ -531,12 +531,12 @@ class TestFixturePayload:
         assert block["snapshot_sha256"] == SNAPSHOT_SHA256
         assert block["artifact"] == "baseline_locality_empirics.v1.json"
         assert block["artifact_sha256"] == (
-            "101c10a3516168bfd75b6f985b84fe59c3e8b5e17557d24c5ee2f66cef57e2bc"
+            "eecc288f45eb63891006f31968e62eb8fa51a2b3d6daf70d0769397af67afe1e"
         )
         assert block["rules"]["baseline_locality"] == "nearest_event_entity"
         assert block["rules"]["pooled_fallback"] is False
-        assert metrics[("tceq", "no2")]["pooled_supporting"] == 478
-        assert metrics[("tceq", "no2")]["matched_supporting"] == 197
+        assert metrics[("tceq", "no2")]["pooled_supporting"] == 732
+        assert metrics[("tceq", "no2")]["matched_supporting"] == 309
         assert metrics[("sentinel5p", "s5p_no2_column")][
             "matched_evaluable_count"
         ] == 0
@@ -628,9 +628,9 @@ class TestFixturePayload:
 
         assert block["artifact"] == "observation_age_empirics.v1.json"
         assert block["artifact_sha256"] == (
-            "b22bf6cbf02abf2a87c25e2fd4898a90923759107e5ed9c31211cd03fc30d27e"
+            "208eab13d7d163aaf62ede4da3b1ad22d0525aeb7403141aa20310a0a8dc607e"
         )
-        assert block["anchor_count"] == 936
+        assert block["anchor_count"] == 1488
         assert block["gates_minutes"] == {
             "asos": 90.0,
             "epa_aqs": 90.0,
@@ -663,7 +663,7 @@ class TestFixturePayload:
 
         assert block["artifact"] == "purpleair_time_aware_qc.v1.json"
         assert block["artifact_sha256"] == (
-            "057c1e65e7f0b0a7cee5ba3033730777951a38731cda00ee83f82542e18d7468"
+            "9485647df3d3e3e77d65265adcf0c08dfba1c2fcb20b2ddd03c52d4b42062dd6"
         )
         assert block["snapshot_sha256"] == LOCKED_SNAPSHOT_SHA256
         assert block["parameters"] == {
@@ -678,7 +678,7 @@ class TestFixturePayload:
             "window_hours": 24,
         }
         assert block["window_evaluation"]["unevaluated_fraction"] == pytest.approx(
-            0.106916820251
+            0.139751221001221
         )
         assert {segment["entity_id"] for segment in block["segments"]} >= {
             "165203",
@@ -706,7 +706,7 @@ class TestFixturePayload:
 
         assert block["artifact"] == "censoring_sensitivity.v1.json"
         assert block["artifact_sha256"] == (
-            "93dfccdd5106769c7e08efcf21a2b22e4461c4a1c307962f2b7594c6480d6469"
+            "a6da788b22018e0c9e59b511c71b492c3495d6906ca4d08e557d2470d1afb186"
         )
         assert block["snapshot_sha256"] == LOCKED_SNAPSHOT_SHA256
         assert block["unit_assertion_passed"] is True
@@ -723,9 +723,9 @@ class TestFixturePayload:
             if metric["source"] == "tceq" and metric["metric"] == "so2"
         )
         assert tceq_so2["censored_fraction"] == pytest.approx(
-            0.9685603148558249
+            0.9606175033318525
         )
-        assert tceq_so2["deletion_evaluable_windows"] == 304
+        assert tceq_so2["deletion_evaluable_windows"] == 592
 
     def test_payload_embeds_complete_ratified_pruning_screen(self) -> None:
         result = FreezeResult(
@@ -779,12 +779,16 @@ class TestFixturePayload:
             window_end: datetime,
             top_n: int,
             min_fresh_channels: int,
+            stratify: bool,
+            stratum_floor: int,
         ) -> FreezeResult:
             assert session is not None
             assert window_start == result.window_start
             assert window_end == result.window_end
             assert top_n == result.top_n
             assert min_fresh_channels == result.min_fresh_channels
+            assert stratify == result.stratified
+            assert stratum_floor == result.stratum_floor
             return result
 
         monkeypatch.setattr(
@@ -828,7 +832,7 @@ class TestFixturePayload:
         payload = json.loads(output.read_text(encoding="utf-8"))
         assert exit_code == 0
         assert payload["data_quality"]["censoring"]["artifact_sha256"] == (
-            "93dfccdd5106769c7e08efcf21a2b22e4461c4a1c307962f2b7594c6480d6469"
+            "a6da788b22018e0c9e59b511c71b492c3495d6906ca4d08e557d2470d1afb186"
         )
         assert payload["snapshot_sha256"] == SNAPSHOT_SHA256
         assert payload["code_commit"] == CODE_COMMIT

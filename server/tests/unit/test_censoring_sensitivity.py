@@ -185,7 +185,7 @@ def test_snapshot_run_is_hash_guarded_serialized_and_unit_checked(
     report = run_sensitivity(database, expected_sha256=snapshot_hash)
 
     assert report.snapshot_sha256 == snapshot_hash
-    assert report.anchor_count == 936
+    assert report.anchor_count == 1488
     assert report.unit_assertion_passed is True
     assert len(report.metrics) == 1
     assert report.metrics[0].source == "tceq"

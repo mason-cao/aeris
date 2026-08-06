@@ -460,5 +460,5 @@ def test_active_fixture_is_single_multimetric_v2_artifact() -> None:
     assert manifest["snapshot_sha256"] == LOCKED_SNAPSHOT_SHA256
     assert manifest["covered_metrics"] == ["ozone", "pm10", "pm25"]
     assert manifest["artifact_sha256"] == (
-        "d58515a37ba213a3df2d5b090d4c9816eebba7a723b2a59a57e176cadf9507c7"
+        "78171a8e9312706ea10559ce8a36dbd482e97ecd4e174a96b5f41d0f32102cea"
     )

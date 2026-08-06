@@ -20,10 +20,12 @@ workflow. It can:
 6. Prepare frozen anomaly sets, run three-model sweeps, collect blinded expert
    labels, and run source/channel ablations.
 
-The official evaluation has not been frozen, official expert labels have not
-been collected, and the final statistical analysis is not implemented. There
-is no vector-retrieval pipeline, web frontend, interactive map, or WebSocket
-service in the current repository.
+The evaluation set is frozen (`server/fixtures/eval50.json`, 50 events) and the
+pre-registered statistical analysis is implemented in
+`server/app/eval/phase_analysis.py`. Model outputs and official expert labels
+have not been collected, so no result exists yet. There is no vector-retrieval
+pipeline, web frontend, interactive map, or WebSocket service in the current
+repository.
 
 ## Planned Product Architecture
 
@@ -83,10 +85,10 @@ from a vector store.
 
 | Source | Role | Cadence | Implementation status |
 | --- | --- | --- | --- |
-| OpenAQ | PM2.5 and ozone from mixed ground networks | Hourly | Live; PM2.5 provider/instrument classification is unresolved |
+| OpenAQ | PM2.5 and ozone from mixed ground networks | Hourly | Live; scoring restricted to entities verified as regulatory monitors |
 | TCEQ CAMS | Preliminary ground NO2, SO2, and CO | Hourly | Live; scraped public report |
 | EPA AQS | Historical ground NO2, SO2, and CO | Backfill only | Stored rows are one-hour AQS samples; certification status is not retained |
-| PurpleAir | Low-cost optical PM2.5 | Hourly | Live; official use still needs correction and outlier policy |
+| PurpleAir | Low-cost optical PM2.5 | Hourly | Live; time-aware quality screen applied, values remain uncorrected ATM |
 | Sentinel-5P | Satellite NO2, SO2, CO, and HCHO columns | Daily when available | Live catalog and column extraction |
 | NOAA GFS | NWP meteorology, winds, and boundary-layer fields | 6-hour cycles | Live |
 | OpenWeather | Blended surface weather at five query points | Hourly | Live; no free historical backfill |
@@ -103,7 +105,7 @@ independence claim must be tested rather than inferred from source names.
 The planned study asks whether agreement across process-distinct measurement
 channels can act as an automated signal for the quality of LLM explanations of
 environmental anomalies, and how a local Llama 3 8B model compares with GPT-5.4
-and Gemini 3.5 Flash baselines.
+and Gemini 3.6 Flash baselines.
 
 Implemented evaluation infrastructure includes:
 
@@ -113,12 +115,15 @@ Implemented evaluation infrastructure includes:
 - A resumable three-model harness.
 - A blinded per-claim expert-labeling CLI.
 
-Planned but not yet implemented or completed:
+- A pre-registered clustered analysis plan implemented as code
+  (`app/eval/phase_analysis.py`): Cohen's kappa, anomaly-cluster bootstrap
+  intervals, paired Wilcoxon, Holm-Bonferroni, and cluster-bootstrap Spearman.
 
-- The official anomaly freeze and model-output set.
+Planned but not yet completed:
+
+- The three-model output sweep over the frozen set.
 - Official expert labels and inter-rater reliability.
-- Confidence intervals, clustered inference, calibration analysis, and final
-  model comparisons.
+- Running the implemented analysis and reporting final model comparisons.
 - Empirical validation of the proposed channel grouping.
 
 ## Getting Started

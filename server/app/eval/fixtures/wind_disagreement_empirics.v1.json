@@ -1,0 +1,999 @@
+{
+  "analysis_db_sha256": "0bbccfb44f3fc8fd9e2dfe7153a846de3af1a6f8694c5c7f87db2dfd3b344924",
+  "bearing_multiple": 2.0,
+  "declared_date": "2026-08-06",
+  "declared_status": "mason_declared_pre_label",
+  "declared_threshold_deg": 90.0,
+  "fixture_snapshot_sha256": "1e50e007cc8f60da1fd5ce4588aced05b186172817e757f9948a9adad06be557",
+  "guard_manifest": {
+    "bearing_deg": 45.0,
+    "bearing_multiple": 2.0,
+    "bracco_confirmed": false,
+    "declared_date": "2026-08-06",
+    "effect": "every direction source goes silent for the claim",
+    "population": "sources surviving the age gate and the B2 calm-wind guard",
+    "statistic": "max pairwise angular separation of votable source bearings",
+    "status": "mason_declared_pre_label",
+    "threshold_deg": 90.0,
+    "threshold_is_derived": true
+  },
+  "locked_snapshot_sha256": "1e50e007cc8f60da1fd5ce4588aced05b186172817e757f9948a9adad06be557",
+  "populations": [
+    {
+      "comparable_events": 40,
+      "consumer": "transport_direction",
+      "events_missing_enrichment": 0,
+      "maximum_deg": 173.41397246738723,
+      "measured_source_counts": {
+        "3": 50
+      },
+      "median_deg": 32.27949949884115,
+      "minimum_deg": 6.0,
+      "p90_deg": 128.42361747199658,
+      "population": "frozen",
+      "sources": [
+        "noaa_gfs",
+        "openweather",
+        "asos"
+      ],
+      "sweep": [
+        {
+          "comparable_events": 40,
+          "share_of_comparable": 0.45,
+          "share_of_total": 0.36,
+          "silenced_events": 18,
+          "threshold_deg": 45.0,
+          "total_events": 50
+        },
+        {
+          "comparable_events": 40,
+          "share_of_comparable": 0.375,
+          "share_of_total": 0.3,
+          "silenced_events": 15,
+          "threshold_deg": 60.0,
+          "total_events": 50
+        },
+        {
+          "comparable_events": 40,
+          "share_of_comparable": 0.175,
+          "share_of_total": 0.14,
+          "silenced_events": 7,
+          "threshold_deg": 90.0,
+          "total_events": 50
+        },
+        {
+          "comparable_events": 40,
+          "share_of_comparable": 0.125,
+          "share_of_total": 0.1,
+          "silenced_events": 5,
+          "threshold_deg": 120.0,
+          "total_events": 50
+        },
+        {
+          "comparable_events": 40,
+          "share_of_comparable": 0.0,
+          "share_of_total": 0.0,
+          "silenced_events": 0,
+          "threshold_deg": 180.0,
+          "total_events": 50
+        }
+      ],
+      "total_events": 50,
+      "votable_source_counts": {
+        "0": 1,
+        "1": 9,
+        "2": 16,
+        "3": 24
+      },
+      "worst_events": [
+        {
+          "anomaly_id": "3a5db948-c6ca-4080-9c4d-5059c263327d",
+          "max_pairwise_deg": 173.41397246738723,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "2805dd40-11c2-4df2-81dd-9f67f716ef35",
+          "max_pairwise_deg": 170.9429206288914,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "noaa_gfs"
+          ]
+        },
+        {
+          "anomaly_id": "64a59f37-854d-4967-84b6-61c0d614edd6",
+          "max_pairwise_deg": 150.0,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "698dc0a1-a556-4f57-aca1-275ecd54d84c",
+          "max_pairwise_deg": 140.19638566993018,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs"
+          ],
+          "worst_pair": [
+            "asos",
+            "noaa_gfs"
+          ]
+        },
+        {
+          "anomaly_id": "85d26e97-7641-4938-a1d4-ffbe66a1dcb2",
+          "max_pairwise_deg": 127.11553211667061,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "noaa_gfs"
+          ]
+        },
+        {
+          "anomaly_id": "97db8a0d-62e1-49ee-a0eb-8c1b95d47191",
+          "max_pairwise_deg": 109.0,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "6992ed39-7d9c-470b-9eb7-b42159b32f5f",
+          "max_pairwise_deg": 95.0,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "a3b0f073-5fc4-4e0b-b250-c99123c1baba",
+          "max_pairwise_deg": 89.00593187086315,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "noaa_gfs"
+          ]
+        },
+        {
+          "anomaly_id": "d3abe3a5-3c88-49f4-a0f5-262856471e77",
+          "max_pairwise_deg": 77.02610930283649,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "noaa_gfs"
+          ]
+        },
+        {
+          "anomaly_id": "bcebeb26-705d-4ec1-9138-2b903c6b1813",
+          "max_pairwise_deg": 76.0,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "openweather"
+          ]
+        }
+      ],
+      "worst_pair_counts": {
+        "asos/noaa_gfs": 20,
+        "asos/openweather": 12,
+        "noaa_gfs/openweather": 8
+      }
+    },
+    {
+      "comparable_events": 27,
+      "consumer": "point_source_attribution",
+      "events_missing_enrichment": 0,
+      "maximum_deg": 173.41397246738723,
+      "measured_source_counts": {
+        "2": 50
+      },
+      "median_deg": 22.048550950209034,
+      "minimum_deg": 0.7647093904285782,
+      "p90_deg": 44.81835410232258,
+      "population": "frozen",
+      "sources": [
+        "noaa_gfs",
+        "openweather"
+      ],
+      "sweep": [
+        {
+          "comparable_events": 27,
+          "share_of_comparable": 0.1111111111111111,
+          "share_of_total": 0.06,
+          "silenced_events": 3,
+          "threshold_deg": 45.0,
+          "total_events": 50
+        },
+        {
+          "comparable_events": 27,
+          "share_of_comparable": 0.07407407407407407,
+          "share_of_total": 0.04,
+          "silenced_events": 2,
+          "threshold_deg": 60.0,
+          "total_events": 50
+        },
+        {
+          "comparable_events": 27,
+          "share_of_comparable": 0.07407407407407407,
+          "share_of_total": 0.04,
+          "silenced_events": 2,
+          "threshold_deg": 90.0,
+          "total_events": 50
+        },
+        {
+          "comparable_events": 27,
+          "share_of_comparable": 0.07407407407407407,
+          "share_of_total": 0.04,
+          "silenced_events": 2,
+          "threshold_deg": 120.0,
+          "total_events": 50
+        },
+        {
+          "comparable_events": 27,
+          "share_of_comparable": 0.0,
+          "share_of_total": 0.0,
+          "silenced_events": 0,
+          "threshold_deg": 180.0,
+          "total_events": 50
+        }
+      ],
+      "total_events": 50,
+      "votable_source_counts": {
+        "0": 6,
+        "1": 17,
+        "2": 27
+      },
+      "worst_events": [
+        {
+          "anomaly_id": "3a5db948-c6ca-4080-9c4d-5059c263327d",
+          "max_pairwise_deg": 173.41397246738723,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "85d26e97-7641-4938-a1d4-ffbe66a1dcb2",
+          "max_pairwise_deg": 120.11553211667058,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "2805dd40-11c2-4df2-81dd-9f67f716ef35",
+          "max_pairwise_deg": 45.057079371108614,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "543ab267-cbf2-4847-8263-8e8188562eee",
+          "max_pairwise_deg": 44.659203923131884,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "b54459bc-0e3a-4f80-9aa8-085eb42d5e01",
+          "max_pairwise_deg": 39.558998997682295,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "b0344d59-aa09-4e98-9ede-f0db0e4b06b0",
+          "max_pairwise_deg": 39.558998997682295,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "4b45f7f3-f203-4693-95d3-e21ca1582704",
+          "max_pairwise_deg": 33.67175403539963,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "d3abe3a5-3c88-49f4-a0f5-262856471e77",
+          "max_pairwise_deg": 32.02610930283649,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "6992ed39-7d9c-470b-9eb7-b42159b32f5f",
+          "max_pairwise_deg": 31.972092461758763,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "97db8a0d-62e1-49ee-a0eb-8c1b95d47191",
+          "max_pairwise_deg": 31.57309710207892,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        }
+      ],
+      "worst_pair_counts": {
+        "noaa_gfs/openweather": 27
+      }
+    },
+    {
+      "comparable_events": 5595,
+      "consumer": "transport_direction",
+      "events_missing_enrichment": 0,
+      "maximum_deg": 180.0,
+      "measured_source_counts": {
+        "3": 6395
+      },
+      "median_deg": 30.74630686349326,
+      "minimum_deg": 0.0,
+      "p90_deg": 115.0,
+      "population": "window",
+      "sources": [
+        "noaa_gfs",
+        "openweather",
+        "asos"
+      ],
+      "sweep": [
+        {
+          "comparable_events": 5595,
+          "share_of_comparable": 0.3551385165326184,
+          "share_of_total": 0.31071149335418297,
+          "silenced_events": 1987,
+          "threshold_deg": 45.0,
+          "total_events": 6395
+        },
+        {
+          "comparable_events": 5595,
+          "share_of_comparable": 0.2543342269883825,
+          "share_of_total": 0.2225175918686474,
+          "silenced_events": 1423,
+          "threshold_deg": 60.0,
+          "total_events": 6395
+        },
+        {
+          "comparable_events": 5595,
+          "share_of_comparable": 0.1413762287756926,
+          "share_of_total": 0.1236903831118061,
+          "silenced_events": 791,
+          "threshold_deg": 90.0,
+          "total_events": 6395
+        },
+        {
+          "comparable_events": 5595,
+          "share_of_comparable": 0.0934763181411975,
+          "share_of_total": 0.08178264268960125,
+          "silenced_events": 523,
+          "threshold_deg": 120.0,
+          "total_events": 6395
+        },
+        {
+          "comparable_events": 5595,
+          "share_of_comparable": 0.0,
+          "share_of_total": 0.0,
+          "silenced_events": 0,
+          "threshold_deg": 180.0,
+          "total_events": 6395
+        }
+      ],
+      "total_events": 6395,
+      "votable_source_counts": {
+        "0": 161,
+        "1": 639,
+        "2": 1974,
+        "3": 3621
+      },
+      "worst_events": [
+        {
+          "anomaly_id": "ef86d380-2161-41b8-8389-cda9002cd011",
+          "max_pairwise_deg": 180.0,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "f8175131-7310-4dff-b551-748d5d51d6e6",
+          "max_pairwise_deg": 179.88589281324687,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "noaa_gfs"
+          ]
+        },
+        {
+          "anomaly_id": "d2a95a44-5f51-4ed1-aca2-3becd3bcda10",
+          "max_pairwise_deg": 179.6599812775878,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "noaa_gfs"
+          ]
+        },
+        {
+          "anomaly_id": "89de89ea-a267-40c1-9da2-32c5e0eb5b71",
+          "max_pairwise_deg": 179.62003792408484,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "noaa_gfs"
+          ]
+        },
+        {
+          "anomaly_id": "190cea4b-4ab5-4f7e-8adc-2529f86f3e77",
+          "max_pairwise_deg": 179.20404363047237,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "3f779307-77c4-4a91-a1fb-d3ae223995f2",
+          "max_pairwise_deg": 179.20404363047237,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "a1cc25e5-ef89-46a6-b013-87685502ce5e",
+          "max_pairwise_deg": 179.20404363047237,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "afe6af89-841f-4411-b9a1-41390e48ff09",
+          "max_pairwise_deg": 179.20404363047237,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "219b2576-7da3-4c17-8cf1-bf4a9e9b28f1",
+          "max_pairwise_deg": 179.03235752228278,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "noaa_gfs"
+          ]
+        },
+        {
+          "anomaly_id": "79f07c5e-40bd-4e99-b73e-898bb1d7bdd7",
+          "max_pairwise_deg": 179.0,
+          "measured_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "asos",
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "asos",
+            "openweather"
+          ]
+        }
+      ],
+      "worst_pair_counts": {
+        "asos/noaa_gfs": 2505,
+        "asos/openweather": 1857,
+        "noaa_gfs/openweather": 1233
+      }
+    },
+    {
+      "comparable_events": 4046,
+      "consumer": "point_source_attribution",
+      "events_missing_enrichment": 0,
+      "maximum_deg": 179.20404363047237,
+      "measured_source_counts": {
+        "2": 6395
+      },
+      "median_deg": 15.325071520704938,
+      "minimum_deg": 0.005689557660332412,
+      "p90_deg": 66.50555606346788,
+      "population": "window",
+      "sources": [
+        "noaa_gfs",
+        "openweather"
+      ],
+      "sweep": [
+        {
+          "comparable_events": 4046,
+          "share_of_comparable": 0.19055857637172516,
+          "share_of_total": 0.12056293979671619,
+          "silenced_events": 771,
+          "threshold_deg": 45.0,
+          "total_events": 6395
+        },
+        {
+          "comparable_events": 4046,
+          "share_of_comparable": 0.1166584280771132,
+          "share_of_total": 0.07380766223612197,
+          "silenced_events": 472,
+          "threshold_deg": 60.0,
+          "total_events": 6395
+        },
+        {
+          "comparable_events": 4046,
+          "share_of_comparable": 0.05758774097874444,
+          "share_of_total": 0.0364347146207975,
+          "silenced_events": 233,
+          "threshold_deg": 90.0,
+          "total_events": 6395
+        },
+        {
+          "comparable_events": 4046,
+          "share_of_comparable": 0.0365793376173999,
+          "share_of_total": 0.023143080531665364,
+          "silenced_events": 148,
+          "threshold_deg": 120.0,
+          "total_events": 6395
+        },
+        {
+          "comparable_events": 4046,
+          "share_of_comparable": 0.0,
+          "share_of_total": 0.0,
+          "silenced_events": 0,
+          "threshold_deg": 180.0,
+          "total_events": 6395
+        }
+      ],
+      "total_events": 6395,
+      "votable_source_counts": {
+        "0": 493,
+        "1": 1856,
+        "2": 4046
+      },
+      "worst_events": [
+        {
+          "anomaly_id": "190cea4b-4ab5-4f7e-8adc-2529f86f3e77",
+          "max_pairwise_deg": 179.20404363047237,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "3f779307-77c4-4a91-a1fb-d3ae223995f2",
+          "max_pairwise_deg": 179.20404363047237,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "a1cc25e5-ef89-46a6-b013-87685502ce5e",
+          "max_pairwise_deg": 179.20404363047237,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "afe6af89-841f-4411-b9a1-41390e48ff09",
+          "max_pairwise_deg": 179.20404363047237,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "374991fe-920c-45f8-b4af-c4af79de4a53",
+          "max_pairwise_deg": 176.7130857707296,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "bc52094b-97f5-486d-951d-4961a8c810ff",
+          "max_pairwise_deg": 176.7130857707296,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "06ed5980-17ee-41e3-b569-14b9ee6d83bd",
+          "max_pairwise_deg": 176.53889854850377,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "7abc9c60-d570-45eb-b96b-43e78738a733",
+          "max_pairwise_deg": 176.40873875494634,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "8ce86936-db88-4e5f-8b8b-1771296b15b9",
+          "max_pairwise_deg": 176.40873875494634,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        },
+        {
+          "anomaly_id": "59c74afd-f56a-41cc-a9c0-de7ebec62479",
+          "max_pairwise_deg": 176.406966850434,
+          "measured_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "votable_sources": [
+            "noaa_gfs",
+            "openweather"
+          ],
+          "worst_pair": [
+            "noaa_gfs",
+            "openweather"
+          ]
+        }
+      ],
+      "worst_pair_counts": {
+        "noaa_gfs/openweather": 4046
+      }
+    }
+  ],
+  "study_end_exclusive": "2026-08-05T00:00:00+00:00",
+  "study_start": "2026-06-01T00:00:00+00:00",
+  "sweep_thresholds_deg": [
+    45.0,
+    60.0,
+    90.0,
+    120.0,
+    180.0
+  ]
+}

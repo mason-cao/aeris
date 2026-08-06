@@ -26,6 +26,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
+from itertools import combinations
 from statistics import fmean, pstdev
 from typing import cast
 
@@ -752,6 +753,10 @@ class WindTolerance:
     The calm-wind floor (``calm_floor_ms``) is Bracco-confirmed (2026-07-24).
     The bearing/speed/stagnant/temperature tolerances remain Mason-owned
     drafts that were never reviewed on the July 15 call.
+
+    ``max_disagreement_deg`` is derived from ``bearing_deg`` rather than tuned:
+    see :func:`wind_disagreement_decision`. ``None`` disables the guard, which
+    only the declared sensitivity sweep does.
     """
 
     bearing_deg: float = 45.0  # transport direction within this of measured wind
@@ -761,6 +766,7 @@ class WindTolerance:
     calm_sigma: float = 2.0
     calm_min_points: int = 2
     calm_floor_ms: float | None = 1.5
+    max_disagreement_deg: float | None = 90.0
 
 
 DEFAULT_WIND_TOLERANCE = WindTolerance()
@@ -770,6 +776,19 @@ DEFAULT_WIND_TOLERANCE = WindTolerance()
 CALM_WIND_FLOOR_STATUS = "bracco_confirmed"
 CALM_WIND_SHIP_STATUS = "shipped_bracco_confirmed"
 CALM_WIND_CONFIRMATION_DATE = "2026-07-24"
+
+# Cross-source wind-direction disagreement guard. Declared by Mason on
+# 2026-08-06, before any official label exists, under the same pre-label
+# authority as D1 and the B1 sigma declaration.
+WIND_DISAGREEMENT_STATUS = "mason_declared_pre_label"
+WIND_DISAGREEMENT_DECLARED_DATE = "2026-08-06"
+# The threshold is twice the bearing band, and that factor is a derivation, not
+# a tuned value. Two sources separated by more than 2*bearing_deg cannot both
+# lie within bearing_deg of any single claimed bearing (triangle inequality on
+# the circle), so past that separation they are mutually exclusive as
+# corroborators of the same claim. Below it, disagreement still fits inside the
+# declared band and the leg keeps scoring.
+WIND_DISAGREEMENT_BEARING_MULTIPLE = 2.0
 
 
 @dataclass(frozen=True)
@@ -1094,6 +1113,131 @@ def _gfs_window_speeds(summary: Mapping) -> list[float]:
     ]
 
 
+@dataclass(frozen=True)
+class WindDisagreementDecision:
+    """Whether the votable wind sources resolve a single direction."""
+
+    directions: tuple[tuple[str, float], ...]
+    max_pairwise_deg: float | None
+    worst_pair: tuple[str, str] | None
+    threshold_deg: float | None
+    resolvable: bool
+    reason: str
+    status: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "directions": [list(pair) for pair in self.directions],
+            "max_pairwise_deg": self.max_pairwise_deg,
+            "worst_pair": list(self.worst_pair) if self.worst_pair else None,
+            "threshold_deg": self.threshold_deg,
+            "resolvable": self.resolvable,
+            "reason": self.reason,
+            "status": self.status,
+        }
+
+    def evidence_note(self) -> str:
+        rendered = ", ".join(
+            f"{source}={bearing:.0f}" for source, bearing in self.directions
+        )
+        fields = (
+            f"sources=[{rendered}] max_pairwise="
+            f"{'N/A' if self.max_pairwise_deg is None else f'{self.max_pairwise_deg:.0f}'} "
+            f"threshold={self.threshold_deg} status={self.status}"
+        )
+        if not self.resolvable:
+            pair = "/".join(self.worst_pair) if self.worst_pair else "unknown"
+            return (
+                f"wind-disagreement guard SILENT ({fields}); "
+                f"{pair} cannot both corroborate one bearing"
+            )
+        return f"wind-disagreement guard passed (reason={self.reason}; {fields})"
+
+
+def wind_disagreement_decision(
+    directions: Mapping[str, float],
+    *,
+    tolerance: WindTolerance = DEFAULT_WIND_TOLERANCE,
+) -> WindDisagreementDecision:
+    """Silence the direction leg when the votable sources cannot agree.
+
+    ``directions`` holds the event-nearest 'from' bearing of every source that
+    already passed its age gate and its calm-wind guard, so a calm source never
+    counts as a disagreeing party — its direction is untrusted for a reason the
+    B2 guard already recorded.
+
+    The guard fires on the maximum pairwise separation rather than on a spread
+    about a mean: circular means are undefined for antipodal pairs, and the
+    quantity that matters is whether *any* two sources are too far apart to
+    corroborate the same bearing.
+    """
+    threshold = tolerance.max_disagreement_deg
+    if threshold is not None and (
+        not math.isfinite(threshold) or threshold <= 0.0 or threshold > 180.0
+    ):
+        raise ValueError("max_disagreement_deg must be finite and in (0, 180]")
+    ordered: list[tuple[str, float]] = []
+    for source in sorted(directions):
+        bearing = float(directions[source])
+        if not math.isfinite(bearing):
+            raise ValueError(f"wind direction for {source!r} must be finite")
+        ordered.append((source, bearing % 360.0))
+    frozen = tuple(ordered)
+
+    if threshold is None:
+        return WindDisagreementDecision(
+            frozen, None, None, None, True, "guard_disabled", "not_configured"
+        )
+    if len(frozen) < 2:
+        return WindDisagreementDecision(
+            frozen, None, None, threshold, True,
+            "insufficient_sources", WIND_DISAGREEMENT_STATUS,
+        )
+
+    worst_pair: tuple[str, str] | None = None
+    worst = -1.0
+    for (left, left_deg), (right, right_deg) in combinations(frozen, 2):
+        separation = _angular_diff(left_deg, right_deg)
+        if separation > worst:
+            worst = separation
+            worst_pair = (left, right)
+    resolvable = worst <= threshold
+    return WindDisagreementDecision(
+        directions=frozen,
+        max_pairwise_deg=worst,
+        worst_pair=worst_pair,
+        threshold_deg=threshold,
+        resolvable=resolvable,
+        reason="within_threshold" if resolvable else "exceeds_threshold",
+        status=WIND_DISAGREEMENT_STATUS,
+    )
+
+
+def wind_disagreement_manifest_payload(
+    tolerance: WindTolerance = DEFAULT_WIND_TOLERANCE,
+) -> dict[str, str | int | float | bool | None]:
+    """Freeze-manifest status for the cross-source disagreement guard."""
+    return {
+        "statistic": "max pairwise angular separation of votable source bearings",
+        "threshold_deg": tolerance.max_disagreement_deg,
+        "bearing_deg": tolerance.bearing_deg,
+        "bearing_multiple": WIND_DISAGREEMENT_BEARING_MULTIPLE,
+        "threshold_is_derived": (
+            tolerance.max_disagreement_deg
+            == WIND_DISAGREEMENT_BEARING_MULTIPLE * tolerance.bearing_deg
+        ),
+        "status": (
+            WIND_DISAGREEMENT_STATUS
+            if tolerance.max_disagreement_deg is not None
+            else "not_configured"
+        ),
+        "declared_date": WIND_DISAGREEMENT_DECLARED_DATE,
+        "bracco_confirmed": False,
+        "population": "sources surviving the age gate and the B2 calm-wind guard",
+        "effect": "every direction source goes silent for the claim",
+    }
+
+
 def calm_wind_source_decisions(
     summary: Mapping,
     sources: Sequence[str],
@@ -1187,12 +1331,26 @@ def score_transport_direction(
 
     verdicts: dict[str, int] = {}
     notes: list[str] = [*age_notes, *guard_notes]
+    disagreement = wind_disagreement_decision(
+        {
+            source: bearing
+            for source, bearing in measured.items()
+            if guard_decisions.get(source) is not None
+            and guard_decisions[source].direction_votable
+        },
+        tolerance=tolerance,
+    )
+    if claimed_from is not None:
+        notes.append(disagreement.evidence_note())
     for source in ("noaa_gfs", "openweather", "asos"):
         if source not in measured or claimed_from is None:
             verdicts[source] = SILENT
             notes.append(f"{source}: no comparable wind direction")
             continue
         if not guard_decisions[source].direction_votable:
+            verdicts[source] = SILENT
+            continue
+        if not disagreement.resolvable:
             verdicts[source] = SILENT
             continue
         diff = _angular_diff(claimed_from, measured[source])
@@ -2155,12 +2313,26 @@ def score_point_source_attribution(
 
     verdicts: dict[str, int] = {}
     notes: list[str] = [*age_notes, *guard_notes]
+    disagreement = wind_disagreement_decision(
+        {
+            source: bearing
+            for source, bearing in measured.items()
+            if guard_decisions.get(source) is not None
+            and guard_decisions[source].direction_votable
+        },
+        tolerance=tolerance,
+    )
+    if expected_from is not None:
+        notes.append(disagreement.evidence_note())
     for source in ("noaa_gfs", "openweather"):
         if expected_from is None or source not in measured:
             verdicts[source] = SILENT
             notes.append(f"{source}: no claimed coordinates or wind data")
             continue
         if not guard_decisions[source].direction_votable:
+            verdicts[source] = SILENT
+            continue
+        if not disagreement.resolvable:
             verdicts[source] = SILENT
             continue
         diff = _angular_diff(expected_from, measured[source])

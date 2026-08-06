@@ -57,6 +57,7 @@ from app.llm.corroboration import (
     DEFAULT_WIND_TOLERANCE,
     calm_wind_manifest_payload,
     channel_of,
+    wind_disagreement_manifest_payload,
 )
 from app.provenance.purpleair_qc import (
     LOCKED_SNAPSHOT_SHA256,
@@ -690,6 +691,7 @@ def fixture_payload(
         "data_quality": {
             "baseline_locality": baseline_locality_manifest_payload(),
             "calm_wind_guard": calm_wind_manifest_payload(),
+            "wind_disagreement_guard": wind_disagreement_manifest_payload(),
             "censoring": censoring_manifest_payload(),
             "channel_coverage_screen": {
                 "min_fresh_channels": result.min_fresh_channels,

@@ -1,5 +1,5 @@
 {
-  "code_commit": "7aadd2c3875a4e99567b05f287fceb983f460d06",
+  "code_commit": "a96d730a03c4aa38379c5f648d916f9a67bb5c75",
   "frozen_fixture": {
     "code_commit": "50725494630a09493d7a206739389d2485182a65",
     "drift_note": "Rules added after the freeze and before any expert label exists. Selection of the 50 events is unaffected: these are scorer rules, not selection rules.",
@@ -1120,5 +1120,5 @@
       "temp_c": 2.0
     }
   },
-  "working_tree_clean": false
+  "working_tree_clean": true
 }

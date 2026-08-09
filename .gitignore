@@ -36,6 +36,7 @@ Thumbs.db
 server/data/chromadb/
 server/data/exports/
 server/rehearsal/
+server/analysis/
 *.db
 *.sqlite3
 

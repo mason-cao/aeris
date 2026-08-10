@@ -1541,6 +1541,228 @@ def analyze_spearman(
     }
 
 
+def sign_mapped_verdict(score: float) -> str:
+    """Map a corroboration score onto a verdict category.
+
+    Registered as exploratory only: above zero valid, below zero invalid,
+    exactly zero unsure. Unscored claims have no mapping and are excluded by
+    the caller rather than coerced.
+    """
+    if score > 0.0:
+        return "valid"
+    if score < 0.0:
+        return "invalid"
+    return "unsure"
+
+
+def _sign_mapped_pairs(
+    records: Sequence[Mapping[str, object]],
+) -> tuple[list[OverlapPair], int, int]:
+    """Pair each scored, labeled claim's mapped verdict with the expert label."""
+    pairs: list[OverlapPair] = []
+    unscored = 0
+    unlabeled = 0
+    for record in records:
+        score = record["score"]
+        verdict = record["verdict"]
+        if score is None:
+            unscored += 1
+            continue
+        if verdict is None:
+            unlabeled += 1
+            continue
+        pairs.append(
+            OverlapPair(
+                anomaly_id=str(record["anomaly_id"]),
+                claim_text=str(record["claim_id"]),
+                mason_verdict=sign_mapped_verdict(float(score)),
+                bracco_verdict=str(verdict),
+            )
+        )
+    return pairs, unscored, unlabeled
+
+
+def analyze_sign_mapped_kappa(
+    records: Sequence[Mapping[str, object]],
+    *,
+    n_resamples: int = 10_000,
+    seed: int = MASTER_SEED,
+) -> dict[str, object]:
+    """Exploratory kappa between the sign-mapped score and the expert label.
+
+    Never the headline. The primary association statistic stays Spearman; this
+    exists because the registration declared it, and because it is the only
+    pre-declared statistic that uses all three label levels.
+    """
+    pairs, unscored, unlabeled = _sign_mapped_pairs(records)
+    base = {
+        "exploratory_only": True,
+        "mapping": "score > 0 valid, score < 0 invalid, score == 0 unsure",
+        "excluded_unscored": unscored,
+        "excluded_unlabeled": unlabeled,
+        "pair_count": len(pairs),
+    }
+    if not pairs:
+        return {
+            **base,
+            "kappa": None,
+            "undefined_reason": "zero scored and labeled claims",
+            "bootstrap": None,
+        }
+    estimate = cohen_kappa(
+        [pair.mason_verdict for pair in pairs],
+        [pair.bracco_verdict for pair in pairs],
+        categories=VERDICTS,
+    )
+    interval = cluster_bootstrap_interval(
+        pairs,
+        cluster_key=lambda pair: pair.anomaly_id,
+        statistic=lambda sample: _kappa_for_pairs(sample, VERDICTS),
+        n_resamples=n_resamples,
+        seed=seed,
+    )
+    return {
+        **base,
+        "kappa": estimate.kappa,
+        "observed_agreement": estimate.observed_agreement,
+        "expected_agreement": estimate.expected_agreement,
+        "predicted_marginals": estimate.first_marginals,
+        "expert_marginals": estimate.second_marginals,
+        "undefined_reason": estimate.undefined_reason,
+        "bootstrap": asdict(interval),
+    }
+
+
+def _accuracy(pairs: Sequence[OverlapPair]) -> float | None:
+    if not pairs:
+        return None
+    hits = sum(
+        1 for pair in pairs if pair.mason_verdict == pair.bracco_verdict
+    )
+    return hits / len(pairs)
+
+
+def _accuracy_block(
+    pairs: Sequence[OverlapPair],
+    *,
+    n_resamples: int,
+    seed: int,
+) -> dict[str, object]:
+    point = _accuracy(pairs)
+    if point is None:
+        return {"n": 0, "accuracy": None, "bootstrap": None}
+    interval = cluster_bootstrap_interval(
+        list(pairs),
+        cluster_key=lambda pair: pair.anomaly_id,
+        statistic=lambda sample: _accuracy(sample),
+        n_resamples=n_resamples,
+        seed=seed,
+    )
+    return {"n": len(pairs), "accuracy": point, "bootstrap": asdict(interval)}
+
+
+def analyze_negative_controls(
+    records: Sequence[Mapping[str, object]],
+    *,
+    n_resamples: int = 10_000,
+    seeds: Mapping[str, int] | None = None,
+    min_claims: int = 20,
+    min_anomalies: int = 5,
+) -> dict[str, object]:
+    """Compare corroboration against the two pre-declared trivial baselines.
+
+    Control 1 is a constant predictor that always answers the modal expert
+    verdict. Control 2 replaces the corroboration score with the claim's
+    character count and reruns the identical Spearman machinery, because the
+    grounding gate is already known to track verbosity (6.4b) and a score that
+    cannot beat claim length is measuring length.
+
+    Both controls are evaluated on exactly the claim set corroboration is
+    evaluated on, so the margins are like-for-like.
+    """
+    required_ids = (
+        "negative_control:claim_length_spearman",
+        "negative_control:corroboration_sign",
+        "negative_control:majority_label",
+    )
+    seed_map = dict(seeds) if seeds is not None else spawn_substream_seeds(required_ids)
+    missing_seeds = [
+        analysis_id for analysis_id in required_ids if analysis_id not in seed_map
+    ]
+    if missing_seeds:
+        raise ValueError(
+            "missing negative-control seeds: " + ", ".join(missing_seeds)
+        )
+
+    sign_pairs, _, _ = _sign_mapped_pairs(records)
+    modal_verdict: str | None = None
+    if sign_pairs:
+        counts = Counter(pair.bracco_verdict for pair in sign_pairs)
+        # Ties break on the declared VERDICTS order so the control is
+        # deterministic rather than dependent on dictionary insertion.
+        modal_verdict = max(
+            VERDICTS, key=lambda verdict: (counts.get(verdict, 0), -VERDICTS.index(verdict))
+        )
+    majority_pairs = [
+        OverlapPair(
+            anomaly_id=pair.anomaly_id,
+            claim_text=pair.claim_text,
+            mason_verdict=str(modal_verdict),
+            bracco_verdict=pair.bracco_verdict,
+        )
+        for pair in sign_pairs
+    ]
+
+    corroboration_block = _accuracy_block(
+        sign_pairs,
+        n_resamples=n_resamples,
+        seed=seed_map["negative_control:corroboration_sign"],
+    )
+    majority_block = _accuracy_block(
+        majority_pairs,
+        n_resamples=n_resamples,
+        seed=seed_map["negative_control:majority_label"],
+    )
+    corroboration_accuracy = corroboration_block["accuracy"]
+    majority_accuracy = majority_block["accuracy"]
+    margin = (
+        None
+        if corroboration_accuracy is None or majority_accuracy is None
+        else float(corroboration_accuracy) - float(majority_accuracy)
+    )
+
+    length_records = [
+        {
+            "anomaly_id": record["anomaly_id"],
+            "score": float(len(str(record["claim_text"]))),
+            "verdict": record["verdict"],
+        }
+        for record in records
+        if record["score"] is not None
+    ]
+    claim_length = analyze_spearman(
+        length_records,
+        n_resamples=n_resamples,
+        seed=seed_map["negative_control:claim_length_spearman"],
+        min_claims=min_claims,
+        min_anomalies=min_anomalies,
+    )
+
+    return {
+        "evaluated_on": "claims with both a corroboration score and an expert label",
+        "majority_label": {
+            "predicted_verdict": modal_verdict,
+            **majority_block,
+        },
+        "corroboration_sign": corroboration_block,
+        "accuracy_margin_over_majority": margin,
+        "claim_length_spearman": {
+            "substitution": "claim character count replaces the corroboration score",
+            **claim_length,
+        },
+    }
+
+
 def _normalized_cells(
     cells: Sequence[tuple[str, str] | Mapping[str, object]],
     field_name: str,
@@ -2001,6 +2223,7 @@ def _primary_label_records(
                 "claim_id": claim["claim_id"],
                 "anomaly_id": claim["anomaly_id"],
                 "model": claim["model"],
+                "claim_text": claim["claim_text"],
                 "claim_type": claim["claim_type"],
                 "grounding_verdict": claim["grounding_verdict"],
                 "score": claim["corroboration_score"],
@@ -2135,6 +2358,14 @@ def build_analysis_manifest(
     analysis_ids.extend(
         f"spearman:exploratory:{name}" for name in sorted(exploratory_groups)
     )
+    analysis_ids.extend(
+        [
+            "exploratory:sign_mapped_kappa",
+            "negative_control:claim_length_spearman",
+            "negative_control:corroboration_sign",
+            "negative_control:majority_label",
+        ]
+    )
     seeds = spawn_substream_seeds(
         analysis_ids,
         master_seed=thresholds.master_seed,
@@ -2207,6 +2438,19 @@ def build_analysis_manifest(
         result["analysis_status"] = "exploratory"
         exploratory_spearman.append(result)
 
+    sign_mapped = analyze_sign_mapped_kappa(
+        headline,
+        n_resamples=thresholds.bootstrap_resamples,
+        seed=seeds["exploratory:sign_mapped_kappa"],
+    )
+    negative_controls = analyze_negative_controls(
+        headline,
+        n_resamples=thresholds.bootstrap_resamples,
+        seeds=seeds,
+        min_claims=thresholds.spearman_min_claims,
+        min_anomalies=thresholds.spearman_min_anomalies,
+    )
+
     parse_accounting = parse_failure_accounting(
         anomaly_ids,
         models,
@@ -2255,6 +2499,8 @@ def build_analysis_manifest(
             "unsure_as_invalid_sensitivity": unsure_sensitivity,
             "exploratory": exploratory_spearman,
         },
+        "exploratory_sign_mapped_kappa": sign_mapped,
+        "negative_controls": negative_controls,
         "parse_failures": parse_accounting,
         "power": {
             "status": "not run",

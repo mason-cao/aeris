@@ -18,6 +18,8 @@ from app.eval.phase_analysis import (
     aggregate_expert_validity,
     aggregate_machine_metrics,
     analyze_agreement,
+    analyze_negative_controls,
+    analyze_sign_mapped_kappa,
     analyze_spearman,
     build_analysis_manifest,
     build_decision_overlap,
@@ -31,6 +33,7 @@ from app.eval.phase_analysis import (
     power_kappa_bootstrap_interval,
     power_spearman_bootstrap_interval,
     run_power_simulation,
+    sign_mapped_verdict,
     spawn_substream_seeds,
     wilcoxon_signed_rank,
     write_manifest,
@@ -720,3 +723,197 @@ def test_empty_analysis_claim_population_fails_loudly() -> None:
 
     with pytest.raises(ValueError, match="zero overlap pairs"):
         build_analysis_manifest(payload, [], thresholds=FAST)
+
+
+# The statistics this analysis declares it will run. A change here is a change
+# to the pre-registered analysis plan, so the list is asserted rather than
+# discovered — that is what stops a document claiming a statistic the code
+# does not implement.
+DECLARED_ANALYSIS_IDS = (
+    "agreement:primary",
+    "agreement:unsure_excluded",
+    "exploratory:sign_mapped_kappa",
+    "negative_control:claim_length_spearman",
+    "negative_control:corroboration_sign",
+    "negative_control:majority_label",
+    "spearman:exploratory:claim_type:concentration_elevation",
+    "spearman:exploratory:evidence_n:1",
+    "spearman:exploratory:evidence_n:>=2",
+    "spearman:exploratory:model:m1",
+    "spearman:exploratory:model:m2",
+    "spearman:exploratory:model:m3",
+    "spearman:primary",
+    "spearman:unsure_as_invalid",
+    "wilcoxon:expert_validity:m1 vs m2",
+    "wilcoxon:expert_validity:m1 vs m3",
+    "wilcoxon:expert_validity:m2 vs m3",
+    "wilcoxon:grounded_rate:m1 vs m2",
+    "wilcoxon:grounded_rate:m1 vs m3",
+    "wilcoxon:grounded_rate:m2 vs m3",
+    "wilcoxon:mean_corroboration:m1 vs m2",
+    "wilcoxon:mean_corroboration:m1 vs m3",
+    "wilcoxon:mean_corroboration:m2 vs m3",
+)
+
+
+def test_manifest_declares_exactly_the_expected_statistics() -> None:
+    manifest = build_analysis_manifest(_manifest_payload(), [], thresholds=FAST)
+
+    assert tuple(sorted(manifest["seed_substreams"])) == DECLARED_ANALYSIS_IDS
+
+
+def test_manifest_reports_every_declared_statistic_block() -> None:
+    manifest = build_analysis_manifest(_manifest_payload(), [], thresholds=FAST)
+
+    assert set(manifest["spearman"]) == {
+        "primary_headline_pooled",
+        "unsure_as_invalid_sensitivity",
+        "exploratory",
+    }
+    assert manifest["exploratory_sign_mapped_kappa"]["exploratory_only"] is True
+    assert set(manifest["negative_controls"]) >= {
+        "majority_label",
+        "corroboration_sign",
+        "accuracy_margin_over_majority",
+        "claim_length_spearman",
+    }
+
+
+@pytest.mark.parametrize(
+    ("score", "expected"),
+    [
+        (1.0, "valid"),
+        (0.25, "valid"),
+        (-1.0, "invalid"),
+        (-0.25, "invalid"),
+        (0.0, "unsure"),
+        (-0.0, "unsure"),
+    ],
+)
+def test_sign_mapped_verdict_boundaries(score: float, expected: str) -> None:
+    assert sign_mapped_verdict(score) == expected
+
+
+def _sign_record(
+    anomaly_id: str,
+    claim_id: str,
+    score: float | None,
+    verdict: str | None,
+    text: str = "a claim",
+) -> dict[str, object]:
+    return {
+        "claim_id": claim_id,
+        "anomaly_id": anomaly_id,
+        "model": "m1",
+        "claim_text": text,
+        "claim_type": "concentration_elevation",
+        "grounding_verdict": "grounded",
+        "score": score,
+        "evidence_n": 1,
+        "verdict": verdict,
+    }
+
+
+def test_sign_mapped_kappa_excludes_unscored_and_unlabeled() -> None:
+    records = [
+        _sign_record("a0", "c0", 0.5, "valid"),
+        _sign_record("a0", "c1", -0.5, "invalid"),
+        _sign_record("a1", "c2", None, "valid"),
+        _sign_record("a1", "c3", 0.5, None),
+    ]
+
+    result = analyze_sign_mapped_kappa(records, n_resamples=99)
+
+    assert result["excluded_unscored"] == 1
+    assert result["excluded_unlabeled"] == 1
+    assert result["pair_count"] == 2
+    assert result["exploratory_only"] is True
+
+
+def test_sign_mapped_kappa_handles_no_usable_claims() -> None:
+    result = analyze_sign_mapped_kappa(
+        [_sign_record("a0", "c0", None, "valid")], n_resamples=99
+    )
+
+    assert result["pair_count"] == 0
+    assert result["kappa"] is None
+    assert result["undefined_reason"] == "zero scored and labeled claims"
+    assert result["bootstrap"] is None
+
+
+def test_margin_is_positive_when_corroboration_beats_the_trivial_baseline() -> None:
+    records = [
+        _sign_record("a0", "c0", 0.5, "valid"),
+        _sign_record("a0", "c1", -0.5, "invalid"),
+        _sign_record("a1", "c2", -0.5, "invalid"),
+        _sign_record("a1", "c3", 0.5, "valid"),
+    ]
+
+    result = analyze_negative_controls(records, n_resamples=99)
+
+    # The sign map is right on every claim; a constant predictor cannot be,
+    # because the labels are evenly split.
+    assert result["corroboration_sign"]["accuracy"] == pytest.approx(1.0)
+    assert result["majority_label"]["accuracy"] == pytest.approx(0.5)
+    assert result["accuracy_margin_over_majority"] == pytest.approx(0.5)
+
+
+def test_margin_is_negative_when_the_trivial_baseline_wins() -> None:
+    records = [
+        _sign_record("a0", "c0", -0.5, "valid"),
+        _sign_record("a0", "c1", -0.5, "valid"),
+        _sign_record("a1", "c2", -0.5, "valid"),
+        _sign_record("a1", "c3", 0.5, "invalid"),
+    ]
+
+    result = analyze_negative_controls(records, n_resamples=99)
+
+    # This is the failure the control exists to expose: corroboration adds
+    # nothing over always answering the modal label.
+    assert result["corroboration_sign"]["accuracy"] == pytest.approx(0.0)
+    assert result["majority_label"]["predicted_verdict"] == "valid"
+    assert result["majority_label"]["accuracy"] == pytest.approx(0.75)
+    assert result["accuracy_margin_over_majority"] == pytest.approx(-0.75)
+
+
+def test_majority_label_control_breaks_ties_deterministically() -> None:
+    records = [
+        _sign_record("a0", "c0", 0.5, "valid"),
+        _sign_record("a0", "c1", -0.5, "invalid"),
+    ]
+
+    first = analyze_negative_controls(records, n_resamples=99)
+    second = analyze_negative_controls(list(reversed(records)), n_resamples=99)
+
+    assert (
+        first["majority_label"]["predicted_verdict"]
+        == second["majority_label"]["predicted_verdict"]
+        == "valid"
+    )
+
+
+def test_claim_length_control_substitutes_length_for_score() -> None:
+    records = [
+        _sign_record("a0", "c0", 0.5, "valid", text="x" * 10),
+        _sign_record("a0", "c1", 0.5, "invalid", text="x" * 200),
+        _sign_record("a1", "c2", None, "valid", text="x" * 999),
+    ]
+
+    result = analyze_negative_controls(records, n_resamples=99)
+    control = result["claim_length_spearman"]
+
+    assert control["substitution"] == (
+        "claim character count replaces the corroboration score"
+    )
+    # The unscored claim is dropped so the control sees the same claims
+    # corroboration is judged on.
+    assert control["eligible_claim_count"] == 2
+
+
+def test_negative_controls_require_every_declared_seed() -> None:
+    with pytest.raises(ValueError, match="missing negative-control seeds"):
+        analyze_negative_controls(
+            [_sign_record("a0", "c0", 0.5, "valid")],
+            n_resamples=99,
+            seeds={"negative_control:majority_label": 1},
+        )

@@ -1277,15 +1277,16 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--official",
         action="store_true",
-        help="omit the example-only warning (prohibited until the freeze gate passes)",
+        help=(
+            "drop the DRAFT marker and record the packet as official; the "
+            "freeze gates were declared passed on 2026-08-10"
+        ),
     )
     return parser.parse_args(argv)
 
 
 async def _amain(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
-    if args.official:
-        raise ValueError("official packet generation remains blocked by the freeze gate")
     source = await load_packet_source(args.database, uuid.UUID(args.anomaly_id))
     manifest_path = args.manifest or args.out.with_suffix(".audit.json")
     result = render_packet(
@@ -1295,7 +1296,7 @@ async def _amain(argv: list[str] | None = None) -> int:
         args.labeler,
         args.out,
         manifest_path,
-        example=True,
+        example=not args.official,
     )
     print(
         f"rendered {result.claim_count} unique claims to {result.pdf_path} "

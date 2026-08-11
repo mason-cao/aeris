@@ -54,12 +54,21 @@ async def collect_claim_groups(
     anomaly_id: uuid.UUID,
     model: str | None = None,
 ) -> list[ClaimGroup]:
-    """Unique claim texts for an anomaly, in (model, step) first-seen order."""
+    """Unique claim texts for an anomaly, in (model, step, id) first-seen order.
+
+    ``Claim.id`` is the tiebreaker and it is load-bearing. Several claims share
+    each (model, step), so ordering on those two alone leaves the rest to
+    whatever physical order the engine happens to return. Postgres and SQLite
+    disagreed on the same rows, and since ``presentation_order`` shuffles this
+    list, a different input order produces a different shuffle. That would give
+    a packet and a labeling session two different meanings for "claim 7" with
+    nothing to catch it.
+    """
     query = (
         select(Claim.id, Claim.claim_text)
         .join(Explanation, Claim.explanation_id == Explanation.id)
         .where(Explanation.anomaly_id == anomaly_id)
-        .order_by(Explanation.model_name, Claim.step_index)
+        .order_by(Explanation.model_name, Claim.step_index, Claim.id)
     )
     if model is not None:
         query = query.where(Explanation.model_name == model)

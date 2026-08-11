@@ -389,3 +389,23 @@ def test_parse_args_requires_anomaly_and_labeler():
         ["--anomaly-id", "abc", "--labeler", "mason", "--model", "llama3:8b"]
     )
     assert args.model == "llama3:8b"
+
+
+@pytest.mark.asyncio
+async def test_claim_order_is_fully_specified_within_a_model_and_step(db_session):
+    """Ties on (model, step) must break on claim id, not on physical row order.
+
+    Without this, Postgres and SQLite return the same rows in different orders,
+    the seeded shuffle differs, and a packet and a labeling session disagree
+    about which claim is number 7.
+    """
+    anomaly = _anomaly()
+    claims = [_claim(f"tied claim {index}", step=1) for index in range(5)]
+    db_session.add_all([anomaly, _explanation(anomaly, "model-a", claims)])
+    await db_session.commit()
+
+    groups = await collect_claim_groups(db_session, anomaly.id)
+    returned = [group.claim_ids[0] for group in groups]
+
+    assert returned == sorted(returned, key=str)
+    assert len(returned) == 5

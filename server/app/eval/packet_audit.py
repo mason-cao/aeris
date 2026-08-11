@@ -7,6 +7,7 @@ import asyncio
 import hashlib
 import json
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -73,15 +74,48 @@ def extract_pdf_metadata(pdf_path: Path) -> dict[str, str]:
     return {str(key): str(value) for key, value in metadata.items()}
 
 
+def redact_claim_text(text: str, claim_texts: Sequence[str]) -> str:
+    """Blank out model-authored spans so only packet chrome is scanned.
+
+    Blinding is a property of what the packet adds, not of what the models
+    wrote. GPT-5.4 uses "corroboration" in its own claims in the ordinary
+    scientific sense ("independent spatial corroboration ... is limited"), and
+    treating that as a leak would either block a correct packet or push someone
+    to delete the term from the list and lose the guard entirely.
+
+    Whitespace is collapsed on both sides first. The renderer wraps a long
+    claim across several lines, so the stored text is never a verbatim
+    substring of what pypdf extracts.
+    """
+    redacted = " ".join(text.split())
+    for claim_text in claim_texts:
+        redacted = redacted.replace(" ".join(claim_text.split()), " ")
+    return redacted
+
+
 def scan_blinding_leaks(
     text: str,
     metadata: dict[str, str],
     *,
     model_names: tuple[str, ...],
+    claim_texts: Sequence[str] = (),
 ) -> tuple[str, ...]:
-    searchable = "\n".join([text, *(f"{key}: {value}" for key, value in metadata.items())]).casefold()
-    terms = [*GENERIC_BLINDING_TERMS, *(name for name in model_names if name)]
-    return tuple(sorted({term for term in terms if term.casefold() in searchable}))
+    """Find pipeline judgments the packet must never show its labeler.
+
+    Model names are searched across the whole packet, claim text included: a
+    model that names itself unblinds the labeler no matter who wrote the
+    sentence. The pipeline-vocabulary terms are searched only outside claim
+    text, because inside it they are the model's words, not the scorer's.
+    """
+    metadata_text = "\n".join(f"{key}: {value}" for key, value in metadata.items())
+    everything = f"{text}\n{metadata_text}".casefold()
+    chrome_only = f"{redact_claim_text(text, claim_texts)}\n{metadata_text}".casefold()
+
+    leaks = {term for term in GENERIC_BLINDING_TERMS if term.casefold() in chrome_only}
+    leaks.update(
+        name for name in model_names if name and name.casefold() in everything
+    )
+    return tuple(sorted(leaks))
 
 
 def audit_packet(
@@ -175,7 +209,12 @@ def audit_packet(
         raise PacketAuditError(
             "unsafe packet text character(s): " + "; ".join(rendered_text_findings)
         )
-    leaks = scan_blinding_leaks(text, metadata, model_names=model_names)
+    leaks = scan_blinding_leaks(
+        text,
+        metadata,
+        model_names=model_names,
+        claim_texts=[group.claim_text for group in claim_groups],
+    )
     if leaks:
         raise PacketAuditError(f"blinding leak(s) found: {', '.join(leaks)}")
 

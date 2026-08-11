@@ -24,7 +24,12 @@ from app.eval.packet import (
     ring_coordinates,
     unsafe_text_findings,
 )
-from app.eval.packet_audit import PacketAuditError, audit_packet, extract_pdf_text
+from app.eval.packet_audit import (
+    PacketAuditError,
+    audit_packet,
+    extract_pdf_text,
+    scan_blinding_leaks,
+)
 from app.llm.explain import render_enrichment_text
 
 ANOMALY_ID = uuid.UUID("00000000-0000-0000-0000-000000000004")
@@ -678,3 +683,135 @@ def test_audit_rejects_calm_wind_flag_tampering(tmp_path: Path) -> None:
             model_names=("llama3:8b",),
             claim_groups=tuple(_groups()),
         )
+
+
+def test_official_packets_drop_the_draft_marker_and_record_their_kind(
+    tmp_path: Path,
+) -> None:
+    example_pdf = tmp_path / "example.pdf"
+    example_manifest = tmp_path / "example.audit.json"
+    official_pdf = tmp_path / "official.pdf"
+    official_manifest = tmp_path / "official.audit.json"
+
+    render_packet(
+        _anomaly(), _summary(), _groups(), "bracco", example_pdf, example_manifest
+    )
+    render_packet(
+        _anomaly(),
+        _summary(),
+        _groups(),
+        "bracco",
+        official_pdf,
+        official_manifest,
+        example=False,
+    )
+
+    assert "DRAFT" in extract_pdf_text(example_pdf)
+    assert "DRAFT" not in extract_pdf_text(official_pdf)
+    assert json.loads(example_manifest.read_text())["packet_kind"] == "example"
+    assert json.loads(official_manifest.read_text())["packet_kind"] == "official"
+
+
+def test_official_mode_changes_nothing_a_labeler_judges_on(tmp_path: Path) -> None:
+    """The freeze-gate release must not touch evidence, order, or blinding."""
+    example_manifest = tmp_path / "example.audit.json"
+    official_manifest = tmp_path / "official.audit.json"
+
+    render_packet(
+        _anomaly(),
+        _summary(),
+        _groups(),
+        "bracco",
+        tmp_path / "example.pdf",
+        example_manifest,
+    )
+    render_packet(
+        _anomaly(),
+        _summary(),
+        _groups(),
+        "bracco",
+        tmp_path / "official.pdf",
+        official_manifest,
+        example=False,
+    )
+
+    first = json.loads(example_manifest.read_text())
+    second = json.loads(official_manifest.read_text())
+    for field in ("claims", "plot_data", "evidence_detail", "calm_wind_flags",
+                  "summary_sha256"):
+        assert first[field] == second[field]
+
+
+def test_pipeline_vocabulary_inside_a_claim_is_not_a_leak() -> None:
+    """GPT-5.4 really does write "corroboration" in its own claims."""
+    claim = (
+        "Independent spatial corroboration for the exact event is limited, and "
+        "confidence in the grounded reading is therefore low."
+    )
+
+    leaks = scan_blinding_leaks(
+        f"AERIS Expert Review Packet\nClaim 1\n{claim}\n",
+        {},
+        model_names=("gpt-5.4",),
+        claim_texts=[claim],
+    )
+
+    assert leaks == ()
+
+
+def test_pipeline_vocabulary_outside_a_claim_is_still_a_leak() -> None:
+    claim = "PM2.5 was elevated at the monitor."
+
+    leaks = scan_blinding_leaks(
+        f"Claim 1\n{claim}\nCorroboration score: +1.0\n",
+        {},
+        model_names=("gpt-5.4",),
+        claim_texts=[claim],
+    )
+
+    assert "corroboration" in leaks
+
+
+def test_a_model_naming_itself_inside_a_claim_is_still_a_leak() -> None:
+    """Redaction covers scorer vocabulary, never model identity."""
+    claim = "As gpt-5.4 I judge the plume to be industrial."
+
+    leaks = scan_blinding_leaks(
+        f"Claim 1\n{claim}\n", {}, model_names=("gpt-5.4",), claim_texts=[claim]
+    )
+
+    assert leaks == ("gpt-5.4",)
+
+
+def test_metadata_is_scanned_even_when_claims_are_redacted() -> None:
+    claim = "PM2.5 was elevated at the monitor."
+
+    leaks = scan_blinding_leaks(
+        f"Claim 1\n{claim}\n",
+        {"Subject": "grounding verdict: grounded"},
+        model_names=(),
+        claim_texts=[claim],
+    )
+
+    assert "grounding verdict" in leaks
+
+
+def test_redaction_survives_the_renderer_wrapping_a_claim_across_lines() -> None:
+    """The real packets wrap; verbatim substring matching silently misses."""
+    claim = (
+        "Independent spatial corroboration for the exact event is limited in "
+        "the current dataset."
+    )
+    wrapped = (
+        "Independent spatial corroboration for the exact\nevent is limited in\n"
+        "the current dataset."
+    )
+
+    leaks = scan_blinding_leaks(
+        f"Claim 1\n{wrapped}\nMark exactly one:\n",
+        {},
+        model_names=(),
+        claim_texts=[claim],
+    )
+
+    assert leaks == ()

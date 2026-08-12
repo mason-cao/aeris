@@ -35,6 +35,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 from reportlab.platypus import (
+    Flowable,
     Image,
     KeepTogether,
     PageBreak,
@@ -646,6 +647,114 @@ def _format_time(value: Any) -> str:
     return _parse_timestamp(str(value)).strftime("%Y-%m-%d %H:%MZ")
 
 
+# The stored metric names are the pipeline's, and a claim that quotes one quotes
+# it in this form, so the name stays printed. The label in front of it is for the
+# reader: `s5p_aer_ai_granule_available` is not a phrase anyone should have to
+# decode mid-judgment.
+METRIC_LABELS: dict[str, str] = {
+    "cloud_cover": "Cloud cover",
+    "co": "Carbon monoxide",
+    "gh_500": "500-hPa geopotential height",
+    "humidity": "Relative humidity",
+    "no2": "Nitrogen dioxide",
+    "ozone": "Ozone",
+    "pbl_height": "Planetary boundary layer height",
+    "pm10": "PM10",
+    "pm25": "PM2.5",
+    "precipitable_water": "Precipitable water",
+    "precipitation": "Precipitation rate",
+    "pressure": "Surface pressure",
+    # Formulas for the satellite rows: standard notation, and short enough that
+    # the label does not wrap ahead of the stored name beside it.
+    "s5p_aer_ai_granule_available": "Aerosol index granules",
+    "s5p_ch4_granule_available": "CH4 granules available",
+    "s5p_co_column": "CO column",
+    "s5p_co_granule_available": "CO granules available",
+    "s5p_hcho_column": "HCHO column",
+    "s5p_hcho_granule_available": "HCHO granules available",
+    "s5p_no2_column": "NO2 column",
+    "s5p_no2_granule_available": "NO2 granules available",
+    "s5p_o3_granule_available": "O3 granules available",
+    "s5p_so2_column": "SO2 column",
+    "s5p_so2_granule_available": "SO2 granules available",
+    "so2": "Sulfur dioxide",
+    "surface_pressure": "Surface pressure",
+    "t_850": "850-hPa temperature",
+    "temperature": "Air temperature",
+    "u_10m": "10-m eastward wind",
+    "v_10m": "10-m northward wind",
+    "wind_direction": "Wind direction",
+    "wind_speed": "Wind speed",
+}
+
+
+def metric_label(metric: str) -> str:
+    """Reader's label plus the stored name. Unmapped metrics print bare."""
+    label = METRIC_LABELS.get(metric)
+    return f"{label} ({metric})" if label else metric
+
+
+# The metric column carries a label as well as the stored name now, and the last
+# column spells its offset out in words, so both take room from the three columns
+# holding short fixed-width values. The metric column's 1.55in is set by the
+# longest stored name, `(s5p_aer_ai_granule_available)`: any narrower and the
+# identifier wraps mid-token, and that identifier is the string she matches a
+# claim against. `test_metric_column_fits_the_longest_stored_name` pins it.
+EVIDENCE_COL_WIDTHS: tuple[float, ...] = (0.69, 1.55, 0.48, 0.52, 0.75, 2.51)
+SERIES_COL_WIDTHS: tuple[float, ...] = (0.69, 1.55, 4.26)
+# `_grid_table` sets 3pt of padding on each side of every cell.
+GRID_CELL_PADDING_IN = 6.0 / 72.0
+
+
+def _format_event_offset(
+    dt_minutes: Any, observed_at: Any, event: datetime
+) -> str:
+    """How far a reading sits from the event, in words and with a direction.
+
+    A satellite overpass can be hours from the anomaly, and `dt 356.4 min` in a
+    table cell reads as a small number. Spelling out the gap and which side of
+    the event it falls on is what stops a distant overpass from being taken for
+    a contemporaneous measurement.
+    """
+    if dt_minutes is None:
+        return "offset not recorded"
+    minutes = float(dt_minutes)
+    if not math.isfinite(minutes):
+        return "offset not recorded"
+    total = int(round(abs(minutes)))
+    if total == 0:
+        return "at event time"
+    hours, remainder = divmod(total, 60)
+    if hours and remainder:
+        magnitude = f"{hours} h {remainder} min"
+    elif hours:
+        magnitude = f"{hours} h"
+    else:
+        magnitude = f"{remainder} min"
+    if not observed_at:
+        return f"{magnitude} from event"
+    observed = _parse_timestamp(str(observed_at))
+    side = "after" if observed > _ensure_utc(event) else "before"
+    return f"{magnitude} {side} event"
+
+
+# Mirrors `consensus._resolve_expected_value`: Z-score's baseline wins over
+# STL's, and isolation forest supplies none. The stored anomaly keeps only
+# `methods_triggered`, so that is what the precedence reads here.
+BASELINE_METHODS: dict[str, str] = {
+    "zscore": "mean of the preceding 7 days of this series (Z-score detector)",
+    "stl": "seasonal-trend fit for this time of day (STL detector)",
+}
+
+
+def baseline_method(methods_triggered: Sequence[Any]) -> str:
+    methods = [str(method) for method in methods_triggered]
+    for detector in ("zscore", "stl"):
+        if detector in methods:
+            return BASELINE_METHODS[detector]
+    return "not recorded for this event"
+
+
 # The series the models were given ride in their own tables rather than as
 # spanned rows inside the evidence table. A full-width row breaks the column
 # grid, and Bracco signed off on that grid on 2026-07-24; a sibling table in the
@@ -707,7 +816,9 @@ def evidence_detail_lines(summary: Mapping[str, Any]) -> list[str]:
     return lines
 
 
-def _evidence_rows(summary: Mapping[str, Any]) -> list[list[str]]:
+def _evidence_rows(
+    summary: Mapping[str, Any], event: datetime
+) -> list[list[str]]:
     rows = [["Source", "Metric", "Unit", "Entities / points", "Range; mean", "Nearest to event"]]
     for source in sorted(summary.get("sources", {})):
         metrics = summary["sources"][source].get("metrics", {})
@@ -718,7 +829,7 @@ def _evidence_rows(summary: Mapping[str, Any]) -> list[list[str]]:
             rows.append(
                 [
                     source,
-                    metric_name,
+                    metric_label(metric_name),
                     str(metric.get("unit") or "unit not recorded"),
                     f"{metric.get('n_entities', 0)} / {metric.get('n_points', 0)}",
                     (
@@ -729,7 +840,9 @@ def _evidence_rows(summary: Mapping[str, Any]) -> list[list[str]]:
                     (
                         f"{_format_number(nearest.get('v'))} at "
                         f"{_format_time(nearest.get('t'))}; "
-                        f"dt {_format_number(nearest.get('dt_minutes'))} min"
+                        + _format_event_offset(
+                            nearest.get("dt_minutes"), nearest.get("t"), event
+                        )
                     ),
                 ]
             )
@@ -744,7 +857,7 @@ def _series_rows(summary: Mapping[str, Any], position: int) -> list[list[str]]:
         for metric_name in sorted(metrics):
             line = _metric_series(source, metrics[metric_name])[position]
             if line:
-                rows.append([source, metric_name, _series_value(line)])
+                rows.append([source, metric_label(metric_name), _series_value(line)])
     return rows
 
 
@@ -863,13 +976,27 @@ def _set_pdf_metadata(pdf_canvas: canvas.Canvas, _document: Any) -> None:
     pdf_canvas.setKeywords("expert review, atmospheric evidence")
 
 
-def _anomaly_table(anomaly: Anomaly, styles: Mapping[str, ParagraphStyle]) -> Table:
+def _anomaly_unit(summary: Mapping[str, Any], anomaly: Anomaly) -> str:
+    """The unit recorded for the anomaly's own metric, or '' when absent."""
+    metrics = summary.get("sources", {}).get(anomaly.source, {}).get("metrics", {})
+    return str(metrics.get(anomaly.metric, {}).get("unit") or "").strip()
+
+
+def _anomaly_table(
+    anomaly: Anomaly, summary: Mapping[str, Any], styles: Mapping[str, ParagraphStyle]
+) -> Table:
     timestamp = _ensure_utc(anomaly.timestamp).strftime("%Y-%m-%d %H:%M UTC")
     expected = _format_number(anomaly.expected_value)
     detectors = ", ".join(str(item) for item in anomaly.methods_triggered)
+    unit = _anomaly_unit(summary, anomaly)
+    suffix = f" {unit}" if unit else ""
     rows = [
-        ["Source / metric", f"{anomaly.source} / {anomaly.metric}"],
-        ["Observed / expected", f"{_format_number(anomaly.value)} / {expected}"],
+        ["Source / metric", f"{anomaly.source} / {metric_label(anomaly.metric)}"],
+        [
+            "Observed / expected baseline",
+            f"{_format_number(anomaly.value)} / {expected}{suffix}",
+        ],
+        ["Baseline method", baseline_method(anomaly.methods_triggered)],
         ["Time", timestamp],
         ["Location", f"{anomaly.lat:.4f}, {anomaly.lon:.4f}"],
         ["Severity", anomaly.severity],
@@ -933,18 +1060,131 @@ def _grid_table(
     return table
 
 
-def _evidence_table(summary: Mapping[str, Any], styles: Mapping[str, ParagraphStyle]) -> Table:
-    return _grid_table(
-        _evidence_rows(summary),
-        styles,
-        (0.72, 1.05, 0.72, 0.72, 1.43, 1.86),
-    )
+def _evidence_table(
+    summary: Mapping[str, Any], event: datetime, styles: Mapping[str, ParagraphStyle]
+) -> Table:
+    return _grid_table(_evidence_rows(summary, event), styles, EVIDENCE_COL_WIDTHS)
 
 
 def _series_table(
     rows: Sequence[Sequence[str]], styles: Mapping[str, ParagraphStyle]
 ) -> Table:
-    return _grid_table(rows, styles, (0.72, 1.05, 4.73))
+    return _grid_table(rows, styles, SERIES_COL_WIDTHS)
+
+
+# Verbatim from the labeling guide's "Label definitions" and the two rules that
+# follow it. Duplicated onto the claim pages so the definitions are in front of
+# her while she marks, rather than in a second document she has to hold open.
+# `test_packet_reminder_matches_the_labeling_guide` fails if these ever drift
+# from `docs/bracco/labeling-guide.md`.
+LABEL_DEFINITIONS: tuple[str, ...] = (
+    "Valid (V): the claim holds up at the precision it states, and the evidence "
+    "in the packet supports it.",
+    "Invalid (I): the evidence in the packet contradicts the claim, the claim "
+    "misstates a measurement, or the physical reasoning does not hold.",
+    "Unsure (U): you cannot tell from what is shown. This covers thin evidence, "
+    "measurements that cannot resolve the claim, ambiguous wording, and anything "
+    "outside what you are comfortable judging.",
+    "Missing or thin evidence means Unsure, not Invalid.",
+    "A cause that is plausible but unproven stays Unsure unless the evidence "
+    "actually contradicts it.",
+    "Some claims bundle several statements into one sentence. Judge those by their "
+    "parts. If every part earns the same verdict, use that verdict.",
+)
+
+
+class _CheckboxField(Flowable):
+    """One AcroForm checkbox, sized to sit inside a marking-table cell.
+
+    The drawn box beside it is kept: a viewer that ignores form fields leaves the
+    packet exactly as markable by hand as it was before, so the field can only
+    add a way to answer, never take one away.
+    """
+
+    def __init__(self, name: str, size: float = 9.0) -> None:
+        super().__init__()
+        self.name = name
+        self.width = size
+        self.height = size
+
+    def draw(self) -> None:
+        # Stroked into the page content, not left to the widget's appearance
+        # stream, so the box survives printing and any viewer that declines to
+        # render form fields at all.
+        self.canv.setStrokeColor(colors.HexColor("#5A6B75"))
+        self.canv.setLineWidth(0.6)
+        self.canv.rect(0, 0, self.width, self.height, stroke=1, fill=0)
+        self.canv.acroForm.checkbox(
+            name=self.name,
+            x=0,
+            y=0,
+            size=self.width,
+            buttonStyle="check",
+            borderWidth=0,
+            textColor=colors.HexColor("#1C2B33"),
+            checked=False,
+        )
+
+
+class _TextField(Flowable):
+    """A multi-line AcroForm text field over ruled lines for the handwritten path."""
+
+    def __init__(
+        self, name: str, width: float, height: float, rules: int = 3
+    ) -> None:
+        super().__init__()
+        self.name = name
+        self.width = width
+        self.height = height
+        self.rules = rules
+
+    def draw(self) -> None:
+        self.canv.setStrokeColor(colors.HexColor("#AEB7BC"))
+        self.canv.setLineWidth(0.4)
+        for line in range(self.rules):
+            y = self.height * line / self.rules
+            self.canv.line(0, y, self.width, y)
+        self.canv.acroForm.textfield(
+            name=self.name,
+            x=0,
+            y=0,
+            width=self.width,
+            height=self.height,
+            borderWidth=0,
+            textColor=colors.HexColor("#1C2B33"),
+            fontSize=8,
+            fieldFlags="multiline",
+        )
+
+
+def _reminder_table(styles: Mapping[str, ParagraphStyle]) -> Table:
+    """The guide's label definitions, restated where the marking happens."""
+    rows = [
+        [Paragraph(escape(definition), styles["small"])]
+        for definition in LABEL_DEFINITIONS
+    ]
+    table = Table(
+        [[Paragraph("<b>Label definitions, from the labeling guide</b>", styles["small"])]]
+        + rows,
+        colWidths=[6.5 * inch],
+        hAlign="LEFT",
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#EEF2F4")),
+                ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#9DA8AE")),
+                ("LINEBELOW", (0, 0), (0, 0), 0.35, colors.HexColor("#C8D0D5")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+    return table
 
 
 def _claim_block(
@@ -955,8 +1195,26 @@ def _claim_block(
     calm_wind_flag: CalmWindClaimFlag | None,
 ) -> KeepTogether:
     marking = Table(
-        [["Mark exactly one:", "[   ] V", "[   ] I", "[   ] U"]],
-        colWidths=[1.75 * inch, 1.3 * inch, 1.3 * inch, 1.3 * inch],
+        [
+            [
+                "Mark exactly one:",
+                _CheckboxField(f"claim{index:03d}_V"),
+                "V",
+                _CheckboxField(f"claim{index:03d}_I"),
+                "I",
+                _CheckboxField(f"claim{index:03d}_U"),
+                "U",
+            ]
+        ],
+        colWidths=[
+            1.75 * inch,
+            0.22 * inch,
+            1.08 * inch,
+            0.22 * inch,
+            1.08 * inch,
+            0.22 * inch,
+            1.08 * inch,
+        ],
         hAlign="LEFT",
     )
     marking.setStyle(
@@ -966,16 +1224,25 @@ def _claim_block(
                 ("FONTNAME", (1, 0), (-1, 0), "Helvetica"),
                 ("FONTSIZE", (0, 0), (-1, -1), 9),
                 ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#9DA8AE")),
-                ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D5DADD")),
+                # Separators only between the three V/I/U groups; a full inner
+                # grid would now rule between each box and its own letter.
+                ("LINEAFTER", (0, 0), (0, 0), 0.25, colors.HexColor("#D5DADD")),
+                ("LINEAFTER", (2, 0), (2, 0), 0.25, colors.HexColor("#D5DADD")),
+                ("LINEAFTER", (4, 0), (4, 0), 0.25, colors.HexColor("#D5DADD")),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("TOPPADDING", (0, 0), (-1, -1), 6),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
             ]
         )
     )
     note = Table(
-        [["Note:", ""], ["", ""], ["", ""]],
-        colWidths=[0.55 * inch, 5.95 * inch],
-        rowHeights=[0.24 * inch, 0.24 * inch, 0.24 * inch],
+        [
+            [
+                "Note (optional):",
+                _TextField(f"claim{index:03d}_note", 5.45 * inch, 0.72 * inch),
+            ]
+        ],
+        colWidths=[0.95 * inch, 5.55 * inch],
         hAlign="LEFT",
     )
     note.setStyle(
@@ -983,8 +1250,8 @@ def _claim_block(
             [
                 ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("LINEBELOW", (1, 0), (1, -1), 0.4, colors.HexColor("#AEB7BC")),
-                ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (1, 0), (1, 0), 0),
             ]
         )
     )
@@ -1035,10 +1302,29 @@ def _build_story(
     story.extend(
         [
             Paragraph("Anomaly", styles["heading"]),
-            _anomaly_table(anomaly, styles),
+            _anomaly_table(anomaly, summary, styles),
+        ]
+    )
+    if (anomaly.expected_value or 0) < 0:
+        story.append(
+            Paragraph(
+                "The baseline is a mean of this series' own recent history, so it "
+                "can fall below zero for a metric the network reports near or "
+                "below its detection limit.",
+                styles["body"],
+            )
+        )
+    story.extend(
+        [
             Spacer(1, 8),
             Paragraph("Stored evidence summary", styles["heading"]),
-            _evidence_table(summary, styles),
+            Paragraph(
+                "The three tables in this section are look-up tables. You never "
+                "have to read them through: they are here for the moment a claim "
+                "quotes a number and you want to check it.",
+                styles["body"],
+            ),
+            _evidence_table(summary, anomaly.timestamp, styles),
         ]
     )
     for position, title, blurb in SERIES_SECTIONS:
@@ -1062,12 +1348,13 @@ def _build_story(
             PageBreak(),
             Paragraph("Claims", styles["heading"]),
             Paragraph(
-                "Mark exactly one box per claim: V (Valid), I (Invalid), or U (Unsure). The labeling "
-                "guide that comes with this packet has the definitions and marking rules. Each claim "
-                "appears exactly once, and the number printed next to it is how I'll refer to that "
-                "claim if I need to ask you about it.",
+                "Mark exactly one box per claim: V (Valid), I (Invalid), or U (Unsure). To skip a "
+                "claim, leave all three boxes blank; a blank is recorded as missing and never turned "
+                "into Unsure. Each claim appears exactly once, and the number printed next to it is "
+                "how I'll refer to that claim if I need to ask you about it.",
                 styles["body"],
             ),
+            _reminder_table(styles),
         ]
     )
     total = len(ordered_claims)
@@ -1087,14 +1374,7 @@ def _build_story(
                 "evidence to determine a single cause\" is a perfectly fine answer.",
                 styles["body"],
             ),
-            Table(
-                [[""], [""], [""]],
-                colWidths=[6.5 * inch],
-                rowHeights=[0.35 * inch] * 3,
-                style=TableStyle(
-                    [("LINEBELOW", (0, 0), (-1, -1), 0.5, colors.HexColor("#AEB7BC"))]
-                ),
-            ),
+            _TextField("most_likely_cause", 6.5 * inch, 1.05 * inch),
         ]
     )
     return story

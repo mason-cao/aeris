@@ -14,12 +14,17 @@ from app.db.models import Anomaly
 from app.eval.label_cli import ClaimGroup, presentation_order
 from app.eval.packet import (
     DISTANCE_RING_KM,
+    LABEL_DEFINITIONS,
+    METRIC_LABELS,
     SERIES_SECTIONS,
     _evidence_rows,
+    _format_event_offset,
     _series_rows,
+    baseline_method,
     calm_wind_claim_flags,
     evidence_detail_lines,
     extract_plot_data,
+    metric_label,
     render_packet,
     ring_coordinates,
     unsafe_text_findings,
@@ -364,11 +369,141 @@ def test_packet_prints_every_series_line_the_model_was_given() -> None:
     }
 
 
+# Every (source, metric) pair present in the twelve official 2026-08-10 packets,
+# read off the generation database. A metric that reaches a packet without a
+# reader's label lands in front of an expert as a bare pipeline identifier.
+FROZEN_PACKET_METRICS: tuple[str, ...] = (
+    "cloud_cover",
+    "co",
+    "gh_500",
+    "humidity",
+    "no2",
+    "ozone",
+    "pbl_height",
+    "pm10",
+    "pm25",
+    "precipitable_water",
+    "precipitation",
+    "pressure",
+    "s5p_aer_ai_granule_available",
+    "s5p_ch4_granule_available",
+    "s5p_co_column",
+    "s5p_co_granule_available",
+    "s5p_hcho_column",
+    "s5p_hcho_granule_available",
+    "s5p_no2_column",
+    "s5p_no2_granule_available",
+    "s5p_o3_granule_available",
+    "s5p_so2_column",
+    "s5p_so2_granule_available",
+    "so2",
+    "surface_pressure",
+    "t_850",
+    "temperature",
+    "u_10m",
+    "v_10m",
+    "wind_direction",
+    "wind_speed",
+)
+
+GUIDE_MARKDOWN = (
+    Path(__file__).resolve().parents[3] / "docs" / "bracco" / "labeling-guide.md"
+)
+
+
+@pytest.mark.parametrize("metric", FROZEN_PACKET_METRICS)
+def test_every_packet_metric_has_a_readers_label(metric: str) -> None:
+    assert metric in METRIC_LABELS, f"{metric} would print as a bare identifier"
+
+
+def test_metric_label_keeps_the_stored_name_and_tolerates_new_metrics() -> None:
+    # Claims quote the stored name, so it has to stay on the page beside the label.
+    assert metric_label("pbl_height") == "Planetary boundary layer height (pbl_height)"
+    assert metric_label("metric_added_after_this_release") == (
+        "metric_added_after_this_release"
+    )
+
+
+def test_metric_column_fits_the_longest_stored_name() -> None:
+    """No stored name may wrap mid-token: it is what a claim quotes.
+
+    Also pins the two tables to one page width, since a table wider than the
+    frame silently overflows the margin rather than failing.
+    """
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    from app.eval.packet import (
+        EVIDENCE_COL_WIDTHS,
+        GRID_CELL_PADDING_IN,
+        SERIES_COL_WIDTHS,
+    )
+
+    available = EVIDENCE_COL_WIDTHS[1] - GRID_CELL_PADDING_IN
+    assert SERIES_COL_WIDTHS[1] == EVIDENCE_COL_WIDTHS[1]
+    for metric in FROZEN_PACKET_METRICS:
+        widest = max(
+            stringWidth(token, "Helvetica", 7.5) / 72
+            for token in metric_label(metric).split()
+        )
+        assert widest <= available, (
+            f"{metric} wraps mid-token: needs {widest:.3f}in of {available:.3f}in"
+        )
+
+    # letter width 8.5in less the 0.5in margins render_packet sets.
+    for widths in (EVIDENCE_COL_WIDTHS, SERIES_COL_WIDTHS):
+        assert sum(widths) == pytest.approx(7.5 - 1.0), sum(widths)
+
+
+def test_packet_reminder_matches_the_labeling_guide() -> None:
+    """The claim-page definitions must be the guide's, not a paraphrase of them.
+
+    Two normative texts that disagree is worse than one document she has to hold
+    open, so this fails the moment the packet's wording drifts from the guide.
+    The guide markdown is untracked, so CI skips; the drift risk is local, and
+    this fires exactly where the editing happens.
+    """
+    if not GUIDE_MARKDOWN.exists():
+        pytest.skip("guide markdown is untracked and absent here")
+    # The markdown hard-wraps and bolds the category names; compare on words.
+    guide = " ".join(GUIDE_MARKDOWN.read_text(encoding="utf-8").split())
+    guide = guide.replace("**", "").replace("(V):", "(V)").replace("(I):", "(I)")
+    guide = guide.replace("(U):", "(U)")
+    for definition in LABEL_DEFINITIONS:
+        needle = " ".join(definition.split())
+        needle = needle.replace("(V):", "(V)").replace("(I):", "(I)")
+        needle = needle.replace("(U):", "(U)")
+        assert needle in guide, f"packet text absent from the guide: {needle}"
+
+
+def test_baseline_method_mirrors_the_consensus_precedence() -> None:
+    # consensus._resolve_expected_value prefers Z-score's baseline over STL's.
+    assert "Z-score" in baseline_method(["zscore", "stl", "isolation_forest"])
+    assert "STL" in baseline_method(["stl", "isolation_forest"])
+    assert baseline_method(["isolation_forest"]) == "not recorded for this event"
+
+
+def test_event_offset_reads_as_time_not_as_a_bare_number() -> None:
+    event = datetime(2026, 6, 28, 23, 0, tzinfo=UTC)
+    assert (
+        _format_event_offset(356.4, "2026-06-28T17:03:36+00:00", event)
+        == "5 h 56 min before event"
+    )
+    assert (
+        _format_event_offset(60.0, "2026-06-29T00:00:00+00:00", event)
+        == "1 h after event"
+    )
+    assert _format_event_offset(0, "2026-06-28T23:00:00+00:00", event) == "at event time"
+    assert _format_event_offset(5.0, "2026-06-28T22:55:00+00:00", event) == (
+        "5 min before event"
+    )
+    assert _format_event_offset(None, None, event) == "offset not recorded"
+
+
 def test_every_table_keeps_the_same_column_shape() -> None:
     """Bracco signed off on this grid; no row may span or drop a column."""
     summary = _series_summary()
     for rows in (
-        _evidence_rows(summary),
+        _evidence_rows(summary, datetime(2026, 7, 8, 6, tzinfo=UTC)),
         *(_series_rows(summary, position) for position, _t, _b in SERIES_SECTIONS),
     ):
         widths = {len(row) for row in rows}
@@ -415,6 +550,44 @@ def test_packet_pdf_carries_the_series_and_audit_detects_their_removal(
             model_names=("llama3:8b",),
             claim_groups=tuple(_groups()),
         )
+
+
+def test_packet_is_fillable_without_losing_the_handwritten_path(
+    tmp_path: Path,
+) -> None:
+    """One checkbox per verdict per claim, plus a note field and the cause field.
+
+    Checkboxes, not a radio group: the protocol needs all three left blank to
+    mean missing, and a radio group cannot be cleared once set.
+    """
+    pytest.importorskip("pypdf")
+    from pypdf import PdfReader
+
+    pdf_path = tmp_path / "fillable.pdf"
+    groups = _groups()
+    render_packet(
+        _anomaly(),
+        _series_summary(),
+        groups,
+        "bracco-example",
+        pdf_path,
+        tmp_path / "fillable.audit.json",
+    )
+
+    fields = PdfReader(pdf_path).get_fields() or {}
+    for index in range(1, len(groups) + 1):
+        for verdict in ("V", "I", "U"):
+            name = f"claim{index:03d}_{verdict}"
+            assert fields.get(name, {}).get("/FT") == "/Btn", f"missing {name}"
+        assert fields[f"claim{index:03d}_note"]["/FT"] == "/Tx"
+    assert fields["most_likely_cause"]["/FT"] == "/Tx"
+    assert len(fields) == 4 * len(groups) + 1, "unexpected extra or merged fields"
+
+    # The boxes and rules are stroked into the page content, so a viewer that
+    # renders no form fields still shows something to mark by hand.
+    shown = " ".join(extract_pdf_text(pdf_path).split())
+    assert "Mark exactly one:" in shown
+    assert "Note (optional):" in shown
 
 
 def test_distance_rings_are_true_great_circle_loci() -> None:

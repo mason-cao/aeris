@@ -19,7 +19,11 @@ import numpy as np
 from scipy import stats
 
 MASTER_SEED: Final = 20_260_716
-OFFICIAL_LABELERS: Final = ("bracco", "mason")
+# "chemist" is the reserved identifier for the independent atmospheric-chemistry
+# labeler opened up by the 2026-08-21 registration amendment. It carries no
+# labels until one is recruited, and every pairwise statistic is formed only
+# over labelers that actually returned labels, so the unused slot costs nothing.
+OFFICIAL_LABELERS: Final = ("bracco", "chemist", "mason")
 PRIMARY_ANALYSIS_LABELER: Final = "mason"
 VERDICTS: Final = ("valid", "invalid", "unsure")
 HEADLINE_TYPES: Final = frozenset(
@@ -164,22 +168,33 @@ class PowerSimulationConfig:
 
 @dataclass(frozen=True)
 class OverlapPair:
-    """One exact-text decision labeled by both official labelers."""
+    """Two verdicts on one decision unit, in a fixed order.
+
+    Used for two different things and deliberately unnamed so that both read
+    honestly: a pair of human labelers, and a machine verdict paired with a
+    human one. The caller decides what first and second mean and records it.
+    """
 
     anomaly_id: str
     claim_text: str
-    mason_verdict: str
-    bracco_verdict: str
+    first_verdict: str
+    second_verdict: str
 
 
 @dataclass(frozen=True)
 class DecisionOverlap:
-    """Mason–Bracco decision overlap and missingness accounting."""
+    """Per-labeler-pair decision overlap and missingness accounting.
 
-    pairs: tuple[OverlapPair, ...]
+    One entry per unordered pair of labelers who actually returned labels, so
+    two labelers give one pair and three give three. Which pairs exist is a
+    property of the returned labels, never a choice made after seeing them.
+    """
+
+    pairs_by_labelers: dict[tuple[str, str], tuple[OverlapPair, ...]]
+    labelers_present: tuple[str, ...]
     decision_unit_count: int
     missing_by_labeler: dict[str, int]
-    excluded_missing_either: int
+    excluded_missing_either: dict[tuple[str, str], int]
     excluded_qualitative_decision_units: int
 
 
@@ -411,9 +426,17 @@ def build_decision_overlap(
             (str(claim["anomaly_id"]), str(claim["claim_text"]))
         ].append(claim)
 
-    missing = {labeler: 0 for labeler in OFFICIAL_LABELERS}
-    pairs: list[OverlapPair] = []
-    excluded_missing = 0
+    labelers_present = tuple(
+        labeler
+        for labeler in OFFICIAL_LABELERS
+        if any(key[0] == labeler for key in label_by_key)
+    )
+    labeler_pairs = tuple(itertools.combinations(labelers_present, 2))
+    missing = {labeler: 0 for labeler in labelers_present}
+    pairs_by_labelers: dict[tuple[str, str], list[OverlapPair]] = {
+        pair: [] for pair in labeler_pairs
+    }
+    excluded_missing = {pair: 0 for pair in labeler_pairs}
     qualitative_exclusions = 0
     quantitative_decision_count = 0
     for decision_key in sorted(decision_claims):
@@ -433,7 +456,7 @@ def build_decision_overlap(
         quantitative_decision_count += 1
 
         verdict_by_labeler: dict[str, str | None] = {}
-        for labeler in OFFICIAL_LABELERS:
+        for labeler in labelers_present:
             verdicts = {
                 str(verdict)
                 for claim in grouped_claims
@@ -451,22 +474,26 @@ def build_decision_overlap(
             if verdict_by_labeler[labeler] is None:
                 missing[labeler] += 1
 
-        mason = verdict_by_labeler["mason"]
-        bracco = verdict_by_labeler["bracco"]
-        if mason is None or bracco is None:
-            excluded_missing += 1
-            continue
-        pairs.append(
-            OverlapPair(
-                anomaly_id=decision_key[0],
-                claim_text=decision_key[1],
-                mason_verdict=mason,
-                bracco_verdict=bracco,
+        for first_labeler, second_labeler in labeler_pairs:
+            first = verdict_by_labeler[first_labeler]
+            second = verdict_by_labeler[second_labeler]
+            if first is None or second is None:
+                excluded_missing[(first_labeler, second_labeler)] += 1
+                continue
+            pairs_by_labelers[(first_labeler, second_labeler)].append(
+                OverlapPair(
+                    anomaly_id=decision_key[0],
+                    claim_text=decision_key[1],
+                    first_verdict=first,
+                    second_verdict=second,
+                )
             )
-        )
 
     return DecisionOverlap(
-        pairs=tuple(pairs),
+        pairs_by_labelers={
+            pair: tuple(found) for pair, found in pairs_by_labelers.items()
+        },
+        labelers_present=labelers_present,
         decision_unit_count=quantitative_decision_count,
         missing_by_labeler=missing,
         excluded_missing_either=excluded_missing,
@@ -772,8 +799,8 @@ def power_kappa_bootstrap_interval(
     if not 0.0 <= undefined_limit <= 1.0:
         raise ValueError("undefined_limit must be between zero and one")
     point = cohen_kappa(
-        [pair.mason_verdict for pair in observed],
-        [pair.bracco_verdict for pair in observed],
+        [pair.first_verdict for pair in observed],
+        [pair.second_verdict for pair in observed],
         categories=VERDICTS,
     ).kappa
     cluster_ids = sorted({pair.anomaly_id for pair in observed})
@@ -796,8 +823,8 @@ def power_kappa_bootstrap_interval(
     for pair in observed:
         confusion[
             cluster_index[pair.anomaly_id],
-            category_index[pair.mason_verdict],
-            category_index[pair.bracco_verdict],
+            category_index[pair.first_verdict],
+            category_index[pair.second_verdict],
         ] += 1
     rng = np.random.default_rng(seed)
     draws = rng.integers(
@@ -1040,8 +1067,8 @@ def _kappa_for_pairs(
     if not pairs:
         return None
     result = cohen_kappa(
-        [pair.mason_verdict for pair in pairs],
-        [pair.bracco_verdict for pair in pairs],
+        [pair.first_verdict for pair in pairs],
+        [pair.second_verdict for pair in pairs],
         categories=categories,
     )
     return result.kappa
@@ -1061,15 +1088,15 @@ def _agreement_block(
             "kappa": None,
             "observed_agreement": None,
             "expected_agreement": None,
-            "mason_marginals": {category: 0.0 for category in categories},
-            "bracco_marginals": {category: 0.0 for category in categories},
+            "first_marginals": {category: 0.0 for category in categories},
+            "second_marginals": {category: 0.0 for category in categories},
             "undefined_reason": "zero decidable overlap pairs",
             "wording": None,
             "bootstrap": None,
         }
     estimate = cohen_kappa(
-        [pair.mason_verdict for pair in pairs],
-        [pair.bracco_verdict for pair in pairs],
+        [pair.first_verdict for pair in pairs],
+        [pair.second_verdict for pair in pairs],
         categories=categories,
     )
     interval = cluster_bootstrap_interval(
@@ -1088,12 +1115,18 @@ def _agreement_block(
         "kappa": estimate.kappa,
         "observed_agreement": estimate.observed_agreement,
         "expected_agreement": estimate.expected_agreement,
-        "mason_marginals": estimate.first_marginals,
-        "bracco_marginals": estimate.second_marginals,
+        "first_marginals": estimate.first_marginals,
+        "second_marginals": estimate.second_marginals,
         "undefined_reason": estimate.undefined_reason,
         "wording": wording,
         "bootstrap": asdict(interval),
     }
+
+
+def agreement_seed_id(labelers: tuple[str, str], suffix: str) -> str:
+    """Name the bootstrap substream for one labeler pair's agreement block."""
+    first, second = labelers
+    return f"agreement:{first}|{second}:{suffix}"
 
 
 def analyze_agreement(
@@ -1102,10 +1135,21 @@ def analyze_agreement(
     bootstrap_resamples: int = 10_000,
     seeds: Mapping[str, int] | None = None,
 ) -> dict[str, object]:
-    """Run primary V/I/U kappa and the D6 unsure-exclusion sensitivity."""
-    if not overlap.pairs:
+    """Run V/I/U kappa and the D6 unsure-exclusion sensitivity, per labeler pair.
+
+    One block per unordered pair of labelers who returned labels, each naming
+    its pair and carrying its own completion count. Two labelers give one
+    block, three give three, and no block is selected after the fact.
+    """
+    if not overlap.pairs_by_labelers or not any(
+        overlap.pairs_by_labelers.values()
+    ):
         raise ValueError("zero overlap pairs")
-    required_ids = ("agreement:primary", "agreement:unsure_excluded")
+    required_ids = tuple(
+        agreement_seed_id(labelers, suffix)
+        for labelers in sorted(overlap.pairs_by_labelers)
+        for suffix in ("primary", "unsure_excluded")
+    )
     seed_map = (
         dict(seeds)
         if seeds is not None
@@ -1116,31 +1160,45 @@ def analyze_agreement(
     ]
     if missing_seeds:
         raise ValueError("missing agreement seeds: " + ", ".join(missing_seeds))
-    pairs = list(overlap.pairs)
-    sensitivity_pairs = [
-        pair
-        for pair in pairs
-        if pair.mason_verdict != "unsure" and pair.bracco_verdict != "unsure"
-    ]
+    blocks: list[dict[str, object]] = []
+    for labelers in sorted(overlap.pairs_by_labelers):
+        pairs = list(overlap.pairs_by_labelers[labelers])
+        sensitivity_pairs = [
+            pair
+            for pair in pairs
+            if pair.first_verdict != "unsure" and pair.second_verdict != "unsure"
+        ]
+        blocks.append(
+            {
+                "labelers": list(labelers),
+                "completed_decision_units": len(pairs),
+                "excluded_missing_either": overlap.excluded_missing_either[
+                    labelers
+                ],
+                "primary": _agreement_block(
+                    pairs,
+                    categories=VERDICTS,
+                    bootstrap_resamples=bootstrap_resamples,
+                    seed=seed_map[agreement_seed_id(labelers, "primary")],
+                ),
+                "unsure_excluded": _agreement_block(
+                    sensitivity_pairs,
+                    categories=("valid", "invalid"),
+                    bootstrap_resamples=bootstrap_resamples,
+                    seed=seed_map[
+                        agreement_seed_id(labelers, "unsure_excluded")
+                    ],
+                ),
+            }
+        )
     return {
         "decision_unit_count": overlap.decision_unit_count,
+        "labelers_present": list(overlap.labelers_present),
         "missing_by_labeler": overlap.missing_by_labeler,
-        "excluded_missing_either": overlap.excluded_missing_either,
         "excluded_qualitative_decision_units": (
             overlap.excluded_qualitative_decision_units
         ),
-        "primary": _agreement_block(
-            pairs,
-            categories=VERDICTS,
-            bootstrap_resamples=bootstrap_resamples,
-            seed=seed_map["agreement:primary"],
-        ),
-        "unsure_excluded": _agreement_block(
-            sensitivity_pairs,
-            categories=("valid", "invalid"),
-            bootstrap_resamples=bootstrap_resamples,
-            seed=seed_map["agreement:unsure_excluded"],
-        ),
+        "labeler_pairs": blocks,
     }
 
 
@@ -1152,7 +1210,10 @@ def aggregate_expert_validity(
 ) -> list[dict[str, object]]:
     """Aggregate claim-unit V/I/U counts into per-anomaly model cells."""
     if labeler not in OFFICIAL_LABELERS:
-        raise ValueError("expert-validity labeler must be mason or bracco")
+        raise ValueError(
+            "expert-validity labeler must be one of "
+            + ", ".join(OFFICIAL_LABELERS)
+        )
     normalized_claims, normalized_labels = _normalized_claims_and_labels(
         claims, labels
     )
@@ -1575,8 +1636,8 @@ def _sign_mapped_pairs(
             OverlapPair(
                 anomaly_id=str(record["anomaly_id"]),
                 claim_text=str(record["claim_id"]),
-                mason_verdict=sign_mapped_verdict(float(score)),
-                bracco_verdict=str(verdict),
+                first_verdict=sign_mapped_verdict(float(score)),
+                second_verdict=str(verdict),
             )
         )
     return pairs, unscored, unlabeled
@@ -1610,8 +1671,8 @@ def analyze_sign_mapped_kappa(
             "bootstrap": None,
         }
     estimate = cohen_kappa(
-        [pair.mason_verdict for pair in pairs],
-        [pair.bracco_verdict for pair in pairs],
+        [pair.first_verdict for pair in pairs],
+        [pair.second_verdict for pair in pairs],
         categories=VERDICTS,
     )
     interval = cluster_bootstrap_interval(
@@ -1834,7 +1895,7 @@ def _accuracy(pairs: Sequence[OverlapPair]) -> float | None:
     if not pairs:
         return None
     hits = sum(
-        1 for pair in pairs if pair.mason_verdict == pair.bracco_verdict
+        1 for pair in pairs if pair.first_verdict == pair.second_verdict
     )
     return hits / len(pairs)
 
@@ -1894,7 +1955,7 @@ def analyze_negative_controls(
     sign_pairs, _, _ = _sign_mapped_pairs(records)
     modal_verdict: str | None = None
     if sign_pairs:
-        counts = Counter(pair.bracco_verdict for pair in sign_pairs)
+        counts = Counter(pair.second_verdict for pair in sign_pairs)
         # Ties break on the declared VERDICTS order so the control is
         # deterministic rather than dependent on dictionary insertion.
         modal_verdict = max(
@@ -1904,8 +1965,8 @@ def analyze_negative_controls(
         OverlapPair(
             anomaly_id=pair.anomaly_id,
             claim_text=pair.claim_text,
-            mason_verdict=str(modal_verdict),
-            bracco_verdict=pair.bracco_verdict,
+            first_verdict=str(modal_verdict),
+            second_verdict=pair.second_verdict,
         )
         for pair in sign_pairs
     ]
@@ -1957,6 +2018,136 @@ def analyze_negative_controls(
             "substitution": "claim character count replaces the corroboration score",
             **claim_length,
         },
+    }
+
+
+def same_claims_seed_id(expert: str, suffix: str) -> str:
+    """Name the bootstrap substream for one same-claims comparison."""
+    return f"exploratory:same_claims:{expert}:{suffix}"
+
+
+def analyze_same_claim_comparison(
+    claims: list[dict[str, object]],
+    labels: list[dict[str, object]],
+    *,
+    expert: str,
+    primary: str = PRIMARY_ANALYSIS_LABELER,
+    bootstrap_resamples: int = 10_000,
+    seeds: Mapping[str, int] | None = None,
+    min_claims: int = 20,
+    min_anomalies: int = 5,
+) -> dict[str, object]:
+    """Compare the score against two labelers on exactly the same claims.
+
+    The primary Spearman runs over every event the first author labeled, and an
+    independent expert labels a subset of them. Comparing those two numbers
+    directly would confound the labeler with the claims each one saw. Restricting
+    both to the claims both labeled removes that confound, so the question of
+    whether agreement depends on the primary labeler having written the scoring
+    rules is answered rather than argued.
+
+    Exploratory. Underpowered by construction, since the shared subset is bounded
+    by the expert's tier, and never the headline under any outcome.
+    """
+    required_ids = tuple(
+        same_claims_seed_id(expert, suffix)
+        for suffix in ("spearman_primary", "spearman_expert", "kappa")
+    )
+    seed_map = dict(seeds) if seeds is not None else spawn_substream_seeds(required_ids)
+    missing_seeds = [
+        analysis_id for analysis_id in required_ids if analysis_id not in seed_map
+    ]
+    if missing_seeds:
+        raise ValueError("missing same-claims seeds: " + ", ".join(missing_seeds))
+
+    def eligible(labeler: str) -> dict[str, dict[str, object]]:
+        return {
+            str(record["claim_id"]): record
+            for record in _primary_label_records(claims, labels, labeler=labeler)
+            if record["claim_type"] in HEADLINE_TYPES
+            and record["grounding_verdict"] == "grounded"
+            and record["score"] is not None
+            and record["verdict"] is not None
+        }
+
+    primary_by_claim = eligible(primary)
+    expert_by_claim = eligible(expert)
+    both_labeled_ids = sorted(set(primary_by_claim) & set(expert_by_claim))
+    # analyze_spearman drops unsure internally, so a set that merely shares a
+    # label would still hand the two correlations different claim counts and
+    # reintroduce exactly the confound this analysis exists to remove. The
+    # identical set is therefore the claims both labeled and neither marked
+    # unsure. The fuller three-level kappa is reported alongside it rather than
+    # discarded.
+    shared_ids = [
+        claim_id
+        for claim_id in both_labeled_ids
+        if primary_by_claim[claim_id]["verdict"] != "unsure"
+        and expert_by_claim[claim_id]["verdict"] != "unsure"
+    ]
+    shared_anomalies = sorted(
+        {str(primary_by_claim[claim_id]["anomaly_id"]) for claim_id in shared_ids}
+    )
+
+    def spearman_for(by_claim: dict[str, dict[str, object]], seed: int) -> dict[str, object]:
+        return analyze_spearman(
+            [
+                {
+                    "anomaly_id": by_claim[claim_id]["anomaly_id"],
+                    "score": by_claim[claim_id]["score"],
+                    "verdict": by_claim[claim_id]["verdict"],
+                }
+                for claim_id in shared_ids
+            ],
+            n_resamples=bootstrap_resamples,
+            seed=seed,
+            min_claims=min_claims,
+            min_anomalies=min_anomalies,
+        )
+
+    def pairs_for(claim_ids: Sequence[str]) -> list[OverlapPair]:
+        return [
+            OverlapPair(
+                anomaly_id=str(primary_by_claim[claim_id]["anomaly_id"]),
+                claim_text=str(primary_by_claim[claim_id]["claim_text"]),
+                first_verdict=str(primary_by_claim[claim_id]["verdict"]),
+                second_verdict=str(expert_by_claim[claim_id]["verdict"]),
+            )
+            for claim_id in claim_ids
+        ]
+
+    return {
+        "exploratory_only": True,
+        "primary_labeler": primary,
+        "expert_labeler": expert,
+        "restriction": (
+            "claims labeled by both labelers with neither marking unsure, "
+            "grounded, scored, and of a headline claim type; all three "
+            "quantities run on this identical set"
+        ),
+        "shared_claim_count": len(shared_ids),
+        "shared_anomaly_count": len(shared_anomalies),
+        "both_labeled_claim_count": len(both_labeled_ids),
+        "primary_eligible_claim_count": len(primary_by_claim),
+        "expert_eligible_claim_count": len(expert_by_claim),
+        "corroboration_vs_primary": spearman_for(
+            primary_by_claim, seed_map[same_claims_seed_id(expert, "spearman_primary")]
+        ),
+        "corroboration_vs_expert": spearman_for(
+            expert_by_claim, seed_map[same_claims_seed_id(expert, "spearman_expert")]
+        ),
+        "labeler_agreement": _agreement_block(
+            pairs_for(shared_ids),
+            categories=("valid", "invalid"),
+            bootstrap_resamples=bootstrap_resamples,
+            seed=seed_map[same_claims_seed_id(expert, "kappa")],
+        ),
+        "labeler_agreement_including_unsure": _agreement_block(
+            pairs_for(both_labeled_ids),
+            categories=VERDICTS,
+            bootstrap_resamples=bootstrap_resamples,
+            seed=seed_map[same_claims_seed_id(expert, "kappa")],
+        ),
     }
 
 
@@ -2209,8 +2400,8 @@ def run_power_simulation(config: PowerSimulationConfig) -> dict[str, object]:
                 OverlapPair(
                     anomaly_id=anomaly_id,
                     claim_text=f"synthetic-{index}",
-                    mason_verdict=first_value,
-                    bracco_verdict=second_value,
+                    first_verdict=first_value,
+                    second_verdict=second_value,
                 )
                 for index, (anomaly_id, first_value, second_value) in enumerate(
                     zip(anomaly_ids, first, second, strict=True)
@@ -2405,11 +2596,13 @@ def _comparison_family(
 def _primary_label_records(
     claims: list[dict[str, object]],
     labels: list[dict[str, object]],
+    *,
+    labeler: str = PRIMARY_ANALYSIS_LABELER,
 ) -> list[dict[str, object]]:
     verdict_by_claim = {
         str(label["claim_id"]): label["verdict"]
         for label in labels
-        if label["labeler"] == PRIMARY_ANALYSIS_LABELER
+        if label["labeler"] == labeler
     }
     records: list[dict[str, object]] = []
     for claim in claims:
@@ -2541,7 +2734,12 @@ def build_analysis_manifest(
         record for record in headline if int(record["evidence_n"]) >= 2
     ]
 
-    analysis_ids = ["agreement:primary", "agreement:unsure_excluded"]
+    overlap = build_decision_overlap(claims, labels)
+    analysis_ids = [
+        agreement_seed_id(labelers, suffix)
+        for labelers in sorted(overlap.pairs_by_labelers)
+        for suffix in ("primary", "unsure_excluded")
+    ]
     for family_name in (
         "expert_validity",
         "grounded_rate",
@@ -2554,6 +2752,16 @@ def build_analysis_manifest(
     analysis_ids.extend(["spearman:primary", "spearman:unsure_as_invalid"])
     analysis_ids.extend(
         f"spearman:exploratory:{name}" for name in sorted(exploratory_groups)
+    )
+    experts = tuple(
+        labeler
+        for labeler in overlap.labelers_present
+        if labeler != PRIMARY_ANALYSIS_LABELER
+    )
+    analysis_ids.extend(
+        same_claims_seed_id(expert, suffix)
+        for expert in experts
+        for suffix in ("spearman_primary", "spearman_expert", "kappa")
     )
     analysis_ids.extend(
         [
@@ -2570,7 +2778,6 @@ def build_analysis_manifest(
         master_seed=thresholds.master_seed,
     )
 
-    overlap = build_decision_overlap(claims, labels)
     agreement = analyze_agreement(
         overlap,
         bootstrap_resamples=thresholds.bootstrap_resamples,
@@ -2655,6 +2862,18 @@ def build_analysis_manifest(
             unsure_as_invalid=True,
         ),
     }
+    same_claims = [
+        analyze_same_claim_comparison(
+            claims,
+            labels,
+            expert=expert,
+            bootstrap_resamples=thresholds.bootstrap_resamples,
+            seeds=seeds,
+            min_claims=thresholds.spearman_min_claims,
+            min_anomalies=thresholds.spearman_min_anomalies,
+        )
+        for expert in experts
+    ]
     negative_controls = analyze_negative_controls(
         headline,
         n_resamples=thresholds.bootstrap_resamples,
@@ -2713,6 +2932,7 @@ def build_analysis_manifest(
         },
         "exploratory_sign_mapped_kappa": sign_mapped,
         "exploratory_screening_performance": screening,
+        "exploratory_same_claim_comparisons": same_claims,
         "negative_controls": negative_controls,
         "parse_failures": parse_accounting,
         "power": {

@@ -19,6 +19,7 @@ from app.eval.phase_analysis import (
     aggregate_machine_metrics,
     analyze_agreement,
     analyze_negative_controls,
+    analyze_same_claim_comparison,
     analyze_screening_performance,
     analyze_sign_mapped_kappa,
     analyze_spearman,
@@ -100,12 +101,15 @@ def test_decision_overlap_deduplicates_fanout_and_ignores_rehearsal_labels() -> 
 
     overlap = build_decision_overlap(claims, labels)
 
-    assert len(overlap.pairs) == 1
-    assert overlap.pairs[0].claim_text == "same text"
-    assert overlap.pairs[0].mason_verdict == "valid"
-    assert overlap.pairs[0].bracco_verdict == "invalid"
+    pairs = overlap.pairs_by_labelers[("bracco", "mason")]
+    assert overlap.labelers_present == ("bracco", "mason")
+    assert len(pairs) == 1
+    assert pairs[0].claim_text == "same text"
+    # first is bracco, second is mason: the pair key fixes the order.
+    assert pairs[0].first_verdict == "invalid"
+    assert pairs[0].second_verdict == "valid"
     assert overlap.missing_by_labeler == {"bracco": 0, "mason": 1}
-    assert overlap.excluded_missing_either == 1
+    assert overlap.excluded_missing_either[("bracco", "mason")] == 1
 
 
 def test_conflicting_fanout_verdicts_fail_loudly() -> None:
@@ -170,14 +174,22 @@ def test_agreement_primary_keeps_unsure_and_sensitivity_excludes_it() -> None:
         build_decision_overlap(claims, labels),
         bootstrap_resamples=FAST.bootstrap_resamples,
         seeds=spawn_substream_seeds(
-            ["agreement:primary", "agreement:unsure_excluded"]
+            [
+                "agreement:bracco|mason:primary",
+                "agreement:bracco|mason:unsure_excluded",
+            ]
         ),
     )
 
-    assert result["primary"]["pair_count"] == 5
-    assert result["unsure_excluded"]["pair_count"] == 3
-    assert result["primary"]["categories"] == ["valid", "invalid", "unsure"]
-    assert result["unsure_excluded"]["categories"] == ["valid", "invalid"]
+    assert [block["labelers"] for block in result["labeler_pairs"]] == [
+        ["bracco", "mason"]
+    ]
+    block = result["labeler_pairs"][0]
+    assert block["completed_decision_units"] == 5
+    assert block["primary"]["pair_count"] == 5
+    assert block["unsure_excluded"]["pair_count"] == 3
+    assert block["primary"]["categories"] == ["valid", "invalid", "unsure"]
+    assert block["unsure_excluded"]["categories"] == ["valid", "invalid"]
 
 
 def test_cluster_bootstrap_refuses_one_cluster() -> None:
@@ -232,8 +244,8 @@ def test_power_kappa_bootstrap_matches_general_cluster_bootstrap() -> None:
 
     def kappa_statistic(sample: list[OverlapPair]) -> float | None:
         return cohen_kappa(
-            [pair.mason_verdict for pair in sample],
-            [pair.bracco_verdict for pair in sample],
+            [pair.first_verdict for pair in sample],
+            [pair.second_verdict for pair in sample],
         ).kappa
 
     reference = cluster_bootstrap_interval(
@@ -506,8 +518,9 @@ def test_kappa_wording_gate_is_inclusive_at_exactly_point_six() -> None:
         bootstrap_resamples=49,
     )
 
-    assert analysis["primary"]["kappa"] == pytest.approx(0.6)
-    assert analysis["primary"]["wording"] == "expert-labeled"
+    block = analysis["labeler_pairs"][0]
+    assert block["primary"]["kappa"] == pytest.approx(0.6)
+    assert block["primary"]["wording"] == "expert-labeled"
 
 
 def test_spearman_matches_scipy_and_exact_minimum_is_confirmatory() -> None:
@@ -731,8 +744,11 @@ def test_empty_analysis_claim_population_fails_loudly() -> None:
 # discovered — that is what stops a document claiming a statistic the code
 # does not implement.
 DECLARED_ANALYSIS_IDS = (
-    "agreement:primary",
-    "agreement:unsure_excluded",
+    "agreement:bracco|mason:primary",
+    "agreement:bracco|mason:unsure_excluded",
+    "exploratory:same_claims:bracco:kappa",
+    "exploratory:same_claims:bracco:spearman_expert",
+    "exploratory:same_claims:bracco:spearman_primary",
     "exploratory:screening_unsure_as_invalid",
     "exploratory:screening_unsure_excluded",
     "exploratory:sign_mapped_kappa",
@@ -774,6 +790,16 @@ def test_manifest_reports_every_declared_statistic_block() -> None:
         "exploratory",
     }
     assert manifest["exploratory_sign_mapped_kappa"]["exploratory_only"] is True
+    same_claims = manifest["exploratory_same_claim_comparisons"]
+    assert [block["expert_labeler"] for block in same_claims] == ["bracco"]
+    assert same_claims[0]["primary_labeler"] == "mason"
+    assert same_claims[0]["exploratory_only"] is True
+    assert set(same_claims[0]) >= {
+        "corroboration_vs_primary",
+        "corroboration_vs_expert",
+        "labeler_agreement",
+        "shared_claim_count",
+    }
     screening = manifest["exploratory_screening_performance"]
     assert set(screening) == {"unsure_excluded", "unsure_as_invalid_sensitivity"}
     for variant in screening.values():
@@ -1027,3 +1053,135 @@ def test_screening_is_deterministic_under_a_fixed_seed() -> None:
     second = analyze_screening_performance(records, n_resamples=99, seed=7)
 
     assert first == second
+
+
+def test_three_labelers_produce_three_named_pairs() -> None:
+    # The reason the refactor exists: a recruited chemist must not need a code
+    # change, and no pair may be selected after the labels are in.
+    claims = []
+    labels = []
+    verdicts = [
+        ("valid", "valid", "invalid"),
+        ("invalid", "invalid", "invalid"),
+        ("valid", "invalid", "valid"),
+        ("unsure", "valid", "valid"),
+        ("valid", "valid", "valid"),
+    ]
+    for index, (mason, bracco, chemist) in enumerate(verdicts):
+        claim_id = f"c{index}"
+        claims.append(_claim(claim_id, f"a{index}", "m1", f"text {index}"))
+        labels.extend(
+            [
+                _label("mason", claim_id, mason),
+                _label("bracco", claim_id, bracco),
+                _label("chemist", claim_id, chemist),
+            ]
+        )
+
+    overlap = build_decision_overlap(claims, labels)
+
+    assert overlap.labelers_present == ("bracco", "chemist", "mason")
+    assert sorted(overlap.pairs_by_labelers) == [
+        ("bracco", "chemist"),
+        ("bracco", "mason"),
+        ("chemist", "mason"),
+    ]
+    for pair_key in overlap.pairs_by_labelers:
+        assert len(overlap.pairs_by_labelers[pair_key]) == 5
+
+    result = analyze_agreement(
+        overlap,
+        bootstrap_resamples=49,
+    )
+
+    assert [block["labelers"] for block in result["labeler_pairs"]] == [
+        ["bracco", "chemist"],
+        ["bracco", "mason"],
+        ["chemist", "mason"],
+    ]
+    assert all(
+        block["primary"]["pair_count"] == 5 for block in result["labeler_pairs"]
+    )
+
+
+def test_absent_labeler_creates_no_pair() -> None:
+    # With no chemist recruited the reserved slot must cost nothing: no empty
+    # pair block, no phantom missingness charged against a labeler who never
+    # agreed to label anything.
+    claims = [_claim("c0", "a0", "m1", "text 0")]
+    labels = [_label("mason", "c0", "valid"), _label("bracco", "c0", "valid")]
+
+    overlap = build_decision_overlap(claims, labels)
+
+    assert overlap.labelers_present == ("bracco", "mason")
+    assert list(overlap.pairs_by_labelers) == [("bracco", "mason")]
+    assert "chemist" not in overlap.missing_by_labeler
+
+
+def _same_claims_fixture() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    # 6 claims across 3 anomalies. The expert labels only the first 4, so any
+    # comparison that is not restricted to the shared set would be comparing
+    # two labelers on two different claim sets.
+    claims = []
+    labels = []
+    for index in range(6):
+        claim_id = f"c{index}"
+        claims.append(
+            _claim(
+                claim_id,
+                f"a{index % 3}",
+                "m1",
+                f"text {index}",
+                score=0.5 if index % 2 == 0 else -0.5,
+            )
+        )
+        labels.append(_label("mason", claim_id, "valid" if index % 2 == 0 else "invalid"))
+        if index < 4:
+            labels.append(
+                _label("bracco", claim_id, "valid" if index % 2 == 0 else "unsure")
+            )
+    return claims, labels
+
+
+def test_same_claims_comparison_uses_only_claims_both_labeled() -> None:
+    claims, labels = _same_claims_fixture()
+
+    result = analyze_same_claim_comparison(
+        claims, labels, expert="bracco", bootstrap_resamples=49, min_claims=1,
+        min_anomalies=1,
+    )
+
+    assert result["primary_eligible_claim_count"] == 6
+    assert result["expert_eligible_claim_count"] == 4
+    assert result["both_labeled_claim_count"] == 4
+    # Two of the four carry an expert "unsure", which analyze_spearman drops.
+    # The identical set is therefore the two both labeled decisively, and all
+    # three quantities must land on exactly that set.
+    assert result["shared_claim_count"] == 2
+    assert result["corroboration_vs_primary"]["eligible_claim_count"] == 2
+    assert result["corroboration_vs_expert"]["eligible_claim_count"] == 2
+    assert result["labeler_agreement"]["pair_count"] == 2
+    assert result["labeler_agreement_including_unsure"]["pair_count"] == 4
+    assert result["exploratory_only"] is True
+
+
+def test_same_claims_comparison_survives_no_shared_claims() -> None:
+    claims = [_claim("c0", "a0", "m1", "text 0")]
+    labels = [_label("mason", "c0", "valid")]
+
+    result = analyze_same_claim_comparison(
+        claims, labels, expert="bracco", bootstrap_resamples=49
+    )
+
+    assert result["shared_claim_count"] == 0
+    assert result["labeler_agreement"]["pair_count"] == 0
+    assert result["corroboration_vs_primary"]["rho"] is None
+
+
+def test_same_claims_comparison_requires_its_seeds() -> None:
+    claims, labels = _same_claims_fixture()
+
+    with pytest.raises(ValueError, match="missing same-claims seeds"):
+        analyze_same_claim_comparison(
+            claims, labels, expert="bracco", bootstrap_resamples=49, seeds={}
+        )

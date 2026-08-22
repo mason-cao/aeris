@@ -19,6 +19,7 @@ from app.eval.phase_analysis import (
     aggregate_machine_metrics,
     analyze_agreement,
     analyze_negative_controls,
+    analyze_screening_performance,
     analyze_sign_mapped_kappa,
     analyze_spearman,
     build_analysis_manifest,
@@ -732,6 +733,8 @@ def test_empty_analysis_claim_population_fails_loudly() -> None:
 DECLARED_ANALYSIS_IDS = (
     "agreement:primary",
     "agreement:unsure_excluded",
+    "exploratory:screening_unsure_as_invalid",
+    "exploratory:screening_unsure_excluded",
     "exploratory:sign_mapped_kappa",
     "negative_control:claim_length_spearman",
     "negative_control:corroboration_sign",
@@ -771,6 +774,16 @@ def test_manifest_reports_every_declared_statistic_block() -> None:
         "exploratory",
     }
     assert manifest["exploratory_sign_mapped_kappa"]["exploratory_only"] is True
+    screening = manifest["exploratory_screening_performance"]
+    assert set(screening) == {"unsure_excluded", "unsure_as_invalid_sensitivity"}
+    for variant in screening.values():
+        assert variant["exploratory_only"] is True
+        assert set(variant) >= {
+            "precision",
+            "recall_scored",
+            "recall_all_labeled",
+            "coverage",
+        }
     assert set(manifest["negative_controls"]) >= {
         "majority_label",
         "corroboration_sign",
@@ -917,3 +930,100 @@ def test_negative_controls_require_every_declared_seed() -> None:
             n_resamples=99,
             seeds={"negative_control:majority_label": 1},
         )
+
+
+def test_screening_charges_the_screen_for_claims_it_cannot_score() -> None:
+    # Two invalid claims, one scored negative and one with no score at all.
+    # Where it fires the screen is perfect; over every labeled claim it is not.
+    records = [
+        _sign_record("a0", "c0", -0.5, "invalid"),
+        _sign_record("a1", "c1", None, "invalid"),
+        _sign_record("a0", "c2", 0.5, "valid"),
+        _sign_record("a1", "c3", 0.5, "valid"),
+    ]
+
+    result = analyze_screening_performance(records, n_resamples=99)
+
+    assert result["precision"]["rate"] == 1.0
+    assert result["recall_scored"]["rate"] == 1.0
+    assert result["recall_all_labeled"]["rate"] == 0.5
+    assert result["coverage"]["rate"] == 0.75
+    assert result["expert_invalid_claims"] == 2
+    assert result["exploratory_only"] is True
+
+
+def test_screening_counts_false_positives_against_precision() -> None:
+    records = [
+        _sign_record("a0", "c0", -0.5, "invalid"),
+        _sign_record("a0", "c1", -0.5, "valid"),
+        _sign_record("a1", "c2", -0.5, "valid"),
+        _sign_record("a1", "c3", 0.5, "valid"),
+    ]
+
+    result = analyze_screening_performance(records, n_resamples=99)
+
+    assert result["flagged_claims"] == 3
+    assert result["precision"]["rate"] == pytest.approx(1 / 3)
+    assert result["recall_all_labeled"]["rate"] == 1.0
+
+
+def test_screening_unsure_is_excluded_by_default_and_folded_in_by_the_variant() -> None:
+    records = [
+        _sign_record("a0", "c0", -0.5, "invalid"),
+        _sign_record("a0", "c1", -0.5, "unsure"),
+        _sign_record("a1", "c2", 0.5, "valid"),
+    ]
+
+    excluded = analyze_screening_performance(records, n_resamples=99)
+    folded = analyze_screening_performance(
+        records, n_resamples=99, unsure_as_invalid=True
+    )
+
+    assert excluded["unsure_handling"] == "excluded"
+    assert excluded["labeled_claims"] == 2
+    assert excluded["expert_invalid_claims"] == 1
+    assert excluded["precision"]["rate"] == 1.0
+
+    assert folded["unsure_handling"] == "counted as invalid"
+    assert folded["labeled_claims"] == 3
+    assert folded["expert_invalid_claims"] == 2
+    assert folded["precision"]["rate"] == 1.0
+    assert folded["recall_all_labeled"]["rate"] == 1.0
+
+
+def test_screening_excludes_unlabeled_and_survives_an_empty_set() -> None:
+    result = analyze_screening_performance(
+        [_sign_record("a0", "c0", -0.5, None)], n_resamples=99
+    )
+
+    assert result["excluded_unlabeled"] == 1
+    assert result["labeled_claims"] == 0
+    assert result["precision"]["rate"] is None
+    assert result["undefined_reason"] == "zero labeled claims"
+
+
+def test_screening_reports_no_rate_when_nothing_is_flagged() -> None:
+    records = [
+        _sign_record("a0", "c0", 0.5, "valid"),
+        _sign_record("a1", "c1", 0.5, "invalid"),
+    ]
+
+    result = analyze_screening_performance(records, n_resamples=99)
+
+    assert result["flagged_claims"] == 0
+    assert result["precision"]["rate"] is None
+    assert result["recall_all_labeled"]["rate"] == 0.0
+
+
+def test_screening_is_deterministic_under_a_fixed_seed() -> None:
+    records = [
+        _sign_record("a0", "c0", -0.5, "invalid"),
+        _sign_record("a0", "c1", 0.5, "valid"),
+        _sign_record("a1", "c2", -0.5, "valid"),
+        _sign_record("a1", "c3", 0.5, "invalid"),
+    ]
+
+    first = analyze_screening_performance(records, n_resamples=99, seed=7)
+    second = analyze_screening_performance(records, n_resamples=99, seed=7)
+
+    assert first == second

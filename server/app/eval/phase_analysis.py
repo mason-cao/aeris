@@ -1633,6 +1633,203 @@ def analyze_sign_mapped_kappa(
     }
 
 
+@dataclass(frozen=True)
+class _ScreeningUnit:
+    """One labeled claim as a screen sees it, including claims it cannot score."""
+
+    anomaly_id: str
+    expert_verdict: str
+    flagged: bool
+    scored: bool
+
+
+def _screening_units(
+    records: Sequence[Mapping[str, object]],
+) -> tuple[list[_ScreeningUnit], int]:
+    """Build one unit per labeled claim, scored or not.
+
+    Unscored claims are kept rather than dropped. A screen that abstains on a
+    claim still fails to catch it, and dropping those claims would report the
+    performance of the scored subset as though it were the performance of the
+    screen.
+    """
+    units: list[_ScreeningUnit] = []
+    unlabeled = 0
+    for record in records:
+        verdict = record["verdict"]
+        if verdict is None:
+            unlabeled += 1
+            continue
+        score = record["score"]
+        if score is None:
+            flagged = False
+            scored = False
+        else:
+            flagged = sign_mapped_verdict(float(score)) == "invalid"
+            scored = True
+        units.append(
+            _ScreeningUnit(
+                anomaly_id=str(record["anomaly_id"]),
+                expert_verdict=str(verdict),
+                flagged=flagged,
+                scored=scored,
+            )
+        )
+    return units, unlabeled
+
+
+def _screening_eligible(unit: _ScreeningUnit, *, unsure_as_invalid: bool) -> bool:
+    return unsure_as_invalid or unit.expert_verdict != "unsure"
+
+
+def _screening_positive(unit: _ScreeningUnit, *, unsure_as_invalid: bool) -> bool:
+    if unit.expert_verdict == "invalid":
+        return True
+    return unsure_as_invalid and unit.expert_verdict == "unsure"
+
+
+def _screening_rate(
+    units: Sequence[_ScreeningUnit],
+    *,
+    numerator: Callable[[_ScreeningUnit], bool],
+    denominator: Callable[[_ScreeningUnit], bool],
+) -> float | None:
+    total = 0
+    hits = 0
+    for unit in units:
+        if not denominator(unit):
+            continue
+        total += 1
+        if numerator(unit):
+            hits += 1
+    if total == 0:
+        return None
+    return hits / total
+
+
+def _screening_block(
+    units: Sequence[_ScreeningUnit],
+    *,
+    numerator: Callable[[_ScreeningUnit], bool],
+    denominator: Callable[[_ScreeningUnit], bool],
+    n_resamples: int,
+    seed: int,
+) -> dict[str, object]:
+    def statistic(sample: list[_ScreeningUnit]) -> float | None:
+        return _screening_rate(sample, numerator=numerator, denominator=denominator)
+
+    point = statistic(list(units))
+    denominator_n = sum(1 for unit in units if denominator(unit))
+    if not units:
+        return {"n": 0, "rate": None, "bootstrap": None}
+    interval = cluster_bootstrap_interval(
+        list(units),
+        cluster_key=lambda unit: unit.anomaly_id,
+        statistic=statistic,
+        n_resamples=n_resamples,
+        seed=seed,
+    )
+    return {"n": denominator_n, "rate": point, "bootstrap": asdict(interval)}
+
+
+def analyze_screening_performance(
+    records: Sequence[Mapping[str, object]],
+    *,
+    n_resamples: int = 10_000,
+    seed: int = MASTER_SEED,
+    unsure_as_invalid: bool = False,
+) -> dict[str, object]:
+    """Decision quality of the score used as a screen for invalid claims.
+
+    The primary Spearman measures association; it does not say what happens
+    when the score is used to decide which claims a human should re-read. This
+    reports that directly, at the one threshold the registration already fixes:
+    the sign of the score, which has no free parameter to tune.
+
+    Two recalls are reported, and the second is the operational one. Recall over
+    scored claims describes the screen where it fires. Recall over every labeled
+    claim charges it for the claims it abstained on, and on this corpus most
+    claims are unscored, so the two differ by a wide margin. Reporting only the
+    first would describe a screen nobody could run.
+
+    Exploratory. Never the headline, on the same footing as the sign-mapped
+    kappa it shares its threshold with.
+    """
+    units, unlabeled = _screening_units(records)
+    eligible = [
+        unit for unit in units if _screening_eligible(unit, unsure_as_invalid=unsure_as_invalid)
+    ]
+
+    def positive(unit: _ScreeningUnit) -> bool:
+        return _screening_positive(unit, unsure_as_invalid=unsure_as_invalid)
+
+    def flagged(unit: _ScreeningUnit) -> bool:
+        return unit.flagged
+
+    def scored(unit: _ScreeningUnit) -> bool:
+        return unit.scored
+
+    def always(unit: _ScreeningUnit) -> bool:
+        return True
+
+    base: dict[str, object] = {
+        "exploratory_only": True,
+        "positive_class": "expert verdict invalid",
+        "decision_rule": (
+            "flag when the corroboration score is below zero; abstain when the "
+            "claim carries no score"
+        ),
+        "unsure_handling": (
+            "counted as invalid" if unsure_as_invalid else "excluded"
+        ),
+        "excluded_unlabeled": unlabeled,
+        "labeled_claims": len(eligible),
+        "scored_claims": sum(1 for unit in eligible if unit.scored),
+        "flagged_claims": sum(1 for unit in eligible if unit.flagged),
+        "expert_invalid_claims": sum(1 for unit in eligible if positive(unit)),
+    }
+    if not eligible:
+        return {
+            **base,
+            "precision": {"n": 0, "rate": None, "bootstrap": None},
+            "recall_scored": {"n": 0, "rate": None, "bootstrap": None},
+            "recall_all_labeled": {"n": 0, "rate": None, "bootstrap": None},
+            "coverage": {"n": 0, "rate": None, "bootstrap": None},
+            "undefined_reason": "zero labeled claims",
+        }
+    return {
+        **base,
+        "precision": _screening_block(
+            eligible,
+            numerator=positive,
+            denominator=flagged,
+            n_resamples=n_resamples,
+            seed=seed,
+        ),
+        "recall_scored": _screening_block(
+            eligible,
+            numerator=flagged,
+            denominator=lambda unit: positive(unit) and unit.scored,
+            n_resamples=n_resamples,
+            seed=seed,
+        ),
+        "recall_all_labeled": _screening_block(
+            eligible,
+            numerator=flagged,
+            denominator=positive,
+            n_resamples=n_resamples,
+            seed=seed,
+        ),
+        "coverage": _screening_block(
+            eligible,
+            numerator=scored,
+            denominator=always,
+            n_resamples=n_resamples,
+            seed=seed,
+        ),
+    }
+
+
 def _accuracy(pairs: Sequence[OverlapPair]) -> float | None:
     if not pairs:
         return None
@@ -2360,6 +2557,8 @@ def build_analysis_manifest(
     )
     analysis_ids.extend(
         [
+            "exploratory:screening_unsure_as_invalid",
+            "exploratory:screening_unsure_excluded",
             "exploratory:sign_mapped_kappa",
             "negative_control:claim_length_spearman",
             "negative_control:corroboration_sign",
@@ -2443,6 +2642,19 @@ def build_analysis_manifest(
         n_resamples=thresholds.bootstrap_resamples,
         seed=seeds["exploratory:sign_mapped_kappa"],
     )
+    screening = {
+        "unsure_excluded": analyze_screening_performance(
+            headline,
+            n_resamples=thresholds.bootstrap_resamples,
+            seed=seeds["exploratory:screening_unsure_excluded"],
+        ),
+        "unsure_as_invalid_sensitivity": analyze_screening_performance(
+            headline,
+            n_resamples=thresholds.bootstrap_resamples,
+            seed=seeds["exploratory:screening_unsure_as_invalid"],
+            unsure_as_invalid=True,
+        ),
+    }
     negative_controls = analyze_negative_controls(
         headline,
         n_resamples=thresholds.bootstrap_resamples,
@@ -2500,6 +2712,7 @@ def build_analysis_manifest(
             "exploratory": exploratory_spearman,
         },
         "exploratory_sign_mapped_kappa": sign_mapped,
+        "exploratory_screening_performance": screening,
         "negative_controls": negative_controls,
         "parse_failures": parse_accounting,
         "power": {

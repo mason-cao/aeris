@@ -1,0 +1,1707 @@
+{
+  "anomaly_id": "ed275535-9c19-4452-9f85-bcc2bc63a789",
+  "calm_wind_flags": [
+    {
+      "claim_text_sha256": "13fe80b826a5a3272e4f12e4b79323b1044e4c2c6872324ad835b32e87c5019f",
+      "floor_status": "bracco_confirmed",
+      "presentation_index": 13,
+      "source_decisions": [
+        {
+          "calm": true,
+          "direction_votable": false,
+          "effective_cutoff_ms": 1.5,
+          "event_speed_ms": 0.89,
+          "floor_status": "bracco_confirmed",
+          "guard_enabled": true,
+          "raw_cutoff_ms": -0.43149306530293385,
+          "reason": "calm",
+          "source": "openweather",
+          "window_n": 360
+        }
+      ],
+      "standard_note": "wind direction unstable under calm conditions."
+    }
+  ],
+  "claims": [
+    {
+      "claim_text_sha256": "1c8b29cdf1a96e31de472997be8efd689d3b2c24ddcf3adcf2c013434f127a37",
+      "presentation_index": 1
+    },
+    {
+      "claim_text_sha256": "7753c16a5d337d2da4062403a520004957cf81938d0a6ca50d7b0544c0fc07c7",
+      "presentation_index": 2
+    },
+    {
+      "claim_text_sha256": "5e75804615306223ea69b53754366403625da908aa6384c969aacd4264f1c4d9",
+      "presentation_index": 3
+    },
+    {
+      "claim_text_sha256": "a7bb48b515333366ed738413053aa2884992a176d1a6654fe9532d0b4e424256",
+      "presentation_index": 4
+    },
+    {
+      "claim_text_sha256": "fc7614737f0956f0b869018625011aff395ccbd337e028660f3ec37aef210ecc",
+      "presentation_index": 5
+    },
+    {
+      "claim_text_sha256": "10ff27eb228b86fc02ac30a4c4063adfe8e8693d9eabbace24c5259bb885a0b6",
+      "presentation_index": 6
+    },
+    {
+      "claim_text_sha256": "ff8d1a463e6fce97fcff06fa0108e3f459702dcf86894a016071f83f32778fd7",
+      "presentation_index": 7
+    },
+    {
+      "claim_text_sha256": "7db2d99e9fe0d1faf44756d8573003bee2a5ee31be0532c33ab6bb8646df5311",
+      "presentation_index": 8
+    },
+    {
+      "claim_text_sha256": "e0d0c96312814898c31b054034e5a7df0a052ad94f456c02cacc4ed82ab7b9f7",
+      "presentation_index": 9
+    },
+    {
+      "claim_text_sha256": "8624d1b402a61b0b7d94e7f4d1644ebb6ed17f833e3ff9a6905903535d6b2744",
+      "presentation_index": 10
+    },
+    {
+      "claim_text_sha256": "80a5e6c7bf13c78deb91f36490dc9e5ae09da3ea72d0ac5257c99f49eb74b986",
+      "presentation_index": 11
+    },
+    {
+      "claim_text_sha256": "801d6c845d57bda23e95fbc20e54622120e6c8bed20404f7b384b790fb9cbaef",
+      "presentation_index": 12
+    },
+    {
+      "claim_text_sha256": "13fe80b826a5a3272e4f12e4b79323b1044e4c2c6872324ad835b32e87c5019f",
+      "presentation_index": 13
+    },
+    {
+      "claim_text_sha256": "3933aceab78b7097f85a68332b7cfe054a055643181c43b14c3abfca9e70785b",
+      "presentation_index": 14
+    },
+    {
+      "claim_text_sha256": "08edb976050a2442501e801251f795411531495e4c427b765378193acbc6e19f",
+      "presentation_index": 15
+    },
+    {
+      "claim_text_sha256": "a0884295956a093f05f6cd35cdddcc49e356d482a8b1a87b3d5622f8dd6e8647",
+      "presentation_index": 16
+    },
+    {
+      "claim_text_sha256": "9aa55cec00304b2f58bb58e75cb94bc76032c370912eface5f0141188fe19a7b",
+      "presentation_index": 17
+    },
+    {
+      "claim_text_sha256": "d594420d03b9c6ace8397236d1880f0558f7e57af7d846b19afc989ceef2c345",
+      "presentation_index": 18
+    },
+    {
+      "claim_text_sha256": "ece0a18bf1cafa6f664642385ae5639ee9bb50266b9c232f3293f9ef98ba2439",
+      "presentation_index": 19
+    },
+    {
+      "claim_text_sha256": "eff6e80b0d172aa35a1734a5cf8e828957a2512957b9f208bc63405621f10ac8",
+      "presentation_index": 20
+    },
+    {
+      "claim_text_sha256": "a5bc0f538001001b3752c66116da18b3aaf2b8201e1c2eac0daaa2a98b487a14",
+      "presentation_index": 21
+    },
+    {
+      "claim_text_sha256": "00acef404387ea2c0345daf9cce54a3f27156203e056c0723e6753a27204185c",
+      "presentation_index": 22
+    },
+    {
+      "claim_text_sha256": "e630adb6ad47975349c5428dd9d988e46efa5f538bab66090bd0b4f2ba627dd5",
+      "presentation_index": 23
+    },
+    {
+      "claim_text_sha256": "6e009ad88356371aab693df7e895ed963ce93a62697002eb6b7bfe569a77572c",
+      "presentation_index": 24
+    },
+    {
+      "claim_text_sha256": "62d4f15769950e764e74b78d28ac056c54a94a6939606714abdf9b8382c91476",
+      "presentation_index": 25
+    },
+    {
+      "claim_text_sha256": "fbb179c3210ff840c94b25217dceea68df58a6562e7dfd6df10bda4914228295",
+      "presentation_index": 26
+    },
+    {
+      "claim_text_sha256": "d4b35aa2c4a906f3e2e50a9b3af4ce8540fc0ebf0952e42cf6fe90cbe246d6c7",
+      "presentation_index": 27
+    },
+    {
+      "claim_text_sha256": "9ba55ee409ef1a7d81675b7baa79c2d1e65e007f0ab8a4a632ff7e3bfd1c2e03",
+      "presentation_index": 28
+    },
+    {
+      "claim_text_sha256": "19b9b538e4f84e1ad138f857ef8c6cb786be46c12adb5b04773d18363ecf6564",
+      "presentation_index": 29
+    },
+    {
+      "claim_text_sha256": "9ec1f94e9ef6849ea76b6bff086964796adccaab8446c572d33623e2701f096a",
+      "presentation_index": 30
+    },
+    {
+      "claim_text_sha256": "93efecc6f79bce6c3451422d5a71dcdd34174277954e16e12dcaef39e19e633d",
+      "presentation_index": 31
+    },
+    {
+      "claim_text_sha256": "8a7c64aa530dce2a5e7bbe7e8aa1feb7ea3c415429f891b6ddd29667a452af6f",
+      "presentation_index": 32
+    },
+    {
+      "claim_text_sha256": "b8452150b36ba7498b86a9a14eb696b2e4a3cf34b031bebc2f12d51da92b26ec",
+      "presentation_index": 33
+    },
+    {
+      "claim_text_sha256": "3d5497c910cadc4bdd4cf0fa1efd775d5fabd09ebd115fc8e56bcc2022a8aa50",
+      "presentation_index": 34
+    }
+  ],
+  "evidence_detail": [
+    "asos humidity: 6h means: 06-19 12Z 67.73, 18Z 73.87, 06-20 00Z 87.39, 06Z 92.31, 12Z 84.14, 18Z 91.64, 06-21 00Z 93.71, 06Z 96.51, 12Z 88.39, 18Z 71.07, 06-22 00Z 85.81, 06Z 91.7, 12Z 81.13",
+    "asos humidity: station means: HOU (10.965 km) 84.75, MCJ (13.448 km) 87.38, EFD (16.998 km) 83.26, T41 (20.02 km) 85.71, LVJ (23.937 km) 84.78, IAH (29.593 km) 87.53, AXH (33.015 km) 81.99, SGR (40.48 km) 86.83, +1 more",
+    "asos temperature: 6h means: 06-19 12Z 31.99, 18Z 30.87, 06-20 00Z 27.36, 06Z 26.82, 12Z 28.28, 18Z 24.66, 06-21 00Z 24.52, 06Z 24.93, 12Z 25.89, 18Z 30.87, 06-22 00Z 27.96, 06Z 27.3, 12Z 29.46",
+    "asos temperature: station means: HOU (10.965 km) 27.85, MCJ (13.448 km) 27.44, EFD (16.998 km) 28.76, T41 (20.02 km) 27.84, LVJ (23.937 km) 27.76, IAH (29.593 km) 27.09, AXH (33.015 km) 27.72, SGR (40.48 km) 27.67, +1 more",
+    "asos wind_direction: 6h means: 06-19 12Z 174.4, 18Z 170.9, 06-20 00Z 123.1, 06Z 119, 12Z 60.21, 18Z 124, 06-21 00Z 50.83, 06Z 84.2, 12Z 161.7, 18Z 166.6, 06-22 00Z 155.4, 06Z 164.8, 12Z 175.2",
+    "asos wind_direction: station means: HOU (10.965 km) 136.9, MCJ (13.448 km) 150.1, EFD (16.998 km) 159.7, T41 (20.02 km) 149.7, LVJ (23.937 km) 117.6, IAH (29.593 km) 116.5, AXH (33.015 km) 109.7, SGR (40.48 km) 139.9, +1 more",
+    "asos wind_speed: 6h means: 06-19 12Z 4.363, 18Z 3.611, 06-20 00Z 3.719, 06Z 2.486, 12Z 2.111, 18Z 2.851, 06-21 00Z 1.093, 06Z 1.883, 12Z 3.789, 18Z 5.504, 06-22 00Z 3.925, 06Z 3.23, 12Z 4.344",
+    "asos wind_speed: station means: HOU (10.965 km) 3.765, MCJ (13.448 km) 4.816, EFD (16.998 km) 4.887, T41 (20.02 km) 3.908, LVJ (23.937 km) 2.601, IAH (29.593 km) 2.951, AXH (33.015 km) 1.801, SGR (40.48 km) 3.401, +1 more",
+    "noaa_gfs gh_500: 6h means: 06-19 18Z 5910, 06-20 00Z 5900, 06Z 5903, 12Z 5881, 18Z 5896, 06-21 00Z 5882, 06Z 5885, 12Z 5876, 18Z 5890, 06-22 00Z 5894, 06Z 5915, 12Z 5908",
+    "noaa_gfs gh_500: grid-cell means: gfs:29.75,-95.25 (1.952 km) 5895, gfs:29.75,-95.50 (23.473 km) 5895, gfs:29.75,-95.00 (24.937 km) 5895, gfs:29.50,-95.25 (26.0 km) 5896, gfs:30.00,-95.25 (29.617 km) 5894, gfs:29.50,-95.50 (34.993 km) 5896, gfs:29.50,-95.00 (35.994 km) 5896, gfs:30.00,-95.50 (37.722 km) 5894, +2 more",
+    "noaa_gfs pbl_height: 6h means: 06-19 18Z 1600, 06-20 00Z 200.7, 06Z 530.1, 12Z 240.9, 18Z 927.8, 06-21 00Z 186.6, 06Z 140.2, 12Z 299, 18Z 616.7, 06-22 00Z 879, 06Z 552.2, 12Z 547",
+    "noaa_gfs pbl_height: grid-cell means: gfs:29.75,-95.25 (1.952 km) 572.6, gfs:29.75,-95.50 (23.473 km) 596.5, gfs:29.75,-95.00 (24.937 km) 559.4, gfs:29.50,-95.25 (26.0 km) 520.5, gfs:30.00,-95.25 (29.617 km) 578.4, gfs:29.50,-95.50 (34.993 km) 516.2, gfs:29.50,-95.00 (35.994 km) 618.2, gfs:30.00,-95.50 (37.722 km) 627.4, +2 more",
+    "noaa_gfs precipitable_water: 6h means: 06-19 18Z 51.71, 06-20 00Z 59.04, 06Z 55.09, 12Z 52.71, 18Z 55.49, 06-21 00Z 53.48, 06Z 56.2, 12Z 57.95, 18Z 56.17, 06-22 00Z 53.65, 06Z 43.63, 12Z 42.18",
+    "noaa_gfs precipitable_water: grid-cell means: gfs:29.75,-95.25 (1.952 km) 53.28, gfs:29.75,-95.50 (23.473 km) 52.99, gfs:29.75,-95.00 (24.937 km) 53.56, gfs:29.50,-95.25 (26.0 km) 53.37, gfs:30.00,-95.25 (29.617 km) 52.83, gfs:29.50,-95.50 (34.993 km) 53.21, gfs:29.50,-95.00 (35.994 km) 53.45, gfs:30.00,-95.50 (37.722 km) 52.5, +2 more",
+    "noaa_gfs surface_pressure: 6h means: 06-19 18Z 1010, 06-20 00Z 1009, 06Z 1010, 12Z 1010, 18Z 1011, 06-21 00Z 1008, 06Z 1009, 12Z 1008, 18Z 1009, 06-22 00Z 1007, 06Z 1009, 12Z 1010",
+    "noaa_gfs surface_pressure: grid-cell means: gfs:29.75,-95.25 (1.952 km) 1010, gfs:29.75,-95.50 (23.473 km) 1009, gfs:29.75,-95.00 (24.937 km) 1011, gfs:29.50,-95.25 (26.0 km) 1010, gfs:30.00,-95.25 (29.617 km) 1008, gfs:29.50,-95.50 (34.993 km) 1009, gfs:29.50,-95.00 (35.994 km) 1011, gfs:30.00,-95.50 (37.722 km) 1007, +2 more",
+    "noaa_gfs t_850: 6h means: 06-19 18Z 18.81, 06-20 00Z 19.89, 06Z 19.91, 12Z 18.56, 18Z 18.73, 06-21 00Z 21.45, 06Z 19.48, 12Z 18.62, 18Z 19.51, 06-22 00Z 20.18, 06Z 19.92, 12Z 18.85",
+    "noaa_gfs t_850: grid-cell means: gfs:29.75,-95.25 (1.952 km) 19.37, gfs:29.75,-95.50 (23.473 km) 19.43, gfs:29.75,-95.00 (24.937 km) 19.6, gfs:29.50,-95.25 (26.0 km) 19.52, gfs:30.00,-95.25 (29.617 km) 19.44, gfs:29.50,-95.50 (34.993 km) 19.54, gfs:29.50,-95.00 (35.994 km) 19.67, gfs:30.00,-95.50 (37.722 km) 19.45, +2 more",
+    "noaa_gfs u_10m: 6h means: 06-19 18Z -0.3473, 06-20 00Z -1.751, 06Z -1.474, 12Z -0.782, 18Z -2.906, 06-21 00Z -1.932, 06Z -0.783, 12Z 0.4488, 18Z -0.4373, 06-22 00Z -0.9744, 06Z -0.617, 12Z -0.4874",
+    "noaa_gfs u_10m: grid-cell means: gfs:29.75,-95.25 (1.952 km) -0.9299, gfs:29.75,-95.50 (23.473 km) -0.8632, gfs:29.75,-95.00 (24.937 km) -1.051, gfs:29.50,-95.25 (26.0 km) -1.162, gfs:30.00,-95.25 (29.617 km) -0.9732, gfs:29.50,-95.50 (34.993 km) -1.103, gfs:29.50,-95.00 (35.994 km) -1.096, gfs:30.00,-95.50 (37.722 km) -0.8057, +2 more",
+    "noaa_gfs v_10m: 6h means: 06-19 18Z 4.553, 06-20 00Z 2.573, 06Z 4.174, 12Z 2.492, 18Z 1.042, 06-21 00Z 0.04582, 06Z 1.889, 12Z 3.182, 18Z 3.395, 06-22 00Z 5.284, 06Z 4.083, 12Z 4.048",
+    "noaa_gfs v_10m: grid-cell means: gfs:29.75,-95.25 (1.952 km) 2.721, gfs:29.75,-95.50 (23.473 km) 2.727, gfs:29.75,-95.00 (24.937 km) 3.115, gfs:29.50,-95.25 (26.0 km) 3.618, gfs:30.00,-95.25 (29.617 km) 2.497, gfs:29.50,-95.50 (34.993 km) 3.168, gfs:29.50,-95.00 (35.994 km) 4.319, gfs:30.00,-95.50 (37.722 km) 2.647, +2 more",
+    "openaq ozone: 6h means: 06-19 12Z 0.0236, 18Z 0.02624, 06-20 00Z 0.02021, 06Z 0.01288, 12Z 0.01231, 18Z 0.0135, 06-21 00Z 0.008507, 06Z 0.003192, 12Z 0.02052, 18Z 0.0218, 06-22 00Z 0.01395, 06Z 0.01341, 12Z 0.01388",
+    "openaq ozone: sensor means: 3378 (0.021 km) 0.01264, 2039 (5.231 km) 0.01387, 325 (6.369 km) 0.019, 320 (12.059 km) 0.01228, 1319333 (14.033 km) 0.01783, 332 (14.34 km) 0.0198, 3214 (14.86 km) 0.01626, 2800 (17.662 km) 0.01463, +8 more",
+    "openaq pm10: 6h means: 06-19 12Z 50.56, 18Z 45.94, 06-20 00Z 23.06, 06Z 30.39, 12Z 30.44, 18Z 11.61, 06-21 00Z 19.28, 06Z 31.67, 12Z 11.19, 18Z 21.61, 06-22 00Z 34.44, 06Z 36.06, 12Z 55",
+    "openaq pm10: sensor means: 13380082 (0.021 km) 30.37, 15852419 (7.017 km) 34.49, 271 (14.34 km) 23.85",
+    "openaq pm25: 6h means: 06-19 12Z 11.26, 18Z 10.17, 06-20 00Z 6.636, 06Z 5.859, 12Z 5.44, 18Z 3.118, 06-21 00Z 4.108, 06Z 6.943, 12Z 2.632, 18Z 4.409, 06-22 00Z 5.88, 06Z 10.04, 12Z 16.58",
+    "openaq pm25: sensor means: 15539682 (0.005 km) 7.998, 3379 (0.021 km) 9.504, 8967123 (0.058 km) 9.175, 8967479 (0.058 km) 7.907, 9489522 (2.89 km) 6.309, 8967065 (2.933 km) 7.28, 9201801 (3.625 km) 5.127, 12178865 (3.713 km) 7.179, +74 more",
+    "openweather cloud_cover: 6h means: 06-19 12Z 60.75, 18Z 68.6, 06-20 00Z 97.41, 06Z 94.23, 12Z 99.5, 18Z 99.61, 06-21 00Z 98.57, 06Z 41.63, 12Z 47.2, 18Z 75.93, 06-22 00Z 10.37, 06Z 7.2, 12Z 13.5",
+    "openweather cloud_cover: query-point means: grid:center (10.986 km) 64.31, grid:east (14.451 km) 63.46, grid:south (24.535 km) 66.71, grid:north (29.962 km) 67.38, grid:west (35.93 km) 62.75",
+    "openweather humidity: 6h means: 06-19 12Z 75.12, 18Z 72.73, 06-20 00Z 86.86, 06Z 91.13, 12Z 86.37, 18Z 82.23, 06-21 00Z 93.8, 06Z 95.77, 12Z 90.87, 18Z 74.83, 06-22 00Z 84.23, 06Z 91.17, 12Z 88.93",
+    "openweather humidity: query-point means: grid:center (10.986 km) 85.08, grid:east (14.451 km) 87.76, grid:south (24.535 km) 85.33, grid:north (29.962 km) 86.35, grid:west (35.93 km) 85.22",
+    "openweather precipitation: 6h means: 06-19 12Z 0, 18Z 0.035, 06-20 00Z 0.1752, 06Z 0.43, 12Z 1.097, 18Z 0.7358, 06-21 00Z 0.01667, 06Z 0.1767, 12Z 1.158, 18Z 0.464, 06-22 00Z 0, 06Z 0, 12Z 0",
+    "openweather precipitation: query-point means: grid:center (10.986 km) 0.2808, grid:east (14.451 km) 0.3476, grid:south (24.535 km) 0.3368, grid:north (29.962 km) 0.4374, grid:west (35.93 km) 0.3919",
+    "openweather pressure: 6h means: 06-19 12Z 1012, 18Z 1011, 06-20 00Z 1012, 06Z 1012, 12Z 1014, 18Z 1012, 06-21 00Z 1011, 06Z 1011, 12Z 1011, 18Z 1010, 06-22 00Z 1011, 06Z 1012, 12Z 1014",
+    "openweather pressure: query-point means: grid:center (10.986 km) 1011, grid:east (14.451 km) 1012, grid:south (24.535 km) 1012, grid:north (29.962 km) 1012, grid:west (35.93 km) 1011",
+    "openweather temperature: 6h means: 06-19 12Z 31.82, 18Z 32.75, 06-20 00Z 27.75, 06Z 27.41, 12Z 28.55, 18Z 27.55, 06-21 00Z 24.3, 06Z 24.69, 12Z 25.49, 18Z 31.42, 06-22 00Z 28.69, 06Z 27.46, 12Z 28.43",
+    "openweather temperature: query-point means: grid:center (10.986 km) 28.15, grid:east (14.451 km) 28.06, grid:south (24.535 km) 28.22, grid:north (29.962 km) 27.75, grid:west (35.93 km) 27.95",
+    "openweather wind_direction: 6h means: 06-19 12Z 171.4, 18Z 185.2, 06-20 00Z 135.2, 06Z 164.8, 12Z 115.8, 18Z 161.4, 06-21 00Z 121.6, 06Z 168.9, 12Z 165.7, 18Z 175.7, 06-22 00Z 157.9, 06Z 163.4, 12Z 174.3",
+    "openweather wind_direction: query-point means: grid:center (10.986 km) 143.9, grid:east (14.451 km) 164.1, grid:south (24.535 km) 178.1, grid:north (29.962 km) 140.4, grid:west (35.93 km) 160.7",
+    "openweather wind_speed: 6h means: 06-19 12Z 2.363, 18Z 2.305, 06-20 00Z 1.742, 06Z 2.456, 12Z 1.399, 18Z 3.311, 06-21 00Z 1.668, 06Z 1.597, 12Z 3.18, 18Z 3.07, 06-22 00Z 2.593, 06Z 2.518, 12Z 2.921",
+    "openweather wind_speed: query-point means: grid:center (10.986 km) 2.19, grid:east (14.451 km) 3.529, grid:south (24.535 km) 2.134, grid:north (29.962 km) 2.165, grid:west (35.93 km) 1.863",
+    "purpleair pm25: 6h means: 06-19 12Z 12.27, 18Z 11.76, 06-20 00Z 7.532, 06Z 6.934, 12Z 6.522, 18Z 4.924, 06-21 00Z 5.871, 06Z 8.427, 12Z 5.627, 18Z 5.958, 06-22 00Z 7.425, 06Z 13.79, 12Z 15.59",
+    "purpleair pm25: sensor means: 99797 (0.6 km) 7.307, 166435 (2.677 km) 10.57, 6752 (5.276 km) 7.919, 222601 (6.699 km) 4.777, 133994 (7.377 km) 0.8507, 235425 (8.237 km) 7.733, 229853 (8.54 km) 5.953, 127441 (8.731 km) 10.17, +58 more",
+    "sentinel5p s5p_aer_ai_granule_available: 6h means: 06-19 18Z 1, 06-20 18Z 1, 06-21 18Z 1",
+    "sentinel5p s5p_ch4_granule_available: 6h means: 06-19 18Z 1, 06-20 18Z 1, 06-21 18Z 1",
+    "sentinel5p s5p_co_column: 6h means: 06-19 18Z 0.02782, 06-21 18Z 0.0279",
+    "sentinel5p s5p_co_granule_available: 6h means: 06-19 18Z 1, 06-20 18Z 1, 06-21 18Z 1",
+    "sentinel5p s5p_hcho_column: 6h means: 06-19 18Z 0.0001451, 06-21 18Z 0.000131",
+    "sentinel5p s5p_hcho_granule_available: 6h means: 06-19 18Z 1, 06-20 18Z 1, 06-21 18Z 1",
+    "sentinel5p s5p_no2_column: 6h means: 06-19 18Z 5.001e-05, 06-21 18Z 2.637e-05",
+    "sentinel5p s5p_no2_granule_available: 6h means: 06-19 18Z 1, 06-20 18Z 1, 06-21 18Z 1",
+    "sentinel5p s5p_o3_granule_available: 6h means: 06-19 18Z 1, 06-20 18Z 1, 06-21 18Z 1",
+    "sentinel5p s5p_so2_column: 6h means: 06-19 18Z -2.9e-05, 06-21 18Z -8.157e-05",
+    "sentinel5p s5p_so2_granule_available: 6h means: 06-19 18Z 1, 06-20 18Z 1, 06-21 18Z 1",
+    "tceq co: 6h means: 06-19 12Z 0.2111, 18Z 0.2222, 06-20 00Z 0.2833, 06Z 0.1667, 12Z 0.2, 18Z 0.2944, 06-21 00Z 0.3556, 06Z 0.2611, 12Z 0.2059, 18Z 0.2, 06-22 00Z 0.2222, 06Z 0.2278, 12Z 0.3",
+    "tceq co: monitor means: 482011035 (0.0 km) 0.1414, 482011039 (14.355 km) 0.1606, 482011052 (15.44 km) 0.4268",
+    "tceq no2: 6h means: 06-19 12Z 3.958, 18Z 4.846, 06-20 00Z 7.707, 06Z 2.27, 12Z 4.406, 18Z 6.483, 06-21 00Z 10.06, 06Z 5.241, 12Z 4.138, 18Z 1.519, 06-22 00Z 2.099, 06Z 2.53, 12Z 4.247",
+    "tceq no2: monitor means: 482011035 (0.0 km) 6.073, 482010416 (6.378 km) 2.597, 482011039 (14.355 km) 3.852, 482010026 (14.878 km) 7.154, 482011052 (15.44 km) 10.42, 482011015 (17.437 km) 4.906, 482010024 (19.743 km) 1.353, 482011066 (22.737 km) 5.264, +4 more",
+    "tceq so2: 6h means: 06-19 12Z 0.08889, 18Z 0.005556, 06-20 00Z 0.01111, 06Z -0.1, 12Z -0.06111, 18Z -0.1, 06-21 00Z -0.1273, 06Z -0.5, 12Z 0.4294, 18Z -0.4222, 06-22 00Z -0.4, 06Z -0.4556, 12Z -0.39",
+    "tceq so2: monitor means: 482011035 (0.0 km) -0.1159, 482011039 (14.355 km) 0.1729, 482010051 (24.236 km) -0.5386"
+  ],
+  "labeler": "mason",
+  "packet_kind": "official",
+  "pdf_sha256": "bd1454c52f0a51a500dbaf8f86cd90f81de78ad244a80845de5e063f495a888b",
+  "plot_data": {
+    "stations": [
+      {
+        "entity_id": "AXH",
+        "lat": 29.5061,
+        "lon": -95.4769,
+        "source": "asos"
+      },
+      {
+        "entity_id": "DWH",
+        "lat": 30.068,
+        "lon": -95.5562,
+        "source": "asos"
+      },
+      {
+        "entity_id": "EFD",
+        "lat": 29.6073,
+        "lon": -95.1587,
+        "source": "asos"
+      },
+      {
+        "entity_id": "HOU",
+        "lat": 29.6375,
+        "lon": -95.2824,
+        "source": "asos"
+      },
+      {
+        "entity_id": "IAH",
+        "lat": 29.9844,
+        "lon": -95.3607,
+        "source": "asos"
+      },
+      {
+        "entity_id": "LVJ",
+        "lat": 29.5189,
+        "lon": -95.2417,
+        "source": "asos"
+      },
+      {
+        "entity_id": "MCJ",
+        "lat": 29.714,
+        "lon": -95.395,
+        "source": "asos"
+      },
+      {
+        "entity_id": "SGR",
+        "lat": 29.6223,
+        "lon": -95.6565,
+        "source": "asos"
+      },
+      {
+        "entity_id": "T41",
+        "lat": 29.6692,
+        "lon": -95.0641,
+        "source": "asos"
+      },
+      {
+        "entity_id": "10107877",
+        "lat": 29.8020705,
+        "lon": -95.3868235,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "10252270",
+        "lat": 29.76613,
+        "lon": -95.27596,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "10762809",
+        "lat": 29.840464483655722,
+        "lon": -95.5183629141445,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "11638043",
+        "lat": 29.47333,
+        "lon": -95.22855,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "11987924",
+        "lat": 29.381768,
+        "lon": -95.393327,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "12178865",
+        "lat": 29.76351,
+        "lon": -95.27499,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "12256170",
+        "lat": 29.77632,
+        "lon": -95.30765,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "12286630",
+        "lat": 29.726537,
+        "lon": -95.387059,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "12296914",
+        "lat": 29.84725,
+        "lon": -95.3599,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "12337668",
+        "lat": 29.83759,
+        "lon": -95.45442,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "12428299",
+        "lat": 30.086427575198055,
+        "lon": -95.27139143113325,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "12516879",
+        "lat": 29.74477,
+        "lon": -95.38697,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "1319333",
+        "lat": 29.772915,
+        "lon": -95.395785,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "13380082",
+        "lat": 29.7339,
+        "lon": -95.2575,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "13418566",
+        "lat": 29.67309,
+        "lon": -95.34945,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "13787194",
+        "lat": 29.7821,
+        "lon": -95.35835,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "13787195",
+        "lat": 29.77802,
+        "lon": -95.21801,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "13787197",
+        "lat": 29.82869,
+        "lon": -95.40247,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "13906493",
+        "lat": 29.94697818004062,
+        "lon": -95.17873555674304,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "13955813",
+        "lat": 29.72096,
+        "lon": -95.36327,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "13955814",
+        "lat": 29.59123,
+        "lon": -95.48335,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "13955815",
+        "lat": 29.55678,
+        "lon": -95.14978,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "13955816",
+        "lat": 29.67272,
+        "lon": -95.57108,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14103803",
+        "lat": 30.094587,
+        "lon": -95.371335,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14140746",
+        "lat": 29.92951,
+        "lon": -95.17637,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14140747",
+        "lat": 29.87082,
+        "lon": -95.30559,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14140748",
+        "lat": 29.75116,
+        "lon": -95.55895,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14140749",
+        "lat": 29.96932,
+        "lon": -95.54087,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14140750",
+        "lat": 29.85189,
+        "lon": -95.53939,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14140751",
+        "lat": 29.68623,
+        "lon": -95.29465,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14140752",
+        "lat": 29.65825,
+        "lon": -95.39014,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14140753",
+        "lat": 29.78864,
+        "lon": -95.66955,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14152710",
+        "lat": 29.458766663022907,
+        "lon": -95.45701655675373,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14152860",
+        "lat": 29.77456,
+        "lon": -95.60856,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14157975",
+        "lat": 29.62559,
+        "lon": -95.26723,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14157976",
+        "lat": 29.805,
+        "lon": -95.26382,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14157977",
+        "lat": 29.94625,
+        "lon": -95.41923,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "14404954",
+        "lat": 29.57117955747288,
+        "lon": -95.04303524606661,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15121349",
+        "lat": 29.7569232,
+        "lon": -95.4070494,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15399615",
+        "lat": 29.618238,
+        "lon": -95.527394,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15472101",
+        "lat": 29.65333,
+        "lon": -95.35234,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15539682",
+        "lat": 29.73377,
+        "lon": -95.25763,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15539683",
+        "lat": 29.67642,
+        "lon": -95.37316,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15546602",
+        "lat": 29.7327571,
+        "lon": -95.361018,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15588190",
+        "lat": 29.7206,
+        "lon": -95.5713,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15588191",
+        "lat": 29.76142,
+        "lon": -95.32072,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15588192",
+        "lat": 29.72071,
+        "lon": -95.57021,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15588193",
+        "lat": 29.71859,
+        "lon": -95.57163,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15596557",
+        "lat": 29.77481,
+        "lon": -95.34266,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15614377",
+        "lat": 29.7479157,
+        "lon": -95.3477793,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15666344",
+        "lat": 29.7444266,
+        "lon": -95.3462454,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15852418",
+        "lat": 29.76902,
+        "lon": -95.31786,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15852419",
+        "lat": 29.76902,
+        "lon": -95.31786,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15971878",
+        "lat": 29.7276,
+        "lon": -95.3601,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "15990898",
+        "lat": 29.713,
+        "lon": -95.3288,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "16026701",
+        "lat": 29.401354569997856,
+        "lon": -95.25393383132156,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "16028791",
+        "lat": 29.7227,
+        "lon": -95.3734,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "16123962",
+        "lat": 29.7167,
+        "lon": -95.3693,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "16301542",
+        "lat": 29.73034,
+        "lon": -95.35242,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "16564662",
+        "lat": 29.69913028312036,
+        "lon": -95.34274124626434,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "16564667",
+        "lat": 29.716791896012683,
+        "lon": -95.36122020935417,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "2039",
+        "lat": 29.7681,
+        "lon": -95.2206,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "268",
+        "lat": 29.670025,
+        "lon": -95.128508,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "271",
+        "lat": 29.670025,
+        "lon": -95.128508,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "2800",
+        "lat": 29.7644,
+        "lon": -95.0781,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "287",
+        "lat": 29.7233,
+        "lon": -95.6358,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "3055",
+        "lat": 29.5203,
+        "lon": -95.3925,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "310",
+        "lat": 29.9011,
+        "lon": -95.3261,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "311",
+        "lat": 29.6958,
+        "lon": -95.4992,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "312",
+        "lat": 29.6239,
+        "lon": -95.4742,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "319",
+        "lat": 29.8342,
+        "lon": -95.4892,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "320",
+        "lat": 29.6256,
+        "lon": -95.2672,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "3214",
+        "lat": 29.8025,
+        "lon": -95.1256,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "325",
+        "lat": 29.68639,
+        "lon": -95.294724,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "332",
+        "lat": 29.670025,
+        "lon": -95.128508,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "3378",
+        "lat": 29.7339,
+        "lon": -95.2575,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "3379",
+        "lat": 29.7339,
+        "lon": -95.2575,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "339",
+        "lat": 29.823319,
+        "lon": -94.983786,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "5077791",
+        "lat": 29.5831,
+        "lon": -95.0156,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8966939",
+        "lat": 29.72166,
+        "lon": -95.38569,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8966947",
+        "lat": 29.75477,
+        "lon": -95.3833,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967001",
+        "lat": 29.7026,
+        "lon": -95.41445,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967005",
+        "lat": 29.77964,
+        "lon": -95.33122,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967015",
+        "lat": 29.81981,
+        "lon": -95.42513,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967021",
+        "lat": 29.65074,
+        "lon": -95.37273,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967065",
+        "lat": 29.75659,
+        "lon": -95.27275,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967093",
+        "lat": 29.73225,
+        "lon": -95.40257,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967119",
+        "lat": 29.6728,
+        "lon": -95.46866,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967123",
+        "lat": 29.734,
+        "lon": -95.25812,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967193",
+        "lat": 29.79191,
+        "lon": -95.34363,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967217",
+        "lat": 29.78273,
+        "lon": -95.31409,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967237",
+        "lat": 29.77326,
+        "lon": -95.32773,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967273",
+        "lat": 29.77985,
+        "lon": -95.3276,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967363",
+        "lat": 29.77678,
+        "lon": -95.43482,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967373",
+        "lat": 29.77398,
+        "lon": -95.40593,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967413",
+        "lat": 29.778,
+        "lon": -95.4242,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "8967479",
+        "lat": 29.734,
+        "lon": -95.25812,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "9201801",
+        "lat": 29.76431,
+        "lon": -95.2706,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "9201803",
+        "lat": 29.76808,
+        "lon": -95.26723,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "9416627",
+        "lat": 29.67173,
+        "lon": -95.36929,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "9489522",
+        "lat": 29.75842,
+        "lon": -95.26696,
+        "source": "openaq"
+      },
+      {
+        "entity_id": "118895",
+        "lat": 29.816628,
+        "lon": -95.32461,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "118923",
+        "lat": 29.904827,
+        "lon": -95.3129,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "127441",
+        "lat": 29.809729,
+        "lon": -95.280334,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "127451",
+        "lat": 29.778414,
+        "lon": -95.35952,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "128007",
+        "lat": 29.670757,
+        "lon": -95.1453,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "130763",
+        "lat": 29.906267,
+        "lon": -95.59476,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "133994",
+        "lat": 29.741404,
+        "lon": -95.33349,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "143264",
+        "lat": 29.45708,
+        "lon": -95.6638,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "148709",
+        "lat": 29.77624,
+        "lon": -95.10313,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "155367",
+        "lat": 29.822277,
+        "lon": -95.42584,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "161003",
+        "lat": 29.585194,
+        "lon": -95.45126,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "161015",
+        "lat": 29.574024,
+        "lon": -95.52899,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "161141",
+        "lat": 29.55004,
+        "lon": -95.68345,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "161689",
+        "lat": 29.685053,
+        "lon": -95.13147,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "166399",
+        "lat": 29.803095,
+        "lon": -95.096,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "166421",
+        "lat": 29.82794,
+        "lon": -95.283745,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "166427",
+        "lat": 29.763205,
+        "lon": -95.00236,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "166435",
+        "lat": 29.74531,
+        "lon": -95.2333,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "166441",
+        "lat": 29.776548,
+        "lon": -95.153625,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "166451",
+        "lat": 29.675089,
+        "lon": -95.43187,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "182191",
+        "lat": 29.635967,
+        "lon": -95.179085,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "186271",
+        "lat": 29.777805,
+        "lon": -95.13781,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "186303",
+        "lat": 29.781633,
+        "lon": -95.35113,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "186315",
+        "lat": 29.708698,
+        "lon": -95.477104,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "194469",
+        "lat": 30.094578,
+        "lon": -95.48181,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "204613",
+        "lat": 29.732443,
+        "lon": -94.97432,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "213701",
+        "lat": 29.768635,
+        "lon": -95.03154,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "217323",
+        "lat": 30.03465,
+        "lon": -95.62582,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "222583",
+        "lat": 29.829018,
+        "lon": -95.27625,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "222589",
+        "lat": 29.682943,
+        "lon": -95.14033,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "222593",
+        "lat": 29.698973,
+        "lon": -95.11124,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "222601",
+        "lat": 29.780289,
+        "lon": -95.301636,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "222815",
+        "lat": 29.70345,
+        "lon": -95.053925,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "223813",
+        "lat": 29.798374,
+        "lon": -95.407936,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "229853",
+        "lat": 29.78866,
+        "lon": -95.319435,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "235425",
+        "lat": 29.704206,
+        "lon": -95.17937,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "235427",
+        "lat": 29.803728,
+        "lon": -95.307686,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "2386",
+        "lat": 29.532282,
+        "lon": -95.07647,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "243843",
+        "lat": 29.77938,
+        "lon": -95.17161,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "244939",
+        "lat": 29.690561,
+        "lon": -95.17067,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "246011",
+        "lat": 29.819454,
+        "lon": -95.36081,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "247283",
+        "lat": 29.598433,
+        "lon": -95.139366,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "250205",
+        "lat": 29.706715,
+        "lon": -95.12605,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "268165",
+        "lat": 29.669638,
+        "lon": -95.10476,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "268171",
+        "lat": 29.77873,
+        "lon": -95.03287,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "272881",
+        "lat": 29.7636,
+        "lon": -95.7079,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "276512",
+        "lat": 29.60515,
+        "lon": -95.58415,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "27821",
+        "lat": 29.77074,
+        "lon": -95.370056,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "28851",
+        "lat": 29.73305,
+        "lon": -95.58551,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "293725",
+        "lat": 29.708176,
+        "lon": -95.38064,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "293735",
+        "lat": 29.70695,
+        "lon": -95.390114,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "296101",
+        "lat": 29.7668,
+        "lon": -95.377655,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "301969",
+        "lat": 29.797647,
+        "lon": -95.46833,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "301983",
+        "lat": 29.90048,
+        "lon": -95.24949,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "302037",
+        "lat": 29.783531,
+        "lon": -95.389885,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "308976",
+        "lat": 29.786112,
+        "lon": -95.341774,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "310114",
+        "lat": 29.907686,
+        "lon": -95.31443,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "3298",
+        "lat": 29.58335,
+        "lon": -95.12009,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "46237",
+        "lat": 29.70283,
+        "lon": -95.443855,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "51959",
+        "lat": 29.797358,
+        "lon": -95.48999,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "6752",
+        "lat": 29.71706,
+        "lon": -95.30876,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "98139",
+        "lat": 29.81888,
+        "lon": -95.69566,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "98531",
+        "lat": 29.847527,
+        "lon": -95.28072,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "98633",
+        "lat": 29.705027,
+        "lon": -95.15422,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "99171",
+        "lat": 29.84179,
+        "lon": -95.28896,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "99797",
+        "lat": 29.737322,
+        "lon": -95.25296,
+        "source": "purpleair"
+      },
+      {
+        "entity_id": "480391004",
+        "lat": 29.520454,
+        "lon": -95.392512,
+        "source": "tceq"
+      },
+      {
+        "entity_id": "482010024",
+        "lat": 29.901031,
+        "lon": -95.326125,
+        "source": "tceq"
+      },
+      {
+        "entity_id": "482010026",
+        "lat": 29.802694,
+        "lon": -95.12551,
+        "source": "tceq"
+      },
+      {
+        "entity_id": "482010047",
+        "lat": 29.834206,
+        "lon": -95.48912,
+        "source": "tceq"
+      },
+      {
+        "entity_id": "482010051",
+        "lat": 29.62398,
+        "lon": -95.474347,
+        "source": "tceq"
+      },
+      {
+        "entity_id": "482010055",
+        "lat": 29.695747,
+        "lon": -95.499222,
+        "source": "tceq"
+      },
+      {
+        "entity_id": "482010416",
+        "lat": 29.686298,
+        "lon": -95.294732,
+        "source": "tceq"
+      },
+      {
+        "entity_id": "482011015",
+        "lat": 29.758947,
+        "lon": -95.079341,
+        "source": "tceq"
+      },
+      {
+        "entity_id": "482011035",
+        "lat": 29.733729,
+        "lon": -95.257603,
+        "source": "tceq"
+      },
+      {
+        "entity_id": "482011039",
+        "lat": 29.669736,
+        "lon": -95.128525,
+        "source": "tceq"
+      },
+      {
+        "entity_id": "482011050",
+        "lat": 29.583054,
+        "lon": -95.01554,
+        "source": "tceq"
+      },
+      {
+        "entity_id": "482011052",
+        "lat": 29.81439,
+        "lon": -95.387817,
+        "source": "tceq"
+      },
+      {
+        "entity_id": "482011066",
+        "lat": 29.721618,
+        "lon": -95.492655,
+        "source": "tceq"
+      }
+    ],
+    "vectors": [
+      {
+        "direction_from_degrees": 0.0,
+        "entity_id": "AXH",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 29.5061,
+        "lon": -95.4769,
+        "source": "asos",
+        "speed": 0.0,
+        "timestamp": "2026-06-21T02:55:00+00:00",
+        "u_east": 0.0,
+        "v_north": 0.0
+      },
+      {
+        "direction_from_degrees": 70.0,
+        "entity_id": "DWH",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 30.068,
+        "lon": -95.5562,
+        "source": "asos",
+        "speed": 1.543332,
+        "timestamp": "2026-06-21T02:55:00+00:00",
+        "u_east": -1.4502576918227574,
+        "v_north": -0.5278506318390911
+      },
+      {
+        "direction_from_degrees": 140.0,
+        "entity_id": "EFD",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 29.6073,
+        "lon": -95.1587,
+        "source": "asos",
+        "speed": 4.115552,
+        "timestamp": "2026-06-21T10:54:00+00:00",
+        "u_east": -2.645425832620657,
+        "v_north": 3.152695739967196
+      },
+      {
+        "direction_from_degrees": 60.0,
+        "entity_id": "HOU",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 29.6375,
+        "lon": -95.2824,
+        "source": "asos",
+        "speed": 2.057776,
+        "timestamp": "2026-06-21T02:55:00+00:00",
+        "u_east": -1.782086291297927,
+        "v_north": -1.0288880000000002
+      },
+      {
+        "direction_from_degrees": 90.0,
+        "entity_id": "IAH",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 29.9844,
+        "lon": -95.3607,
+        "source": "asos",
+        "speed": 3.086664,
+        "timestamp": "2026-06-21T02:55:00+00:00",
+        "u_east": -3.086664,
+        "v_north": 0.0
+      },
+      {
+        "direction_from_degrees": 0.0,
+        "entity_id": "LVJ",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 29.5189,
+        "lon": -95.2417,
+        "source": "asos",
+        "speed": 0.0,
+        "timestamp": "2026-06-21T02:55:00+00:00",
+        "u_east": 0.0,
+        "v_north": 0.0
+      },
+      {
+        "direction_from_degrees": 100.0,
+        "entity_id": "MCJ",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 29.714,
+        "lon": -95.395,
+        "source": "asos",
+        "speed": 2.57222,
+        "timestamp": "2026-06-21T02:55:00+00:00",
+        "u_east": -2.5331421984530618,
+        "v_north": 0.44666131555843147
+      },
+      {
+        "direction_from_degrees": 20.0,
+        "entity_id": "SGR",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 29.6223,
+        "lon": -95.6565,
+        "source": "asos",
+        "speed": 1.543332,
+        "timestamp": "2026-06-21T02:55:00+00:00",
+        "u_east": -0.5278506318390909,
+        "v_north": -1.4502576918227577
+      },
+      {
+        "direction_from_degrees": 30.0,
+        "entity_id": "T41",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 29.6692,
+        "lon": -95.0641,
+        "source": "asos",
+        "speed": 1.543332,
+        "timestamp": "2026-06-21T02:55:00+00:00",
+        "u_east": -0.7716659999999999,
+        "v_north": -1.3365647184734453
+      },
+      {
+        "direction_from_degrees": null,
+        "entity_id": "gfs:29.50,-95.00",
+        "input_kind": "uv",
+        "input_u_east": -2.3702685546875,
+        "input_v_north": -0.6291845703125,
+        "lat": 29.5,
+        "lon": -95.0,
+        "source": "noaa_gfs",
+        "speed": 2.4523552444251826,
+        "timestamp": "2026-06-21T00:00:00+00:00",
+        "u_east": -2.3702685546875,
+        "v_north": -0.6291845703125
+      },
+      {
+        "direction_from_degrees": null,
+        "entity_id": "gfs:29.50,-95.25",
+        "input_kind": "uv",
+        "input_u_east": -1.1702685546875,
+        "input_v_north": 0.7508154296875,
+        "lat": 29.5,
+        "lon": -95.25,
+        "source": "noaa_gfs",
+        "speed": 1.3904144344572935,
+        "timestamp": "2026-06-21T00:00:00+00:00",
+        "u_east": -1.1702685546875,
+        "v_north": 0.7508154296875
+      },
+      {
+        "direction_from_degrees": null,
+        "entity_id": "gfs:29.50,-95.50",
+        "input_kind": "uv",
+        "input_u_east": -1.5602685546875001,
+        "input_v_north": 0.4608154296875,
+        "lat": 29.5,
+        "lon": -95.5,
+        "source": "noaa_gfs",
+        "speed": 1.6268954554564026,
+        "timestamp": "2026-06-21T00:00:00+00:00",
+        "u_east": -1.5602685546875001,
+        "v_north": 0.4608154296875
+      },
+      {
+        "direction_from_degrees": null,
+        "entity_id": "gfs:29.75,-95.00",
+        "input_kind": "uv",
+        "input_u_east": -2.4802685546875,
+        "input_v_north": -1.8491845703125,
+        "lat": 29.75,
+        "lon": -95.0,
+        "source": "noaa_gfs",
+        "speed": 3.093738139929339,
+        "timestamp": "2026-06-21T00:00:00+00:00",
+        "u_east": -2.4802685546875,
+        "v_north": -1.8491845703125
+      },
+      {
+        "direction_from_degrees": null,
+        "entity_id": "gfs:29.75,-95.25",
+        "input_kind": "uv",
+        "input_u_east": -1.9602685546875,
+        "input_v_north": -0.3691845703125,
+        "lat": 29.75,
+        "lon": -95.25,
+        "source": "noaa_gfs",
+        "speed": 1.9947305716445631,
+        "timestamp": "2026-06-21T00:00:00+00:00",
+        "u_east": -1.9602685546875,
+        "v_north": -0.3691845703125
+      },
+      {
+        "direction_from_degrees": null,
+        "entity_id": "gfs:29.75,-95.50",
+        "input_kind": "uv",
+        "input_u_east": -1.2602685546875,
+        "input_v_north": 1.1108154296875001,
+        "lat": 29.75,
+        "lon": -95.5,
+        "source": "noaa_gfs",
+        "speed": 1.6799368288021863,
+        "timestamp": "2026-06-21T00:00:00+00:00",
+        "u_east": -1.2602685546875,
+        "v_north": 1.1108154296875001
+      },
+      {
+        "direction_from_degrees": null,
+        "entity_id": "gfs:29.75,-95.75",
+        "input_kind": "uv",
+        "input_u_east": -1.5202685546875,
+        "input_v_north": 1.5308154296875,
+        "lat": 29.75,
+        "lon": -95.75,
+        "source": "noaa_gfs",
+        "speed": 2.1574550651498967,
+        "timestamp": "2026-06-21T00:00:00+00:00",
+        "u_east": -1.5202685546875,
+        "v_north": 1.5308154296875
+      },
+      {
+        "direction_from_degrees": null,
+        "entity_id": "gfs:30.00,-95.00",
+        "input_kind": "uv",
+        "input_u_east": -2.5102685546875,
+        "input_v_north": -1.1091845703125,
+        "lat": 30.0,
+        "lon": -95.0,
+        "source": "noaa_gfs",
+        "speed": 2.7444013240909566,
+        "timestamp": "2026-06-21T00:00:00+00:00",
+        "u_east": -2.5102685546875,
+        "v_north": -1.1091845703125
+      },
+      {
+        "direction_from_degrees": null,
+        "entity_id": "gfs:30.00,-95.25",
+        "input_kind": "uv",
+        "input_u_east": -2.8002685546875,
+        "input_v_north": -0.4591845703125,
+        "lat": 30.0,
+        "lon": -95.25,
+        "source": "noaa_gfs",
+        "speed": 2.8376670784263425,
+        "timestamp": "2026-06-21T00:00:00+00:00",
+        "u_east": -2.8002685546875,
+        "v_north": -0.4591845703125
+      },
+      {
+        "direction_from_degrees": null,
+        "entity_id": "gfs:30.00,-95.50",
+        "input_kind": "uv",
+        "input_u_east": -1.6902685546875,
+        "input_v_north": 1.0208154296875,
+        "lat": 30.0,
+        "lon": -95.5,
+        "source": "noaa_gfs",
+        "speed": 1.9746067781848227,
+        "timestamp": "2026-06-21T00:00:00+00:00",
+        "u_east": -1.6902685546875,
+        "v_north": 1.0208154296875
+      },
+      {
+        "direction_from_degrees": 85.0,
+        "entity_id": "grid:center",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 29.7646,
+        "lon": -95.3657,
+        "source": "openweather",
+        "speed": 0.89,
+        "timestamp": "2026-06-21T03:00:20+00:00",
+        "u_east": -0.8866132813016535,
+        "v_north": -0.07756861104541575
+      },
+      {
+        "direction_from_degrees": 146.0,
+        "entity_id": "grid:east",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 29.7604,
+        "lon": -95.1111,
+        "source": "openweather",
+        "speed": 2.35,
+        "timestamp": "2026-06-21T03:01:49+00:00",
+        "u_east": -1.3141033231562553,
+        "v_north": 1.9482382955043478
+      },
+      {
+        "direction_from_degrees": 52.0,
+        "entity_id": "grid:north",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 29.985,
+        "lon": -95.3698,
+        "source": "openweather",
+        "speed": 1.34,
+        "timestamp": "2026-06-21T03:01:49+00:00",
+        "u_east": -1.0559344098330075,
+        "v_north": -0.8249863769363822
+      },
+      {
+        "direction_from_degrees": 126.0,
+        "entity_id": "grid:south",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 29.5358,
+        "lon": -95.3698,
+        "source": "openweather",
+        "speed": 2.82,
+        "timestamp": "2026-06-21T03:01:49+00:00",
+        "u_east": -2.281427924137352,
+        "v_north": 1.6575544114647738
+      },
+      {
+        "direction_from_degrees": 135.0,
+        "entity_id": "grid:west",
+        "input_kind": "speed_direction",
+        "input_u_east": null,
+        "input_v_north": null,
+        "lat": 29.7604,
+        "lon": -95.6285,
+        "source": "openweather",
+        "speed": 2.16,
+        "timestamp": "2026-06-21T03:01:49+00:00",
+        "u_east": -1.5273506473629428,
+        "v_north": 1.5273506473629426
+      }
+    ]
+  },
+  "schema_version": 3,
+  "summary_sha256": "6e4afdd41c43fd90dc93b8bb99748b6978976940b383e0d9d0dd90c85c1ece03"
+}

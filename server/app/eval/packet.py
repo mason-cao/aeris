@@ -1114,10 +1114,15 @@ class _CheckboxField(Flowable):
         self.canv.setStrokeColor(colors.HexColor("#5A6B75"))
         self.canv.setLineWidth(0.6)
         self.canv.rect(0, 0, self.width, self.height, stroke=1, fill=0)
+        # acroForm takes absolute page coordinates and ignores the canvas
+        # transform, so the flowable's own origin has to be resolved first.
+        # Passing 0, 0 here stacks every widget in the page corner, which
+        # leaves the drawn box unclickable in every reader.
+        origin_x, origin_y = self.canv.absolutePosition(0, 0)
         self.canv.acroForm.checkbox(
             name=self.name,
-            x=0,
-            y=0,
+            x=origin_x,
+            y=origin_y,
             size=self.width,
             buttonStyle="check",
             borderWidth=0,
@@ -1144,10 +1149,11 @@ class _TextField(Flowable):
         for line in range(self.rules):
             y = self.height * line / self.rules
             self.canv.line(0, y, self.width, y)
+        origin_x, origin_y = self.canv.absolutePosition(0, 0)
         self.canv.acroForm.textfield(
             name=self.name,
-            x=0,
-            y=0,
+            x=origin_x,
+            y=origin_y,
             width=self.width,
             height=self.height,
             borderWidth=0,

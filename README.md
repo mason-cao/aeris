@@ -1,141 +1,148 @@
-# A.E.R.I.S. - Autonomous Environmental RAG & Inference System
+# AERIS
 
-AERIS is a planned end-to-end environmental intelligence system for detecting
-Houston-area anomalies, retrieving relevant evidence, generating and evaluating
-LLM explanations, and presenting the results through a real-time map interface.
-The repository currently contains the research backend and evaluation workflow.
+**How much of what a language model says about the physical world can you
+actually check against an instrument?**
 
-## Current Status
+I had three language models explain 50 real air-quality anomalies around
+Houston. That came out to 1,781 separate sentences. Then I wrote a checker
+that reads each sentence, works out what kind of claim it is, and goes to the
+eight sensor networks I collect from to see whether any of them can confirm it
+or contradict it.
 
-The repository currently contains a Python backend and command-line research
-workflow. It can:
+514 of the 1,781 came back with a verdict. The other 1,267 got nothing. That
+doesn't mean those sentences are wrong. It means no instrument I have could
+speak to them either way.
 
-1. Collect and normalize seven live environmental feeds, plus historical EPA
-   AQS samples.
-2. Detect anomalies with z-score, STL, and isolation-forest methods.
-3. Build a 72-hour, cross-source evidence summary for each anomaly.
-4. Generate explanations with local Ollama or cloud comparison models.
-5. Check claims for context grounding and score them with deterministic,
-   channel-aware corroboration rules.
-6. Prepare frozen anomaly sets, run three-model sweeps, collect blinded expert
-   labels, and run source/channel ablations.
+Under a third. As far as I can tell nobody had measured that before, so it's
+the result I actually care about.
 
-The evaluation set is frozen (`server/fixtures/eval50.json`, 50 events) and the
-pre-registered statistical analysis is implemented in
-`server/app/eval/phase_analysis.py`. Model outputs and official expert labels
-have not been collected, so no result exists yet. There is no vector-retrieval
-pipeline, web frontend, interactive map, or WebSocket service in the current
-repository.
+## What's in this repo, and what isn't
 
-## Planned Product Architecture
+AERIS started as an acronym for Autonomous Environmental RAG & Inference
+System, and that's still where I want it to end up: live collection, vector
+retrieval, a map you can click around in. None of that is built. What is built
+is the collection and verification stage plus the evaluation code, which is
+where the number above came from.
 
-The project name describes the intended complete system, not only the current
-evaluation milestone. The planned product stages remain:
+So read this as one measurement and the machinery that took it. If you came
+for the map, it isn't here yet.
 
-- **RAG with ChromaDB:** retrieve relevant historical anomalies, validated
-  explanations, and supporting environmental context for model generation and
-  natural-language queries.
-- **React application:** provide the anomaly feed, anomaly detail, evidence,
-  evaluation, query, and system-status views.
-- **Interactive map:** use Mapbox GL to display monitors, weather fields,
-  satellite coverage, anomalies, and supporting evidence spatially.
-- **FastAPI WebSockets:** stream collector health, new observations, anomaly
-  detections, and explanation status to the frontend.
-- **Autonomous operation:** continuously collect, detect, enrich, explain,
-  evaluate, and publish new events with explicit quality and confidence gates.
+## The result
 
-These are planned, crucial parts of AERIS. They are not removed from the
-roadmap merely because the July research evaluation is being completed first.
+| out of 1,781 claims | count | share |
+| --- | --- | --- |
+| Failed the grounding gate before any instrument was consulted | 860 | 48.3% |
+| Passed the gate, but no channel could weigh in | 407 | 22.9% |
+| Got a verdict | 514 | 28.9% |
 
-## Scope
+Of the 514 with a verdict, 331 were weighed by a single measurement channel
+and 183 by two. Nothing in the whole corpus reached three. I can't fix that
+ceiling by buying more sensors, and it's the part I'd want a reviewer to look
+at hardest.
 
-The configured target is centered on Houston, Texas, with a default 50 km
-radius. Point-based collectors apply the configured radius. Sentinel-5P column
-extraction currently averages quality-filtered pixels inside the corresponding
-Houston bounding box, so its spatial footprint is not an exact 50 km circle.
+Two other things fell out of it.
 
-The planned evaluation focuses on summer air-quality anomalies. Collection is
-not inherently limited to that evaluation window.
+235 claims can never be scored no matter what the instruments saw. 209 landed
+outside my ten-type taxonomy entirely and 26 are a type I declared
+qualitative-only back in June. So 13% of the corpus is closed off by my own
+taxonomy before the sensors get a say.
 
-## Implemented Architecture
+Coverage isn't fixed by the sensor network either. Same events, same stored
+evidence, same rules, and the unchecked fraction still varies a lot across the
+three models. Most of it comes down to what the model chose to say. I'm
+holding the per-model split back until the expert labels are in, since the
+labeling is blinded and publishing it now would give away which model is
+which.
 
-```text
-Windows collector box
-  -> seven scheduled live collectors
-  -> SQLite edge database
+## What this does not show
 
-Analysis workflow
-  -> optional PostgreSQL + TimescaleDB analysis database
-  -> anomaly detection
-  -> cross-source enrichment
-  -> LLM explanation generation
-  -> context-grounding and deterministic corroboration
-  -> frozen-set, labeling, and ablation CLIs
+No expert labels have come back yet. The `expert_labels` table has 0 rows and
+you can check that yourself. So:
 
-FastAPI
-  -> health endpoint
-  -> data-source and paginated raw-data endpoints
-```
+- I have no agreement result. Whether a corroboration score tracks what a
+  scientist would say about the same claim is the registered question, and
+  it's still open. The 514 verdicts could be junk, and if they are, "under a
+  third is checkable" is a meaningless number too. That's the whole reason the
+  labels matter.
+- I'm not ranking the three models. I ran three and I can't say which one did
+  better yet.
+- Coverage was computed with no labels at all, so nothing above depends on the
+  labeling going well.
 
-The local and cloud model clients call HTTP APIs directly through `httpx`.
-Structured database evidence is rendered into the prompt; it is not retrieved
-from a vector store.
+I also know about two real defects in the scorer. On sentences that report
+several measurements at once it can compare a number against the wrong
+species. And the intent keywords in one claim type don't read negation, so a
+sentence arguing against something can score as though it argued for it. Both
+create disagreement that comes out of my code instead of out of the method,
+and I haven't measured how often either one fires. They're staying in anyway.
+The scorer ran in August under a protocol I fixed in advance, and quietly
+patching it afterwards would be worse than writing it up.
 
-## Data Sources
+## How the checker works
 
-| Source | Role | Cadence | Implementation status |
-| --- | --- | --- | --- |
-| OpenAQ | PM2.5 and ozone from mixed ground networks | Hourly | Live; scoring restricted to entities verified as regulatory monitors |
-| TCEQ CAMS | Preliminary ground NO2, SO2, and CO | Hourly | Live; scraped public report |
-| EPA AQS | Historical ground NO2, SO2, and CO | Backfill only | Stored rows are one-hour AQS samples; certification status is not retained |
-| PurpleAir | Low-cost optical PM2.5 | Hourly | Live; time-aware quality screen applied, values remain uncorrected ATM |
-| Sentinel-5P | Satellite NO2, SO2, CO, and HCHO columns | Daily when available | Live catalog and column extraction |
-| NOAA GFS | NWP meteorology, winds, and boundary-layer fields | 6-hour cycles | Live |
-| OpenWeather | Blended surface weather at five query points | Hourly | Live; no free historical backfill |
-| ASOS / METAR | Direct airport weather observations | Hourly | Live |
+There is no language model anywhere inside it. Every rule is written down and
+deterministic.
 
-The scorer groups sources into measurement-process channels. Those groups are
-a research design choice, not proof of statistical independence. In particular,
-the current OpenAQ PM2.5 block mixes provider classes, and NWP products can
-share model inputs or assimilated observations with direct weather feeds. Any
-independence claim must be tested rather than inferred from source names.
+1. A claim gets sorted into one of ten types (concentration elevation,
+   transport direction, atmospheric trap, secondary formation, and so on) or
+   into `unclassified`, which is never scored.
+2. A grounding gate checks the claim's sources, terms and numbers against the
+   evidence the model was actually shown. Fail it and the claim stops here.
+3. The claim goes only to the measurement channels that can physically bear on
+   that type. A wind-direction claim goes to the wind products and nowhere
+   near the satellite columns.
+4. Each channel comes back supporting, contradicting, or silent. If every
+   channel is silent, the checker abstains.
 
-## Research Question
+The channel grouping is the part I'd argue about first. Sources that share a
+measurement process collapse into one channel, so two monitors run off the
+same program don't get to vote twice. It's a design choice about physics, and
+it's a long way from a proof of statistical independence. GFS assimilates ASOS
+observations, so my two weather channels share inputs, and I haven't measured
+how much.
 
-The planned study asks whether agreement across process-distinct measurement
-channels can act as an automated signal for the quality of LLM explanations of
-environmental anomalies, and how a local Llama 3 8B model compares with GPT-5.4
-and Gemini 3.6 Flash baselines.
+Eight sources, five channels:
 
-Implemented evaluation infrastructure includes:
+| Source | What it measures | Channel |
+| --- | --- | --- |
+| OpenAQ | PM2.5 and ozone, filtered down to verified regulatory monitors | ground in-situ |
+| TCEQ CAMS | NO2, SO2, CO from the state's preliminary feed | ground in-situ |
+| EPA AQS | historical NO2, SO2, CO, 2025 backfill only | ground in-situ |
+| PurpleAir | low-cost optical PM2.5, uncorrected | ground optical |
+| Sentinel-5P | satellite NO2, SO2, CO, HCHO columns | satellite column |
+| NOAA GFS | modelled winds and boundary-layer depth | NWP |
+| OpenWeather | blended surface weather | NWP |
+| ASOS / METAR | airport anemometers and thermometers | met in-situ |
 
-- A context-grounding gate with source, term, and numeric checks.
-- A ten-type deterministic claim scorer.
-- A channel-aware aggregation rule and leave-one-source/channel-out ablation.
-- A resumable three-model harness.
-- A blinded per-claim expert-labeling CLI.
+## The frozen set
 
-- A pre-registered clustered analysis plan implemented as code
-  (`app/eval/phase_analysis.py`): Cohen's kappa, anomaly-cluster bootstrap
-  intervals, paired Wilcoxon, Holm-Bonferroni, and cluster-bootstrap Spearman.
+Everything was locked before any model ran.
 
-Planned but not yet completed:
+- Window: 2026-06-01 to 2026-08-05 UTC, end-exclusive.
+- 405,432 observations inside it. The snapshot holds 466,507 rows altogether;
+  the rest are the 2025 EPA AQS baseline and a few rows past the cutoff. Seven
+  of the eight networks have data inside the window, because EPA AQS is
+  historical only.
+- 6,395 anomalies detected in-window, deduplicated down to 2,304 events, top
+  50 taken and stratified by pollutant: NO2 18, ozone 11, CO 6, PM10 5,
+  PM2.5 5, SO2 5.
+- Frozen at `server/fixtures/eval50.json`, snapshot sha256 `1e50e007...`, code
+  commit `5072549`.
+- Models: Llama 3 8B running locally through Ollama, GPT-5.4, and Gemini 3.6
+  Flash. All 150 cells completed.
 
-- The three-model output sweep over the frozen set.
-- Official expert labels and inter-rater reliability.
-- Running the implemented analysis and reporting final model comparisons.
-- Empirical validation of the proposed channel grouping.
+Anomaly IDs are random UUIDs, so re-running detection anywhere regenerates
+them and invalidates the freeze. Copy the rows, don't re-detect.
 
-## Getting Started
+The analysis plan went up on OSF on 2026-08-09, before any expert saw a claim:
+`osf.io/hb92y`, sole contributor, embargoed until 2027-06-30 so it doesn't
+turn public in the middle of a blind review. The headline statistic registered
+there is a cluster-bootstrap Spearman correlation between the corroboration
+score and the expert label, restricted to three claim types. The Cohen's kappa
+in the code measures agreement between two human labelers, which a few of my
+own older notes got wrong.
 
-### Prerequisites
-
-- Python 3.11+
-- Ollama with `llama3:8b` for local generation
-- SQLite for edge collection or PostgreSQL/TimescaleDB for analysis
-- API credentials for the sources and cloud baselines you intend to run
-
-### Backend Setup
+## Running it
 
 ```bash
 git clone https://github.com/mason-cao/aeris.git
@@ -145,58 +152,67 @@ source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 pytest -q
-uvicorn app.main:app --reload --port 8000
 ```
 
-### Common Commands
+1,572 tests pass and 8 skip on Python 3.13, in about a minute. You'll want
+Python 3.11 or newer, Ollama with `llama3:8b` for local generation, and API
+keys for whichever sources you plan to hit. SQLite is enough for collection.
+The analysis tier runs PostgreSQL with TimescaleDB, and since the pipeline is
+ORM-only the only thing that changes between the two is the connection URL.
 
 ```bash
-# Run all registered live collectors or one source.
+# Collect. All registered sources, or one.
 python -m app.collectors.run_all
 python -m app.collectors.run_all --source openaq
 
-# Backfill a supported historical source.
+# Backfill a historical source.
 python -m app.collectors.backfill --source epa_aqs \
   --since 2025-06-01 --until 2025-08-31
 
-# Run detection and enrichment.
+# Detect and enrich.
 python -m app.detection.run
 python -m app.detection.enrichment
 
-# Generate one explanation.
+# Explain one anomaly.
 python -m app.llm.explain --anomaly-id=<UUID>
+
+# API.
+uvicorn app.main:app --reload --port 8000
 ```
 
-Do not run the freeze or official-label commands until the evaluation protocol,
-data-quality rules, and official data snapshot have been locked.
+`server/demo_checker.py` walks the scorer through one real event in the
+terminal, sentence by sentence, so you can watch what a single verdict is made
+of. It reads the August analysis snapshot, a 5 GB SQLite file I keep out of
+the repo, so it won't run on a fresh clone.
 
-### Environment Variables
+The freeze and labeling CLIs are in the repo so anyone can read what they do,
+but re-running them would break the frozen set and the registered protocol.
 
-See `server/.env.example`. The active settings are:
+Environment variables are listed in `server/.env.example`.
 
-- `DATABASE_URL` and `DATABASE_URL_SYNC`
-- `OPENAQ_API_KEY`, `OPENAQ_MAX_READING_AGE_S`, and `PURPLEAIR_API_KEY`
-- `OPENWEATHER_API_KEY`
-- `AQS_EMAIL` and `AQS_API_KEY`
-- `CDSE_USERNAME` and `CDSE_PASSWORD`
-- `OPENAI_API_KEY` and `GOOGLE_API_KEY`
-- `AERIS_ENV`, `AERIS_LOG_LEVEL`, and the three `AERIS_TARGET_*` settings
+## Where this goes next
 
-## Roadmap
+The rest of the acronym, roughly in the order I want to build it:
 
-- [x] Live collector registry and historical backfill strategies
-- [x] Anomaly detection and cross-source enrichment
-- [x] LLM generation, grounding, corroboration, labeling, and ablation CLIs
-- [x] Resolve provenance, quality-control, and scorer methodology blockers
-- [ ] Freeze and run the official evaluation
-- [ ] Collect official labels and implement the statistical analysis
-- [ ] Add the ChromaDB retrieval layer and RAG evaluation
-- [ ] Build the React and Mapbox application
-- [ ] Add WebSocket-driven live updates and autonomous product workflows
+- [x] Live collectors, historical backfill, anomaly detection, cross-source
+      enrichment
+- [x] LLM generation, grounding gate, corroboration scorer, labeling and
+      ablation CLIs
+- [x] Freeze the evaluation set and run the three-model sweep
+- [ ] Collect expert labels and run the registered analysis
+- [ ] ChromaDB retrieval, so the prompt pulls from a vector store instead of
+      being handed structured rows
+- [ ] React and Mapbox frontend
+- [ ] WebSocket live updates and unattended operation
+
+Retrieval is the one I care about most. Right now the evidence in every prompt
+comes straight out of the database as structured text, so the R in the name is
+still a promise.
 
 ## Acknowledgements
 
-Dr. Annalisa Bracco is the scientific mentor for the attribution evaluation.
+Dr. Annalisa Bracco is the scientific mentor for the evaluation. Thanks also
+to Lester Mackey for pointers on weighting evidence across sources.
 
 ## License
 

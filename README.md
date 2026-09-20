@@ -21,7 +21,7 @@ verifier on that redundancy and measures how far it actually reaches.
 | Generators | Llama 3 8B (local), GPT-5.4, Gemini 3.6 Flash |
 | Claims | 1,781 extracted, 514 scored |
 | Preregistration | OSF `osf.io/hb92y`, registered 9 August 2026 |
-| Status | Coverage measured; expert labels not yet collected |
+| Status | First-author labels returned; transcription verification pending; Bracco review in progress |
 
 Each of the three models explained the same 50 anomalies. Their explanations
 decompose into 1,781 individual claims. A deterministic checker assigns every
@@ -58,8 +58,11 @@ The evaluation set is frozen at `server/fixtures/eval50.json` and the
 three-model sweep has run: 150 of 150 cells, 1,781 claims. The coverage result
 below comes from that sweep and required no expert labels to compute.
 
-Official expert labels have not been collected. The `expert_labels` table holds
-zero rows, so the preregistered agreement analysis in
+As of 20 September 2026, Mason has returned labels for all 50 events. The final
+PDFs have been preserved and checked against the released packets, and their
+marks have been extracted. The required independent transcription on a separate
+day remains unverified; the `expert_labels` table still holds zero rows.
+Dr. Bracco is still labeling. The preregistered agreement analysis in
 `server/app/eval/phase_analysis.py` has not been run and no agreement result
 exists. There is no vector-retrieval pipeline, web frontend, interactive map, or
 WebSocket service in the current repository.
@@ -100,7 +103,8 @@ following are open.
   unanchored as well, which is what makes the labeling stage load-bearing rather
   than confirmatory.
 - **No model is ranked.** Three models were run. Their relative accuracy is not
-  reported and cannot be, absent labels.
+  reported; label transcription verification and the planned analysis remain
+  outstanding.
 - **Two scorer defects are known.** On claims reporting several measurements at
   once, the numeric comparator can match a value against the wrong species. In
   one claim type, intent keywords are selected by earliest match and do not read

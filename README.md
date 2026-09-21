@@ -21,7 +21,7 @@ verifier on that redundancy and measures how far it actually reaches.
 | Generators | Llama 3 8B (local), GPT-5.4, Gemini 3.6 Flash |
 | Claims | 1,781 extracted, 514 scored |
 | Preregistration | OSF `osf.io/hb92y`, registered 9 August 2026 |
-| Status | First-author labels returned; transcription verification pending; Bracco review in progress |
+| Status | First-author labels verified and analyzed; independent expert review in progress |
 
 Each of the three models explained the same 50 anomalies. Their explanations
 decompose into 1,781 individual claims. A deterministic checker assigns every
@@ -30,9 +30,9 @@ physically bear on that type. Where no channel can speak, the checker abstains.
 
 No verdict is returned for 1,267 of the 1,781 claims. Verdicts exist for 514,
 or 28.9 percent. An unverified claim is not a false one; it is one that no
-instrument in the network can weigh in on either way. Coverage rather than
-accuracy is the binding constraint on a verifier of this kind, and measuring it
-is what this repository reports.
+instrument in the network can weigh in on either way. Coverage constrains the
+verifier's reach. The first-author analysis below also tests the quality of the
+scores it does return; independent expert validation remains pending.
 
 The project name describes the intended complete system. Collection, detection,
 and verification are implemented. Retrieval, the frontend, and autonomous
@@ -58,14 +58,45 @@ The evaluation set is frozen at `server/fixtures/eval50.json` and the
 three-model sweep has run: 150 of 150 cells, 1,781 claims. The coverage result
 below comes from that sweep and required no expert labels to compute.
 
-As of 20 September 2026, Mason has returned labels for all 50 events. The final
-PDFs have been preserved and checked against the released packets, and their
-marks have been extracted. The required independent transcription on a separate
-day remains unverified; the `expert_labels` table still holds zero rows.
-Dr. Bracco is still labeling. The preregistered agreement analysis in
-`server/app/eval/phase_analysis.py` has not been run and no agreement result
-exists. There is no vector-retrieval pipeline, web frontend, interactive map, or
+As of 21 September 2026, Mason's final labels for all 50 events have passed two
+independent automated transcriptions on separate local dates, with all 1,781
+decisions agreeing. All claim identities and presentation positions match the
+released packets, frozen packet database, and live database. The 50 imported
+label rows contain 701 Valid, 102 Invalid, and 978 Unsure decisions. Every stored
+mapping and the lossless label backup have been verified; the original PDFs and
+first-pass files are unchanged.
+
+The first-author statistics have run using the unchanged preregistered functions
+in `server/app/eval/phase_analysis.py`. The full manifest CLI requires overlapping
+labelers and stops with `zero overlap pairs`; a local runner called the existing
+first-author functions with the identical inputs, filters, seed assignments, and
+settings. Dr. Bracco is still labeling, and her marks have not been inspected.
+Inter-rater agreement and the same-claim independent-expert comparisons remain
+pending. There is no vector-retrieval pipeline, web frontend, interactive map, or
 WebSocket service in the current repository.
+
+## First-Author Results
+
+The primary pool contains 173 grounded, scored claims of the three registered
+headline types. Excluding 60 Unsure decisions leaves 113 claims across 46
+anomalies. Intervals use 10,000 anomaly-cluster bootstrap replicates.
+
+| Registered analysis | Estimate | 95% clustered interval |
+| --- | --- | --- |
+| Primary score-versus-label Spearman, Unsure excluded | 0.156 | 0.030 to 0.281 |
+| Sensitivity, Unsure counted as Invalid (173 claims, 49 anomalies) | 0.080 | -0.057 to 0.215 |
+| Exploratory sign-mapped three-category kappa (173 claims) | 0.023 | -0.044 to 0.090 |
+| Claim-length negative-control Spearman (113 claims) | 0.591 | 0.474 to 0.685 |
+
+The primary association is small and positive, while the sensitivity and
+sign-mapped agreement are inconclusive. The claim-length control has a larger
+association; these separate estimates are not a formal test of their difference.
+On the scored headline claims, sign-mapped accuracy is 31.8%, versus 53.8% for
+always predicting the majority label. In the exploratory screen that flags
+negative scores, excluding Unsure, precision is 20.8% and recall over all labeled
+Invalid headline claims is 12.5% (11 of 88). These findings do not establish a
+reliable screening tool. They compare the scorer with its author's judgments,
+not with an independent expert's judgments.
 
 ## Coverage Results
 
@@ -88,23 +119,25 @@ type designated qualitative-only in June 2026. The taxonomy therefore forecloses
 Coverage is also not a fixed property of the sensor network. Across identical
 events, identical stored evidence, and identical rules, the unscored fraction
 varies substantially between the three models, so generator behavior accounts
-for much of it. The per-model breakdown is withheld until expert labels are
-returned, because the labeling is blinded and publishing it now would reveal
-which model is which.
+for much of it. The per-model breakdown remains withheld while independent
+expert labeling is in progress, to preserve blinding.
 
 ## Limits of the Result
 
-Coverage is descriptive and was computed with no labels of any kind. The
-following are open.
+Coverage is descriptive and was computed without labels. The first-author
+findings have the following limits.
 
-- **Agreement is untested.** Whether the corroboration score tracks expert
-  judgment of the same claim is the preregistered question and remains
-  unanswered. If the 514 verdicts are unreliable, the coverage figure is
-  unanchored as well, which is what makes the labeling stage load-bearing rather
-  than confirmatory.
-- **No model is ranked.** Three models were run. Their relative accuracy is not
-  reported; label transcription verification and the planned analysis remain
-  outstanding.
+- **Independent agreement is untested.** The primary labeler wrote the scoring
+  rules. Dr. Bracco's completed return and the registered overlap analyses are
+  still needed to assess whether the results extend to an independent expert.
+- **Unsure changes the conclusion.** The primary excludes uncertain judgments,
+  which need not be missing at random. Its positive interval does not survive
+  the registered Unsure-as-Invalid sensitivity. Several exploratory strata are
+  undefined because scores or labels are constant, or too small for inference.
+- **Model comparisons have limited scope.** The unchanged code computes paired
+  per-anomaly aggregates excluding qualitative-only types; it does not establish
+  performance on identical claims or remove differences in claim composition.
+  Model-specific results remain private while independent labeling continues.
 - **Two scorer defects are known.** On claims reporting several measurements at
   once, the numeric comparator can match a value against the wrong species. In
   one claim type, intent keywords are selected by earliest match and do not read
@@ -307,7 +340,8 @@ See `server/.env.example`. The active settings are:
 - [x] LLM generation, grounding, corroboration, labeling, and ablation CLIs
 - [x] Resolve provenance, quality-control, and scorer methodology blockers
 - [x] Freeze the evaluation set and run the three-model sweep
-- [ ] Collect official expert labels and run the preregistered analysis
+- [x] Verify and import first-author labels; run the preregistered first-author statistics
+- [ ] Complete independent expert intake and the registered overlap analyses
 - [ ] Add the ChromaDB retrieval layer and RAG evaluation
 - [ ] Build the React and Mapbox application
 - [ ] Add WebSocket-driven live updates and autonomous product workflows

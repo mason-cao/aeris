@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     aeris_target_lat: float = 29.7604
     aeris_target_lon: float = -95.3698
     aeris_target_radius_km: float = 50.0
+    # Analog retrieval index; a relative path resolves against server/.
+    aeris_chroma_path: str = "data/chromadb"
 
     @field_validator("database_url", mode="before")
     @classmethod

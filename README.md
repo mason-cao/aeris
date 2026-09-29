@@ -22,9 +22,9 @@ can actually check, and whether its verdicts line up with expert judgment.
 | Observations | 405,432 in the window from seven live networks, plus a 2025 EPA AQS baseline |
 | Events | 50 detected anomalies, stratified by pollutant |
 | Models | Llama 3 8B (run locally), GPT-5.4, Gemini 3.6 Flash |
-| Claims | 1,781 extracted, 514 scored (401 once parsing errors are corrected) |
+| Claims | 1,781 extracted, 514 scored by the frozen checker (corrected counts under Coverage results) |
 | Preregistration | OSF `osf.io/hb92y`, registered 9 August 2026, embargoed until 30 June 2027 |
-| Status | First-author labels complete and analyzed. A second labeler's review is in progress. |
+| Status | First-author labels complete and analyzed. A second labeler and an independent atmospheric chemist are labeling. |
 
 The three models explained the same 50 events, and their explanations break down
 into 1,781 separate claims. The checker sorts each claim into one of ten types
@@ -103,9 +103,15 @@ by two. None reached three. More monitors of the same kind wouldn't raise that
 ceiling, because instruments that measure the same way count as one channel.
 The limit is which kinds of measurement can physically speak to a claim type.
 
-Those counts come from the frozen scorer. With the parsing errors described
-under the limits corrected, 401 claims (22.5%) get a verdict, so the frozen
-figure overstates coverage rather than understating it.
+Those counts come from the frozen checker, and later audits found defects in
+both of its stages. The grounding check misreads dates written out in words,
+some clock times, and units right before a sentence-final period. That stopped
+some claims wrongly and let 56 through only because a date or time sat next to a
+number. With just those fixes, 610 claims (34.3%) get a verdict. The corrected
+scorer described under the limits returns 401 (22.5%), but most of that drop
+comes from abstaining on the 99 claims whose meaning it reverses, not from the
+parsing fixes themselves. No version of the checker reaches a verdict on most
+claims.
 
 Looked at another way, 235 of the 1,781 claims could never have been scored,
 whatever the instruments recorded. 209 don't fit any of the ten types, and
@@ -117,9 +123,10 @@ no matter what sensors are deployed.
 
 Coverage also isn't a fixed property of the sensor network. With the same
 events, the same stored evidence, and the same rules, the unscored share varies
-a lot between the three models, so how each model writes accounts for much of
-it. The per-model breakdown stays private until the second labeler finishes, so
-that labeling stays blind.
+a lot between the three models. Part of that spread came from the grounding
+defect above, which fell mostly on one model. The rest reflects how each model
+writes. The per-model breakdown stays private until the labelers finish, so that
+labeling stays blind.
 
 ## First-author results
 
@@ -153,6 +160,12 @@ Removing SO2 claim by claim instead of event by event gives 0.162 (0.033 to
 Unsure-as-Invalid version also stays above zero. That suggests the scorer bugs,
 more than the method itself, account for much of the weak registered result.
 
+A fourth check, filed on 29 September 2026 before it was computed, reruns the
+same analyses with only the grounding check corrected and the registered scorer
+unchanged. It gives 0.105 (-0.014 to 0.220) on 141 claims across 43 anomalies,
+with claim length at 0.488. The grounding defect changes coverage but not the
+agreement result.
+
 It still isn't a strong result. The checks were declared after the first results
 were known, so they can't replace the registered numbers. Even with the parser
 fixed, claim length correlates with the labels more strongly than the score
@@ -167,9 +180,10 @@ Coverage is descriptive and didn't use any labels. The label results have real
 limits.
 
 - The primary labeler wrote the scoring rules, which is the study's main
-  limitation. Neither labeler is independent of the project, since the second
-  has advised it, and the second labeler's subset has only 20 scored headline
-  claims to compare on.
+  limitation. The second labeler has advised the project, so is not independent
+  of it. An independent atmospheric chemist agreed on 29 September 2026 to label
+  the same six events; no labels from that labeler exist yet. Each overlap has
+  only 20 scored headline claims to compare on.
 - Unsure matters. The primary leaves out uncertain judgments, and those might
   not be missing at random. Several exploratory breakdowns can't be computed at
   all, because the scores or labels in them are constant or there are too few
@@ -402,7 +416,9 @@ See `server/.env.example`. The active settings are:
 - [x] Verify and import first-author labels, and run the preregistered first-author statistics
 - [x] Audit every scored claim for parsing errors and re-score with a corrected parser
 - [x] File the OSF SO2 correction and compute the registered results and deviation checks
-- [ ] Take in the second labeler's return and run the registered overlap analyses
+- [x] Audit the grounding check, file its disclosure, and compute deviation check (d)
+- [x] Recruit an independent atmospheric chemist and deliver the same six events
+- [ ] Take in the second labeler's and the chemist's returns and run the registered overlap analyses
 - [ ] Add the ChromaDB retrieval layer and RAG evaluation
 - [ ] Build the React and Mapbox application
 - [ ] Add WebSocket-driven live updates and autonomous product workflows

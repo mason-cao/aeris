@@ -48,6 +48,11 @@ USD_PER_MTOK: dict[str, tuple[float, float]] = {
     "gemini-3.5-flash": (1.50, 9.00),
     "gemini-3.6-flash": (1.50, 7.50),
     "gpt-5.4": (2.50, 15.00),
+    # Pinned snapshots for the generator-ladder study; the base snapshot is the one
+    # the original sweep resolved "gpt-5.4" to.
+    "gpt-5.4-2026-03-05": (2.50, 15.00),
+    "gpt-5.4-mini-2026-03-17": (0.75, 4.50),
+    "gpt-5.4-nano-2026-03-17": (0.20, 1.25),
 }
 USD_PER_MTOK_PROVENANCE: dict[str, dict[str, str]] = {
     "gemini-3.5-flash": {
@@ -70,6 +75,27 @@ USD_PER_MTOK_PROVENANCE: dict[str, dict[str, str]] = {
             "standard paid text tokens; output includes reasoning tokens"
         ),
         "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4",
+    },
+    "gpt-5.4-2026-03-05": {
+        "accessed": "2026-09-29",
+        "billing_basis": (
+            "standard paid text tokens; output includes reasoning tokens"
+        ),
+        "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4",
+    },
+    "gpt-5.4-mini-2026-03-17": {
+        "accessed": "2026-09-29",
+        "billing_basis": (
+            "standard paid text tokens; output includes reasoning tokens"
+        ),
+        "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+    },
+    "gpt-5.4-nano-2026-03-17": {
+        "accessed": "2026-09-29",
+        "billing_basis": (
+            "standard paid text tokens; output includes reasoning tokens"
+        ),
+        "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4-nano",
     },
 }
 

@@ -369,7 +369,20 @@ def test_exact_official_cloud_rates_and_provenance_are_declared() -> None:
         "gemini-3.5-flash": (1.50, 9.00),
         "gemini-3.6-flash": (1.50, 7.50),
         "gpt-5.4": (2.50, 15.00),
+        "gpt-5.4-2026-03-05": (2.50, 15.00),
+        "gpt-5.4-mini-2026-03-17": (0.75, 4.50),
+        "gpt-5.4-nano-2026-03-17": (0.20, 1.25),
     }
+    for model, page in (
+        ("gpt-5.4-2026-03-05", "gpt-5.4"),
+        ("gpt-5.4-mini-2026-03-17", "gpt-5.4-mini"),
+        ("gpt-5.4-nano-2026-03-17", "gpt-5.4-nano"),
+    ):
+        assert USD_PER_MTOK_PROVENANCE[model] == {
+            "accessed": "2026-09-29",
+            "billing_basis": "standard paid text tokens; output includes reasoning tokens",
+            "source_url": f"https://developers.openai.com/api/docs/models/{page}",
+        }
     assert USD_PER_MTOK_PROVENANCE["gpt-5.4"] == {
         "accessed": "2026-07-16",
         "billing_basis": "standard paid text tokens; output includes reasoning tokens",

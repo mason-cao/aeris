@@ -24,7 +24,7 @@ can actually check, and whether its verdicts line up with expert judgment.
 | Models | Llama 3 8B (run locally), GPT-5.4, Gemini 3.6 Flash |
 | Claims | 1,781 extracted, 514 scored by the frozen checker (corrected counts under Coverage results) |
 | Preregistration | OSF `osf.io/hb92y`, registered 9 August 2026, embargoed until 30 June 2027 |
-| Status | First-author labels complete and analyzed. A second labeler and an independent atmospheric chemist are labeling. |
+| Status | First-author labels complete and analyzed. The second labeler's twelve events are in and analyzed; those results are held back while an independent atmospheric chemist labels. |
 
 The three models explained the same 50 events, and their explanations break down
 into 1,781 separate claims. The checker sorts each claim into one of ten types
@@ -46,9 +46,9 @@ Coverage needs no expert labels. The second question, whether the checker's
 verdicts agree with expert judgment, does. The primary labels come from the
 first author, who also wrote the checker's rules, so they can't show agreement
 with anyone else. A second labeler, who has advised the project but didn't write
-the rules, is labeling a subset without seeing the first author's labels, the
-checker's scores, or which model wrote what. Those comparisons are still
-pending.
+the rules, labeled twelve events without seeing the first author's labels, the
+checker's scores, or which model wrote what. Those comparisons have run, and
+the results are held back until the independent chemist's labels are in.
 
 ## Where things stand
 
@@ -79,11 +79,17 @@ The preregistered statistics ran with the analysis code in
 `server/app/eval/phase_analysis.py` unchanged. The full analysis command expects
 two labelers and stops with `zero overlap pairs` when there's only one, so a
 small local script called the same first-author functions directly, with
-identical inputs, filters, seeds, and settings. The second labeler's marks
-haven't been inspected. Inter-rater agreement and the same-claim comparisons
-come after that return. On 24 September an OSF update applied the
-registration's SO2 exclusion, which the first run had missed, and declared three
-deviation checks before they were computed.
+identical inputs, filters, seeds, and settings. On 24 September an OSF update
+applied the registration's SO2 exclusion, which the first run had missed, and
+declared three deviation checks before they were computed.
+
+The second labeler returned twelve events in October, the six requested and the
+six optional ones. Their 428 decisions were read off twice, on separate days, by
+two separately written methods, and all matched. With two labelers present, the
+unchanged full analysis command ran end to end. It first ran on six of the
+twelve, because the other six were missed at intake; the results of record use
+all twelve. Inter-rater agreement and the same-claim comparisons are held back
+while the chemist labels.
 
 The name describes the full planned system. Collection, detection, and checking
 are built. There's no vector retrieval yet (the "RAG" in the name), no web
@@ -182,8 +188,9 @@ limits.
 - The primary labeler wrote the scoring rules, which is the study's main
   limitation. The second labeler has advised the project, so is not independent
   of it. An independent atmospheric chemist agreed on 29 September 2026 to label
-  the same six events; no labels from that labeler exist yet. Each overlap has
-  only 20 scored headline claims to compare on.
+  the second labeler's first six events; no labels from that labeler exist yet.
+  Those six events have only 20 scored headline claims to compare on, and the
+  second labeler's twelve have 41.
 - Unsure matters. The primary leaves out uncertain judgments, and those might
   not be missing at random. Several exploratory breakdowns can't be computed at
   all, because the scores or labels in them are constant or there are too few
@@ -191,8 +198,8 @@ limits.
 - The model comparisons are narrow. The unchanged code compares per-anomaly
   averages and leaves out qualitative-only types. It doesn't compare the models
   on identical claims, and it doesn't account for them writing different kinds
-  of claims. Model-specific results stay private while the second labeler's
-  review is in progress.
+  of claims. Model-specific results stay private while the chemist's review is
+  in progress.
 - The first run included SO2 by mistake. The registration keeps SO2 out of
   headline inference because almost all SO2 baseline readings sit below
   detection limits, but the frozen analysis code never got a pollutant filter.
@@ -418,7 +425,8 @@ See `server/.env.example`. The active settings are:
 - [x] File the OSF SO2 correction and compute the registered results and deviation checks
 - [x] Audit the grounding check, file its disclosure, and compute deviation check (d)
 - [x] Recruit an independent atmospheric chemist and deliver the same six events
-- [ ] Take in the second labeler's and the chemist's returns and run the registered overlap analyses
+- [x] Take in the second labeler's return and run the registered overlap analyses
+- [ ] Take in the chemist's return and run the registered overlap analyses
 - [ ] Add the ChromaDB retrieval layer and RAG evaluation
 - [ ] Build the React and Mapbox application
 - [ ] Add WebSocket-driven live updates and autonomous product workflows

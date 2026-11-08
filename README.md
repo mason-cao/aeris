@@ -23,7 +23,8 @@ can actually check, and whether its verdicts line up with expert judgment.
 | Events | 50 detected anomalies, stratified by pollutant |
 | Models | Llama 3 8B (run locally), GPT-5.4, Gemini 3.6 Flash |
 | Claims | 1,781 extracted, 514 scored by the frozen checker (corrected counts under Coverage results) |
-| Preregistration | OSF `osf.io/hb92y`, registered 9 August 2026, embargoed until 30 June 2027 |
+| Preregistration | OSF `osf.io/hb92y`, registered 9 August 2026, public since 8 November 2026 ([doi:10.17605/OSF.IO/HB92Y](https://doi.org/10.17605/OSF.IO/HB92Y)) |
+| Paper | NeurIPS 2026 AI for Science workshop, poster; camera-ready submitted November 2026 |
 | Status | First-author labels complete and analyzed. The second labeler's twelve events are in and analyzed; those results are held back while an independent atmospheric chemist labels. |
 
 The three models explained the same 50 events, and their explanations break down
@@ -130,9 +131,13 @@ no matter what sensors are deployed.
 Coverage also isn't a fixed property of the sensor network. With the same
 events, the same stored evidence, and the same rules, the unscored share varies
 a lot between the three models. Part of that spread came from the grounding
-defect above, which fell mostly on one model. The rest reflects how each model
-writes. The per-model breakdown stays private until the labelers finish, so that
-labeling stays blind.
+defect above, which fell mostly on one model. With it fixed, GPT-5.4 and Gemini
+3.6 Flash are checked at nearly the same rate and Llama 3 8B at less than half
+of it. A preregistered follow-up within the GPT-5.4 family
+([osf.io/fy3zr](https://doi.org/10.17605/OSF.IO/FY3ZR)) found no drop in
+coverage at smaller sizes, so what causes that gap is still open. The per-model
+coverage numbers are in the workshop paper. Per-model verdict and label results
+stay private until the chemist finishes, so that labeling stays blind.
 
 ## First-author results
 
@@ -198,8 +203,8 @@ limits.
 - The model comparisons are narrow. The unchanged code compares per-anomaly
   averages and leaves out qualitative-only types. It doesn't compare the models
   on identical claims, and it doesn't account for them writing different kinds
-  of claims. Model-specific results stay private while the chemist's review is
-  in progress.
+  of claims. Model-specific verdict and label results stay private while the
+  chemist's review is in progress.
 - The first run included SO2 by mistake. The registration keeps SO2 out of
   headline inference because almost all SO2 baseline readings sit below
   detection limits, but the frozen analysis code never got a pollutant filter.
@@ -294,8 +299,10 @@ Anomaly IDs are random UUIDs, so re-running detection generates new ones and
 breaks the freeze. Rows have to be copied with their IDs intact.
 
 The analysis plan was preregistered on OSF on 2026-08-09, before any expert saw
-a claim: `osf.io/hb92y`, with a single contributor. It's embargoed until
-2027-06-30 so it doesn't go public in the middle of blind review. The registered
+a claim: `osf.io/hb92y`, with a single contributor. It was embargoed during
+double-blind workshop review and has been public since 2026-11-08
+([doi:10.17605/OSF.IO/HB92Y](https://doi.org/10.17605/OSF.IO/HB92Y)), along
+with its six updates. The registered
 primary statistic is a cluster-bootstrap Spearman correlation between the
 corroboration score and the expert label, restricted to the three headline claim
 types. Cohen's kappa in `phase_analysis.py` measures agreement between human
